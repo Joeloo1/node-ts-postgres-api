@@ -1,20 +1,27 @@
 import { Request, Response, NextFunction } from "express";
-import pool from "../service/database";
+import { PrismaClient } from "@prisma/client";
 
-export const products = async (req: Request, res: Response) => {
+const prisma = new PrismaClient();
+
+
+export const getProducts = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const products = await pool.query('SELECT * FROM products');
-    res.status(200).json({
-        result: products.rows.length,
-        status: 'Success',
-        data:{
-            products: products.rows
+    const products = await prisma.products.findMany({
+      include: { categories: {
+        select: {
+          category_id: true,
+          name: true
         }
+      } },
+    });
+    res.status(200).json({
+      status: 'Success',
+      result: products.length,
+      data: {
+        products
+      }
     })
   } catch (err) {
-   res.status(401).json({
-    status: 'Fail',
-    message: err
-   })
+    next(err);
   }
-}
+};

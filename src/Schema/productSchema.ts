@@ -4,17 +4,18 @@ import { z } from "zod"
 export const createProductSchema = z.object({
     product_id: z.number().int(),
     name: z
-        .string()
-        .max(255)
-        .trim() ,
-        message: "A product must have a name",
+    .string()
+    .min(1, { message: "A product must have a name" })
+    .max(255)
+    .trim(),
+
     description: z.string(),
     price: z
     .string()
     .refine((val) => !isNaN(Number(val)), { message: "Price must be a numeric string" }), 
     unit: z.string().max(50).optional(),
-    Image: z.string().url().optional(),
-    discoumt: z
+    image: z.string().url().optional(),
+    discount: z
     .string()
     .optional()
     .refine((val) => val === undefined || !isNaN(Number(val)), 

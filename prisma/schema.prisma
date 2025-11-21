@@ -2,9 +2,10 @@ generator client {
   provider = "prisma-client-js"
 }
 
+  // url is no longer supported, configure in prisma.config.ts
 datasource db {
   provider = "postgresql"
-  // url is no longer supported, configure in prisma.config.ts
+    // url = env("DATABASE_URL")
 }
 
 model categories {
@@ -16,16 +17,16 @@ model categories {
 }
 
 model products {
-product_id  Int       @id @default(autoincrement())
+product_id  String       @id @default(uuid())
   name         String      @db.VarChar(255)
   description  String?
-  price        Decimal     @db.Decimal(10, 2)
+  price        Float     
   unit         String?     @db.VarChar(50)
   image        String?
-  discount     Decimal?    @db.Decimal(5, 2)
+  discount     Float?    
   availability Boolean?    @default(true)
   brand        String?     @db.VarChar(100)
-  rating       Decimal?    @db.Decimal(3, 2)
+  rating       Float?    
   category_id  Int?
   created_at   DateTime?   @default(now()) @db.Timestamp(6)
   updated_at   DateTime?   @default(now()) @db.Timestamp(6)

@@ -2,7 +2,7 @@ import { z } from "zod"
 
 // create products
 export const createProductSchema = z.object({
-    product_id: z.number().int(),
+    // product_id: z.number(),
     name: z
     .string()
     .min(1, { message: "A product must have a name" })
@@ -10,23 +10,13 @@ export const createProductSchema = z.object({
     .trim(),
 
     description: z.string(),
-    price: z
-    .string()
-    .refine((val) => !isNaN(Number(val)), { message: "Price must be a numeric string" }), 
+  price: z.number().positive("Price must be positive"),
     unit: z.string().max(50).optional(),
     image: z.string().url().optional(),
-    discount: z
-    .string()
-    .optional()
-    .refine((val) => val === undefined || !isNaN(Number(val)), 
-    { message: "Discount must be a valid decimal" }),
+   discount: z.number().min(0).max(100).optional(),
     availability: z.boolean().optional().default(true),
     brand: z.string().max(100).optional(),
-    rating: z
-    .string()
-    .optional()
-    .refine((val) => val === undefined || !isNaN(Number(val)), 
-    { message: "Rating must be a valid decimal" }),
+    rating: z.number().min(0).max(5),
     category_id: z.number().int().optional(),
     created_at: z.date().default(() => new Date()),
     updated_at: z.date().default(() => new Date()),

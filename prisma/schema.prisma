@@ -5,7 +5,7 @@ generator client {
   // url is no longer supported, configure in prisma.config.ts
 datasource db {
   provider = "postgresql"
-    // url = env("DATABASE_URL")
+    //url = env("DATABASE_URL")
 }
 
 model categories {
@@ -17,7 +17,7 @@ model categories {
 }
 
 model products {
-product_id  String       @id @default(uuid())
+  product_id   String   @id @default(uuid()) @db.Uuid
   name         String      @db.VarChar(255)
   description  String?
   price        Float     

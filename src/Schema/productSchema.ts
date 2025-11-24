@@ -22,4 +22,10 @@ export const createProductSchema = z.object({
     updated_at: z.date().default(() => new Date()),
 })
 
+
+export const productIdSchema = z.object({
+    id: z.string().uuid("Invalid product ID format"),
+});
+
+
 export type CreateProductInput = z.infer<typeof createProductSchema>;

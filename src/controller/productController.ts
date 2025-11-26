@@ -115,3 +115,24 @@ export const updateProduct = catchAsync(async(req: Request, res: Response, next:
       }
     })
 })
+
+// delete product
+export const deleteProduct = catchAsync(async(req: Request, res: Response, next: NextFunction) => {
+  const productId = req.params.id
+
+  const existingProduct = await prisma.products.findUnique({
+    where: { product_id: productId}
+  })
+
+  if (!existingProduct) {
+    return next(new AppError(`Product with ID: ${productId} not found`, 404))
+  }
+  await prisma.products.delete({
+    where: {product_id: productId}
+  })
+
+  res.status(200).json({
+    status: 'Success',
+    data: null
+  })
+})

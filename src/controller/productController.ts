@@ -11,7 +11,7 @@ const prisma = new PrismaClient();
 export const createProduct = catchAsync(async(req: Request, res: Response, next:NextFunction) => {
       const data =  req.body
     if (data.category_id) {
-      const categoryExists = await prisma.categories.findUnique({
+      const categoryExists = await prisma.category.findUnique({
         where: { category_id: data.category_id },
       });
        if (!categoryExists) {
@@ -22,7 +22,7 @@ export const createProduct = catchAsync(async(req: Request, res: Response, next:
     }
    const product = await prisma.products.create({data,
       include: {
-        categories: {
+        category: {
           select: {
             category_id: true,
             name: true,
@@ -56,12 +56,11 @@ export const getAllProducts = catchAsync(
       prisma.products.findMany({
         where,
         orderBy,
-        ...(select && { select }),
         skip,
         take,
         include: !select
           ? {
-              categories: {
+              category: {
                 select: {
                   category_id: true,
                   name: true,
@@ -99,7 +98,8 @@ export const getProduct =  catchAsync( async(req: Request, res: Response, next: 
      const productId = req.params.id;
     const product = await prisma.products.findUnique({
       where: { product_id: productId },
-       include: { categories: {
+       include: { 
+        category: {
         select: {
           name: true
         }
@@ -130,7 +130,7 @@ export const updateProduct = catchAsync(async(req: Request, res: Response, next:
   }
 
    if (data.category_id) {
-      const categoryExists = await prisma.categories.findUnique({
+      const categoryExists = await prisma.category.findUnique({
         where: { category_id: data.category_id },
       });
          if (!categoryExists) {
@@ -144,7 +144,7 @@ export const updateProduct = catchAsync(async(req: Request, res: Response, next:
       where: { product_id: productId},
       data, 
       include: {
-        categories: {
+        category: {
           select: {
             category_id: true,
             name: true

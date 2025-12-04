@@ -7,7 +7,7 @@ import { prisma } from "./../config/database"
 // GET ALL CATEGORIES 
 export const getAllCategories = catchAsync(async (
     req: Request, res: Response, next: NextFunction) => {
-    const categories = await prisma.categories.findMany();
+    const categories = await prisma.category.findMany();
 
     res.status(200).json({
         status: 'Success',
@@ -22,7 +22,7 @@ export const getAllCategories = catchAsync(async (
 export const getCategoryById = catchAsync(async (
     req: Request, res: Response, next: NextFunction) => {
         const categoryId = parseInt(req.params.id);
-        const category = await prisma.categories.findUnique({
+        const category = await prisma.category.findUnique({
             where: { category_id: categoryId}
         })
         if (!category) {
@@ -42,7 +42,7 @@ export const getCategoryById = catchAsync(async (
 export const createCategory = catchAsync(async (
     req: Request, res: Response, next: NextFunction) => {
         const data = req.body;
-        const category = await prisma.categories.create({ data })
+        const category = await prisma.category.create({ data })
 
         res.status(200).json({
             status: 'Success', 
@@ -57,7 +57,7 @@ export const deleteCategory = catchAsync(async(
     req: Request, res: Response, next: NextFunction) => {
         const categoryId = parseInt(req.params.id)
 
-        const existingCategory = await prisma.categories.findUnique({
+        const existingCategory = await prisma.category.findUnique({
             where: { category_id: categoryId }
         })
 
@@ -65,7 +65,7 @@ export const deleteCategory = catchAsync(async(
             return next(new AppError(`Category with ID: ${categoryId} not found`, 404))
         }
         
-        await prisma.categories.delete({
+        await prisma.category.delete({
             where: { category_id: categoryId }
         })
 

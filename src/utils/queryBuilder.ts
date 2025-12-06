@@ -1,4 +1,4 @@
-import { ProductQueryInput } from "../Schema/qureySchema";
+import { ProductQueryInput } from "../Schema/querySchema";
 
 // Build WHERE clause for Prisma
 export function buildWhereClause(filters: ProductQueryInput) {
@@ -19,9 +19,9 @@ export function buildWhereClause(filters: ProductQueryInput) {
     };
   }
 
-  // Exact matches
+  // Exact matches - FIXED: Use camelCase for Prisma
   if (filters.category_id !== undefined) {
-    where.category_id = filters.category_id;
+    where.categoryId = filters.category_id;
   }
 
   if (filters.availability !== undefined) {
@@ -71,8 +71,17 @@ export function buildSelectClause(fields?: string) {
   const fieldArray = fields.split(",").map((f) => f.trim());
   const select: any = {};
 
+  // Map snake_case to camelCase for Prisma
+  const fieldMap: Record<string, string> = {
+    category_id: "categoryId",
+    created_at: "createdAt",
+    updated_at: "updatedAt",
+    product_id: "productId",
+  };
+
   fieldArray.forEach((field) => {
-    select[field] = true;
+    const prismaField = fieldMap[field] || field;
+    select[prismaField] = true;
   });
 
   return select;

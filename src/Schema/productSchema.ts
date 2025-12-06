@@ -18,8 +18,8 @@ export const createProductSchema = z.object({
     brand: z.string().max(100).optional(),
     rating: z.number().min(0).max(5),
     category_id: z.number().int().optional(),
-    created_at: z.date().default(() => new Date()),
-    updated_at: z.date().default(() => new Date()),
+    createdAt: z.date().default(() => new Date()),
+    updatedAt: z.date().default(() => new Date()),
 })
 
 

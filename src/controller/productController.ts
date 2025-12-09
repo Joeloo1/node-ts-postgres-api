@@ -1,8 +1,8 @@
 import { Request, Response, NextFunction } from "express";
 import { PrismaClient } from "@prisma/client";
- import catchAsync from "../utils/catchAsync";
+import catchAsync from "../utils/catchAsync";
 import AppError from "../utils/AppError";
-import { productQuerySchema } from "../Schema/qureySchema";
+import { productQuerySchema } from "../Schema/querySchema";
 import { buildWhereClause, buildOrderByClause, buildSelectClause,getPaginationParams } from "../utils/queryBuilder";
 
 const prisma = new PrismaClient();

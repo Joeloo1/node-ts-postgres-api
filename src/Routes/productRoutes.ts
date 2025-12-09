@@ -7,13 +7,14 @@ import { createProduct,
          updateProduct } from "../controller/productController";
 import { validateBody, validateParams } from "../middleware/validationMiddleware";
 import { createProductSchema , productIdSchema, updateProductSchema} from "../Schema/productSchema";
+import { Protect, restrictTo } from "./../controller/authController";
 
 const router = express.Router()
 
 router
     .route('/')
     .get(getAllProducts)
-    .post(validateBody(createProductSchema), createProduct);
+    .post(Protect, restrictTo('ADMIN'), validateBody(createProductSchema), createProduct);
 
 router
     .route('/:id')

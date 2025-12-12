@@ -3,7 +3,9 @@ import morgan from "morgan";
 
 import productRoutes from "./Routes/productRoutes"
 import categoryRoutes from "./Routes/categoriesRoutes";
-import userRouter from "./Routes/userRoutes"
+import userRoutes from "./Routes/userRoutes";
+import addressRoutes from "./Routes/addressRoutes";
+import reviewsRoutes from "./Routes/reviewsRoutes";
 import AppError from "./utils/AppError";
 import { globalErrorHandler } from "./Error/globalErrorHandler";
 
@@ -22,7 +24,11 @@ app.use('/api/v1/products', productRoutes);
 // category Routes
 app.use('/api/v1/categories', categoryRoutes);
 // User Routes
-app.use('/api/v1/users', userRouter);
+app.use('/api/v1/users', userRoutes);
+// Address Routes
+app.use('/api/v1/addresses', addressRoutes);
+// reviews Routes
+app.use('/api/v1/reviews', reviewsRoutes);
 
 // HANDLING  unhandled Routes 
 app.use( (req: Request, res: Response, next: NextFunction)=> {

@@ -1,6 +1,6 @@
 import express from "express";
-import { Protect } from "../controller/authController";
-import { createOrder,  getMyOrder, getOrderById } from "../controller/orderController";
+import { Protect, restrictTo } from "../controller/authController";
+import { createOrder,  getMyOrder, getOrderById, updateOrder, cancelOrder} from "../controller/orderController";
 
 
 const router = express.Router();
@@ -15,6 +15,9 @@ router
 router
     .route('/:id')
     .get(getOrderById)
+     .patch(cancelOrder)
+    .patch(restrictTo('ADMIN'), updateOrder)
+   
 
 export default router;
 

@@ -15,6 +15,9 @@ import {
   updateUserSchema,
 } from "../../Schema/userSchema";
 import { updateMe, getMe, deleteMe } from "../../controller/userController";
+import { uploadUserPhoto, resizeUserPhoto } from "../../middleware/uploadMiddleware";
+
+
 
 const router = express.Router();
 
@@ -32,7 +35,10 @@ router.patch(
   validateBody(updateUserSchema),
   updatePassword
 );
-router.patch("/updateMe", updateMe);
+router.patch("/updateMe",
+  uploadUserPhoto,
+  resizeUserPhoto,
+  updateMe);
 router.get("/me", getMe);
 router.delete("/deleteMe", deleteMe);
 

@@ -2,8 +2,10 @@ import { Request, Response, NextFunction, Router } from "express";
 import catchAsync from "../utils/catchAsync";
 import AppError from "../utils/AppError";
 import { prisma } from "../config/database";
-import { updateUserSchema, userUpdateSchema } from "../Schema/userSchema";
+import { updateUserSchema } from "../Schema/userSchema";
 import { User } from "@prisma/client";
+import { filterObj } from "../utils/filterObj"; 
+
 
 
 declare global {
@@ -16,6 +18,10 @@ declare global {
 
 // update user 
 export const updateMe = catchAsync(async(req: Request, res: Response, next: NextFunction) => {
+  if (!req.user || !req.user.id) {
+    return next(new AppError('You are not logged in', 401))
+  };
+
   if (req.body.password || req.body.passwordConfirm) {
     return next(new AppError(
       'This route is not for password updates, Please use /updateMyPassword',
@@ -25,8 +31,14 @@ export const updateMe = catchAsync(async(req: Request, res: Response, next: Next
 
   const userData= updateUserSchema.parse(req.body);
 
+
+  const filteredBody = filterObj(userData, 'name', 'email', 'phoneNumber' );
+  if (req.file) {
+    filteredBody.profileImage = req.file.filename
+  }
+
   // Ensure at least one field is provided
-  if (Object.keys(userData).length === 0) {
+  if (Object.keys(filteredBody).length === 0) {
     return next(
       new AppError(
         'Provide at least one valid field to update (name, email, phoneNumber, profileImage).',
@@ -35,14 +47,11 @@ export const updateMe = catchAsync(async(req: Request, res: Response, next: Next
     );
   };
 
-   if (!req.user) {
-    return next(new AppError("User not found on request. Are you logged in?", 401));
-  }
-
   // Update user
   const updatedUser = await prisma.user.update({
     where: { id: req.user.id },
-    data: userData
+    data: filteredBody,
+    
   });
 
   res.status(200).json({

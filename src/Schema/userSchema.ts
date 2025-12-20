@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { UserRole } from "@prisma/client";
 
 export const signupSchema = z.object({
     name: z.string()
@@ -27,4 +28,26 @@ export const signupSchema = z.object({
         path: ["passwordConfirm"],
 });
 
+// login schema 
+export const  loginSchema = z.object({
+  email: z.string()
+          .email({ message: 'Invalid email address'})
+          .trim(),
+  password: z.string()
+             .min(8, { message: 'Password must be at least 8 characters long'})
+             .trim()
+})
 
+// update user schema 
+
+export const updateUserSchema = z.object({
+  name: z.string().optional(),
+  phoneNumber: z.string().optional(),
+  email: z.string().email().optional(),
+});
+
+export const userUpdateSchema = z.object({
+  name: z.string().min(2).max(50).optional(),
+  email: z.string().email().optional(),
+  roles: z.enum([UserRole.USER, UserRole.ADMIN]).optional(),
+})

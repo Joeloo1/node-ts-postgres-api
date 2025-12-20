@@ -1,9 +1,8 @@
 import { Request, Response, NextFunction } from "express";
 
-import catchAsync from "../utils/catchAsync"; 
+import catchAsync from "../utils/catchAsync";
 import AppError from "../utils/AppError";
 import { prisma } from "../config/database";
-import { tr } from "zod/v4/locales";
 
 // Add item to cart
 export const addItemToCart = catchAsync(
@@ -64,24 +63,13 @@ export const addItemToCart = catchAsync(
   }
 );
 
-// Get my Cart 
-export const getMyCart = catchAsync(async(req: Request, res: Response, next: NextFunction) => {
-  const userId = req.user!.id;
+// Get my Cart
+export const getMyCart = catchAsync(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const userId = req.user!.id;
 
-  let cart = await prisma.cart.findUnique({
-    where: { userId },
-    include: {
-      items: {
-        include: {
-          product: true,
-        },
-      },
-    },
-  });
-
-  if (!cart) {
-    cart = await prisma.cart.create({
-      data: { userId },
+    let cart = await prisma.cart.findUnique({
+      where: { userId },
       include: {
         items: {
           include: {
@@ -90,86 +78,105 @@ export const getMyCart = catchAsync(async(req: Request, res: Response, next: Nex
         },
       },
     });
-  };
 
-  res.status(200).json({
-    status: 'success',
-    data: {
-      cart 
+    if (!cart) {
+      cart = await prisma.cart.create({
+        data: { userId },
+        include: {
+          items: {
+            include: {
+              product: true,
+            },
+          },
+        },
+      });
     }
-  })
-});
 
-// update cart 
-export const updateCartItem = catchAsync(async(req: Request, res: Response, next: NextFunction) => {
-  const { itemId } = req.params;
-  const { quantity } = req.body;
+    res.status(200).json({
+      status: "success",
+      data: {
+        cart,
+      },
+    });
+  }
+);
 
-  if (quantity <= 0 ) {
-    return next(new AppError('Quantity must be greater than Zero', 400))
-  };
+// update cart
+export const updateCartItem = catchAsync(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const { itemId } = req.params;
+    const { quantity } = req.body;
 
-  const item = await prisma.cartItem.findUnique({
-    where: { id : itemId },
-    include: { cart: true }
-  });
+    if (quantity <= 0) {
+      return next(new AppError("Quantity must be greater than Zero", 400));
+    }
 
-  if (!item || item.cart.userId !== req.user!.id) {
-    return next(new AppError('Cart items not found', 404))
-  };
+    const item = await prisma.cartItem.findUnique({
+      where: { id: itemId },
+      include: { cart: true },
+    });
 
-  await prisma.cartItem.update({
-    where: { id: itemId },
-    data: { quantity }
-  });
+    if (!item || item.cart.userId !== req.user!.id) {
+      return next(new AppError("Cart items not found", 404));
+    }
 
-  res.status(200).json({
-    status: 'success',
-    message: 'Cart items updated '
-  })
-});
+    await prisma.cartItem.update({
+      where: { id: itemId },
+      data: { quantity },
+    });
 
-// remove cart items 
-export const removeCartItems = catchAsync(async(req: Request, res: Response, next: NextFunction) => {
-  const { itemId } = req.params;
+    res.status(200).json({
+      status: "success",
+      message: "Cart items updated ",
+    });
+  }
+);
 
-  const item = await prisma.cartItem.findUnique({
-    where: { id: itemId },
-    include: { cart: true },
-  });
+// remove cart items
+export const removeCartItems = catchAsync(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const { itemId } = req.params;
 
-  if (!item || item.cart.userId !== req.user!.id) {
-    return next(new AppError('Cart not found', 404))
-  };
+    const item = await prisma.cartItem.findUnique({
+      where: { id: itemId },
+      include: { cart: true },
+    });
 
-  await prisma.cartItem.delete({
-    where: { id: itemId },
-  });
+    if (!item || item.cart.userId !== req.user!.id) {
+      return next(new AppError("Cart not found", 404));
+    }
 
-  res.status(204).json({
-    status: 'success', 
-    data: null
-  });
-});
+    await prisma.cartItem.delete({
+      where: { id: itemId },
+    });
 
-// Clear cart 
-export const clearCart = catchAsync(async(req: Request, res: Response, next: NextFunction) => {
-  const userId = req.user!.id;
+    res.status(204).json({
+      status: "success",
+      data: null,
+    });
+  }
+);
 
-  const cart = await prisma.cart.findUnique({
-    where: { userId },
-  });
+// Clear cart
+export const clearCart = catchAsync(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const userId = req.user!.id;
 
-  if (!cart) {
-    return next(new AppError('Cart not found', 404))
-  };
+    const cart = await prisma.cart.findUnique({
+      where: { userId },
+    });
 
-  await prisma.cartItem.deleteMany({
-    where: { cartId: cart.id },
-  });
+    if (!cart) {
+      return next(new AppError("Cart not found", 404));
+    }
 
-  res.status(204).json({
-    status: 'success',
-    data: null
-  });
-});
+    await prisma.cartItem.deleteMany({
+      where: { cartId: cart.id },
+    });
+
+    res.status(204).json({
+      status: "success",
+      data: null,
+    });
+  }
+);

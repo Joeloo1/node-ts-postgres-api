@@ -1,5 +1,7 @@
 import express, { NextFunction, Request, Response } from "express";
 import morgan from "morgan";
+import rateLimit from "express-rate-limit";
+import helmet from "helmet";
 
 import productRoutes from "./Routes/User/productRoutes";
 import categoryRoutes from "./Routes/User/categoriesRoutes";
@@ -15,6 +17,9 @@ import { globalErrorHandler } from "./Error/globalErrorHandler";
 
 const app = express();
 
+// set seurity HTTP Header 
+app.use(helmet());
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -22,7 +27,17 @@ app.use(express.urlencoded({ extended: true }));
 console.log(process.env.NODE_ENV);
 if (process.env.NODE_ENV === "development") {
   app.use(morgan("dev"));
-}
+};
+
+// Request Limiting from the same IP 
+const Limiter = rateLimit({
+  max: 100,
+  windowMs: 60 * 60 * 1000,
+  message: 'To many request from this IP, Please try again in an hour'
+});
+
+app.use('/api', Limiter as any);
+
 // product Routes
 app.use("/api/v1/products", productRoutes);
 // category Routes

@@ -1,0 +1,22 @@
+import { defineConfig } from "prisma/config";
+import { PrismaClient } from "@prisma/client";
+// import postgresql from "pg"
+
+export default defineConfig({
+  schema: "prisma/schema.prisma",
+  datasource: {
+     url: process.env.DATABASE_URL || "",
+    },
+});
+
+//  url: "postgresql://postgres:Slimmy_jay02@db.tfbywmfbjgqvwgyyldbt.supabase.co:5432/postgres?sslmode=require",
+// export const prisma = new PrismaClient({
+//     datasourceUrl: process.env.DATABASE_URL,
+// });
+
+// migrations: {
+//   path: "prisma/migrations",
+// },
+
+
+

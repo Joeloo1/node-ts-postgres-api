@@ -3,16 +3,23 @@ import { Request, Response, NextFunction } from "express";
 import catchAsync from "../utils/catchAsync";
 import AppError from "../utils/AppError";
 import { prisma } from "../config/database";
+import logger from "../config/logger";
 
 // Add item to cart
 export const addItemToCart = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
     const userId = req.user!.id;
     const { product_id, quantity = 1 } = req.body;
+    logger.info("User adding items to cart", { userId, product_id, quantity });
 
     if (!product_id || quantity <= 0) {
+      logger.warn("Invalid product_id or quantity provided", {
+        userId,
+        product_id,
+        quantity,
+      });
       return next(
-        new AppError("Please provide a valid product_id and quantity", 400)
+        new AppError("Please provide a valid product_id and quantity", 400),
       );
     }
 
@@ -21,6 +28,7 @@ export const addItemToCart = catchAsync(
     });
 
     if (!product) {
+      logger.warn("Product not found", { userId, product_id });
       return next(new AppError("Product not found", 404));
     }
 
@@ -56,11 +64,16 @@ export const addItemToCart = catchAsync(
       }
     });
 
+    logger.info("Items added to cart successfully", {
+      userId,
+      product_id,
+      quantity,
+    });
     res.status(201).json({
       status: "success",
       message: "Item added to cart",
     });
-  }
+  },
 );
 
 // Get my Cart
@@ -68,6 +81,7 @@ export const getMyCart = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
     const userId = req.user!.id;
 
+    logger.info("User fetching cart", { userId });
     let cart = await prisma.cart.findUnique({
       where: { userId },
       include: {
@@ -92,13 +106,14 @@ export const getMyCart = catchAsync(
       });
     }
 
+    logger.info("Cart fetched successfully", { userId });
     res.status(200).json({
       status: "success",
       data: {
         cart,
       },
     });
-  }
+  },
 );
 
 // update cart
@@ -107,7 +122,13 @@ export const updateCartItem = catchAsync(
     const { itemId } = req.params;
     const { quantity } = req.body;
 
+    logger.info("User updating cart items", {
+      userId: req.user!.id,
+      itemId,
+      quantity,
+    });
     if (quantity <= 0) {
+      logger.warn("Invalid quantity provided for cart item update");
       return next(new AppError("Quantity must be greater than Zero", 400));
     }
 
@@ -117,6 +138,7 @@ export const updateCartItem = catchAsync(
     });
 
     if (!item || item.cart.userId !== req.user!.id) {
+      logger.warn("art item not found", { userInfo: req.user!.id, itemId });
       return next(new AppError("Cart items not found", 404));
     }
 
@@ -125,11 +147,16 @@ export const updateCartItem = catchAsync(
       data: { quantity },
     });
 
+    logger.info("Cart items updated successfully", {
+      userId: req.user!.id,
+      itemId,
+      quantity,
+    });
     res.status(200).json({
       status: "success",
       message: "Cart items updated ",
     });
-  }
+  },
 );
 
 // remove cart items
@@ -143,18 +170,21 @@ export const removeCartItems = catchAsync(
     });
 
     if (!item || item.cart.userId !== req.user!.id) {
+      logger.warn("Cart item not found");
       return next(new AppError("Cart not found", 404));
     }
 
+    logger.info("user removing cart items", { userId: req.user!.id, itemId });
     await prisma.cartItem.delete({
       where: { id: itemId },
     });
 
+    logger.info("Cart items removed sucessfully");
     res.status(204).json({
       status: "success",
       data: null,
     });
-  }
+  },
 );
 
 // Clear cart
@@ -167,16 +197,19 @@ export const clearCart = catchAsync(
     });
 
     if (!cart) {
+      logger.warn("Cart not found for user", { userId });
       return next(new AppError("Cart not found", 404));
     }
 
+    logger.info("User Clearing cart", { userId });
     await prisma.cartItem.deleteMany({
       where: { cartId: cart.id },
     });
 
+    logger.info("Cart cleared successfully");
     res.status(204).json({
       status: "success",
       data: null,
     });
-  }
+  },
 );

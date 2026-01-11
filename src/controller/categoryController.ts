@@ -3,22 +3,46 @@ import catchAsync from "../utils/catchAsync";
 import AppError from "../utils/AppError";
 import { prisma } from "./../config/database";
 import logger from "../config/logger";
+import { client as redis } from "../config/redis";
+
+const REDIS_TTL = 3600;
+const getCategoryKey = (id: number) => `category:${id}`;
+const getCategoryQueryKey = (query: any) =>
+  `categories:list:${JSON.stringify(query)}`;
+
+const clearProductCache = async () => {
+  const keys = await redis.keys("categorys:list:*");
+  if (keys.length > 0) await redis.del(keys);
+};
 
 // GET ALL CATEGORIES
 export const getAllCategories = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
+    const cacheKey = getCategoryQueryKey(req.query);
+
+    const cachedData = await redis.get(cacheKey);
+    if (cachedData) {
+      logger.info("Serving category from cache");
+      return res.status(200).json(JSON.parse(cachedData));
+    }
+
     const categories = await prisma.category.findMany();
 
     logger.info("Fetched all categories", {
       totalCategoties: categories.length,
     });
-    res.status(200).json({
+    const responseData = {
       status: "Success",
       result: categories.length,
       data: {
         categories,
       },
-    });
+    };
+
+    //  Save to Redis
+    await redis.setEx(cacheKey, REDIS_TTL, JSON.stringify(responseData));
+
+    res.status(200).json(responseData);
   },
 );
 
@@ -26,6 +50,19 @@ export const getAllCategories = catchAsync(
 export const getCategoryById = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
     const categoryId = parseInt(req.params.id);
+
+    const cacheKey = getCategoryKey(categoryId);
+
+    // check cache
+    const cachedData = await redis.get(cacheKey);
+    if (cachedData) {
+      logger.info(`Serving category ${categoryId} from cache`);
+      return res.status(200).json({
+        status: "Success",
+        source: "cached",
+        data: { category: JSON.parse(cachedData) },
+      });
+    }
     const category = await prisma.category.findUnique({
       where: { category_id: categoryId },
     });
@@ -35,6 +72,8 @@ export const getCategoryById = catchAsync(
         new AppError(`Category with ID: ${categoryId} not found`, 404),
       );
     }
+
+    await redis.setEx(cacheKey, REDIS_TTL, JSON.stringify(category));
 
     logger.info("Fetched category by ID", { categoryId });
     res.status(200).json({
@@ -56,6 +95,9 @@ export const createCategory = catchAsync(
     logger.info("Category created successfully", {
       categoryId: category.category_id,
     });
+
+    await clearProductCache();
+
     res.status(200).json({
       status: "Success",
       data: {
@@ -85,6 +127,9 @@ export const deleteCategory = catchAsync(
     await prisma.category.delete({
       where: { category_id: categoryId },
     });
+
+    await redis.del(getCategoryKey(categoryId));
+    await clearProductCache();
 
     logger.info("Category deleted sucessfully", { categoryId });
     res.status(200).json({

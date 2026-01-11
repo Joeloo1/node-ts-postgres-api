@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { prisma } from "../config/database";
+import { client as redis } from "../config/redis";
 import catchAsync from "../utils/catchAsync";
 import AppError from "../utils/AppError";
 import { productQuerySchema } from "../Schema/querySchema";
@@ -11,11 +12,21 @@ import {
 } from "../utils/queryBuilder";
 import logger from "../config/logger";
 
+const REDIS_TTL = 3600; // 1 hour in seconds
+const getProductKey = (id: string) => `product:${id}`;
+const getProductsQueryKey = (query: any) =>
+  `products:list:${JSON.stringify(query)}`;
+
+const clearProductCache = async () => {
+  const keys = await redis.keys("products:list:*");
+  if (keys.length > 0) await redis.del(keys);
+};
 
 // CREATE PRODUCT
 export const createProduct = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
     const data = req.body;
+
     if (data.category_id) {
       const categoryExists = await prisma.category.findUnique({
         where: { category_id: data.category_id },
@@ -44,6 +55,8 @@ export const createProduct = catchAsync(
       },
     });
 
+    await clearProductCache();
+
     logger.info("Product created successfully");
     res.status(201).json({
       status: "Success",
@@ -59,6 +72,15 @@ export const getAllProducts = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
     // Validate and parse query parameters
     const filters = productQuerySchema.parse(req.query);
+
+    const cacheKey = getProductsQueryKey(req.query);
+
+    //  Try to fetch from Redis
+    const cachedData = await redis.get(cacheKey);
+    if (cachedData) {
+      logger.info("Serving products from cache");
+      return res.status(200).json(JSON.parse(cachedData));
+    }
 
     logger.info("Fetching all Products");
     // Build query components
@@ -92,7 +114,8 @@ export const getAllProducts = catchAsync(
     const totalPages = Math.ceil(total / filters.limit);
 
     logger.info("Fetched all products successfully");
-    res.status(200).json({
+
+    const responseData = {
       status: "Success",
       results: products.length,
       data: {
@@ -106,7 +129,11 @@ export const getAllProducts = catchAsync(
         hasNext: filters.page < totalPages,
         hasPrev: filters.page > 1,
       },
-    });
+    };
+    // 3. Save to Redis
+    await redis.setEx(cacheKey, REDIS_TTL, JSON.stringify(responseData));
+
+    res.status(200).json(responseData);
   },
 );
 
@@ -114,6 +141,20 @@ export const getAllProducts = catchAsync(
 export const getProduct = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
     const productId = req.params.id;
+
+    const cacheKey = getProductKey(productId);
+
+    //  Check Cache
+    const cachedProduct = await redis.get(cacheKey);
+    if (cachedProduct) {
+      logger.info(`Serving product ${productId} from cache`);
+      return res.status(200).json({
+        status: "Success",
+        source: "cached",
+        data: { product: JSON.parse(cachedProduct) },
+      });
+    }
+
     logger.info(`Fetching Product by ID: ${productId}`);
     const product = await prisma.products.findUnique({
       where: { product_id: productId },
@@ -130,6 +171,9 @@ export const getProduct = catchAsync(
       logger.warn(`Prouct with ID: ${productId} not found`);
       return next(new AppError("Product not found", 400));
     }
+
+    //  Store in Cache
+    await redis.setEx(cacheKey, REDIS_TTL, JSON.stringify(product));
 
     logger.info("Product Fetched by ID successfully");
     res.status(200).json({
@@ -183,6 +227,9 @@ export const updateProduct = catchAsync(
       },
     });
 
+    await redis.del(getProductKey(productId));
+    await clearProductCache();
+
     logger.info(`Product with ID: ${productId} updated successfully`);
     res.status(200).json({
       status: "Success",
@@ -211,6 +258,9 @@ export const deleteProduct = catchAsync(
     await prisma.products.delete({
       where: { product_id: productId },
     });
+
+    await redis.del(getProductKey(productId));
+    await clearProductCache();
 
     logger.info(`Product with ID: ${productId} deleted successfully`);
     res.status(200).json({

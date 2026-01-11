@@ -7,7 +7,18 @@ import {
   updateAddressSchema,
 } from "../Schema/addressSchema";
 import logger from "../config/logger";
+import { client as redis } from "../config/redis";
 
+const REDIS_TTL = 3600;
+const getAddressKey = (id: string) => `address:${id}`;
+
+const getAddressQueryKey = (query: any) =>
+  `categories:list:${JSON.stringify(query)}`;
+
+const clearAddressCache = async () => {
+  const keys = await redis.keys("categorys:list:*");
+  if (keys.length > 0) await redis.del(keys);
+};
 // create Address
 export const createAddress = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
@@ -21,6 +32,8 @@ export const createAddress = catchAsync(
         userId,
       },
     });
+
+    await clearAddressCache();
 
     logger.info("Address created sucessfully");
     res.status(201).json({
@@ -62,6 +75,9 @@ export const updateAddress = catchAsync(
       data: updateData,
     });
 
+    await redis.del(getAddressKey(addressId));
+    await clearAddressCache();
+
     logger.info("Address updated successfully");
     res.status(200).json({
       status: "success",
@@ -75,10 +91,25 @@ export const updateAddress = catchAsync(
 // Get All Address
 export const getAllAddresses = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
+    const cacheKey = getAddressQueryKey(req.query);
+
+    const cachedData = await redis.get(cacheKey);
+    if (cachedData) {
+      logger.info("Serving category from cache");
+      return res.status(200).json({
+        status: "success",
+        source: "cache",
+        data: {
+          address: JSON.parse(cachedData),
+        },
+      });
+    }
     logger.info("User fetching all addresses", { userId: req.user!.id });
     const address = await prisma.address.findMany({
       where: { userId: req.user!.id },
     });
+
+    await redis.setEx(cacheKey, REDIS_TTL, JSON.stringify(address));
 
     logger.info(`Fetched ${address.length} addresses`);
     res.status(200).json({
@@ -94,6 +125,21 @@ export const getAllAddresses = catchAsync(
 // Get single Address
 export const getAddress = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
+    const addressId = req.params.id;
+
+    const cacheKey = getAddressQueryKey(addressId);
+
+    const cachedData = await redis.get(cacheKey);
+    if (cachedData) {
+      logger.info("Serving category from cache");
+      return res.status(200).json({
+        status: "success",
+        source: "cache",
+        data: {
+          address: JSON.parse(cachedData),
+        },
+      });
+    }
     const address = await prisma.address.findUnique({
       where: { id: req.params.id },
     });
@@ -105,6 +151,8 @@ export const getAddress = catchAsync(
       });
       return next(new AppError("Address not found", 404));
     }
+
+    await redis.setEx(cacheKey, REDIS_TTL, JSON.stringify(addressId));
 
     logger.info("Address fetched successfully");
     res.status(200).json({
@@ -138,6 +186,9 @@ export const deleteAddress = catchAsync(
     await prisma.address.delete({
       where: { id: req.params.id },
     });
+
+    await redis.del(getAddressKey(address.id));
+    await clearAddressCache();
 
     logger.info("Address deleted successfully", { addressId: req.params.id });
     res.status(200).json({

@@ -4,6 +4,16 @@ import AppError from "../utils/AppError";
 import { createReviewSchema } from "../Schema/reviewsSchema";
 import { prisma } from "./../config/database";
 import logger from "../config/logger";
+import { client as redis } from "../config/redis";
+
+const REDIS_TTL = 3600;
+const getReviewKey = (id: string) => `review:${id}`;
+const getReviewQueryKey = (query: any) => `user:list:${JSON.stringify(query)}`;
+
+const clearReviewCache = async () => {
+  const keys = await redis.keys("users:list:*");
+  if (keys.length > 0) await redis.del(keys);
+};
 
 // create review
 export const createReview = catchAsync(
@@ -22,7 +32,9 @@ export const createReview = catchAsync(
       return next(new AppError("You already reviewed this product", 400));
     }
 
-    logger.info(`Creating review for product ID: ${product_id} by user ID: ${userId}`);
+    logger.info(
+      `Creating review for product ID: ${product_id} by user ID: ${userId}`,
+    );
     const review = await prisma.review.create({
       data: {
         userId,
@@ -32,7 +44,9 @@ export const createReview = catchAsync(
       },
     });
 
-    logger.info('Review created successfully')
+    await clearReviewCache();
+
+    logger.info("Review created successfully");
     res.status(200).json({
       status: "success",
       data: {
@@ -64,6 +78,9 @@ export const updateReview = catchAsync(
       },
     });
 
+    await redis.del(getReviewKey(review.id));
+    await clearReviewCache();
+
     logger.info(`Review with ID: ${req.params.id} updated successfully`);
     res.status(201).json({
       status: "success",
@@ -77,6 +94,20 @@ export const updateReview = catchAsync(
 // Get reviews for products
 export const getProductReview = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
+    const cacheKey = getReviewQueryKey(req.query);
+
+    const cachedDate = await redis.get(cacheKey);
+    if (cachedDate) {
+      logger.info("Serving review from cache");
+      return res.status(200).json({
+        status: "success",
+        source: "cached",
+        data: {
+          reviews: JSON.parse(cachedDate),
+        },
+      });
+    }
+
     logger.info(`Fetching reviews for product ID: ${req.params.product_id}`);
     const reviews = await prisma.review.findMany({
       where: { product_id: req.params.product_id },
@@ -85,7 +116,11 @@ export const getProductReview = catchAsync(
       },
     });
 
-    logger.info(`Reviews for Product ID: ${req.params.product_id} fetched successfully`);
+    await redis.setEx(cacheKey, REDIS_TTL, JSON.stringify(reviews));
+
+    logger.info(
+      `Reviews for Product ID: ${req.params.product_id} fetched successfully`,
+    );
     res.status(200).json({
       status: "success",
       data: {
@@ -111,6 +146,9 @@ export const deleteReview = catchAsync(
     await prisma.review.delete({
       where: { id: req.params.id },
     });
+
+    await redis.del(getReviewKey(review.id));
+    await clearReviewCache();
 
     logger.info(`Review with ID: ${req.params.id} deleted successfully`);
     res.status(200).json({

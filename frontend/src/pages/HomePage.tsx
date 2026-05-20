@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { motion, type Variants } from "framer-motion";
 import { ProductCard } from "../components/ProductCard";
 import { ProductSkeletonGrid } from "../components/ProductSkeleton";
+import { usePageTitle } from "../hooks/usePageTitle";
 import { apiFetch } from "../lib/api";
 import type { Category, Product } from "../lib/types";
 import {
@@ -52,6 +53,7 @@ const cardFade: Variants = {
 };
 
 export function HomePage() {
+  usePageTitle("Shop");
   const { data: products, isPending, isError } = useQuery({
     queryKey: ["products", "featured"],
     queryFn: async () => {

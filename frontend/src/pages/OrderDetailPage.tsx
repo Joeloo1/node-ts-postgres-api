@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { OrderDetailSkeleton } from "../components/ProductSkeleton";
 import { ApiError, apiFetch } from "../lib/api";
+import { usePageTitle } from "../hooks/usePageTitle";
 import { productImageUrl } from "../lib/productImage";
 import type { Order } from "../lib/types";
 import { ArrowLeftIcon, ChevronRightIcon, PackageIcon } from "../components/Icons";
@@ -20,6 +21,7 @@ const statusStyles: Record<string, { label: string; className: string; dot: stri
 };
 
 export function OrderDetailPage() {
+  usePageTitle("Order Details");
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
 

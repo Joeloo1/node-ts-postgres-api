@@ -4,9 +4,10 @@ import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { AppErrorBoundary } from "./AppErrorBoundary";
 import { useAuth } from "../context/AuthContext";
+import { useWishlist } from "../context/WishlistContext";
 import { apiFetch } from "../lib/api";
 import type { Cart } from "../lib/types";
-import { CartIcon, MenuIcon, XIcon, UserIcon, ChevronUpIcon } from "./Icons";
+import { CartIcon, HeartIcon, MenuIcon, XIcon, UserIcon, ChevronUpIcon } from "./Icons";
 
 type CartRes = { status: string; data: { cart: Cart } };
 
@@ -22,6 +23,8 @@ const mobileNavClass = ({ isActive }: { isActive: boolean }) =>
 
 export function Layout() {
   const { token, user, logout } = useAuth();
+  const { wishlist } = useWishlist();
+  const wishlistCount = wishlist.size;
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [showTop, setShowTop] = useState(false);
@@ -98,6 +101,22 @@ export function Layout() {
                     </span>
                   )}
                 </NavLink>
+                <NavLink
+                  to="/wishlist"
+                  className={({ isActive }) =>
+                    `relative p-2 rounded-lg transition-colors ${
+                      isActive ? "bg-zinc-800 text-white" : "text-zinc-400 hover:text-white hover:bg-zinc-800/60"
+                    }`
+                  }
+                  aria-label="Wishlist"
+                >
+                  <HeartIcon className="size-5" filled={wishlistCount > 0} />
+                  {wishlistCount > 0 && (
+                    <span className="absolute -right-0.5 -top-0.5 flex size-[18px] items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white">
+                      {wishlistCount > 9 ? "9+" : wishlistCount}
+                    </span>
+                  )}
+                </NavLink>
                 <NavLink to="/orders" className={navLinkClass}>Orders</NavLink>
                 <NavLink
                   to="/account/profile"
@@ -134,8 +153,20 @@ export function Layout() {
             )}
           </div>
 
-          {/* Mobile: cart badge + hamburger */}
+          {/* Mobile: wishlist + cart badge + hamburger */}
           <div className="flex items-center gap-1 md:hidden">
+            <NavLink
+              to="/wishlist"
+              className="relative p-2 text-zinc-400 hover:text-white"
+              aria-label="Wishlist"
+            >
+              <HeartIcon className="size-5" filled={wishlistCount > 0} />
+              {wishlistCount > 0 && (
+                <span className="absolute -right-0.5 -top-0.5 flex size-[18px] items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white">
+                  {wishlistCount > 9 ? "9+" : wishlistCount}
+                </span>
+              )}
+            </NavLink>
             {isSignedIn && (
               <NavLink
                 to="/cart"
@@ -191,6 +222,14 @@ export function Layout() {
             <div className="flex-1 overflow-y-auto px-3 py-5 space-y-1">
               <NavLink to="/products" className={mobileNavClass}>Shop</NavLink>
               <NavLink to="/about" className={mobileNavClass}>About</NavLink>
+              <NavLink to="/wishlist" className={mobileNavClass}>
+                Wishlist
+                {wishlistCount > 0 && (
+                  <span className="ml-auto flex size-5 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white">
+                    {wishlistCount}
+                  </span>
+                )}
+              </NavLink>
               {isSignedIn && (
                 <>
                   <NavLink to="/cart" className={mobileNavClass}>
@@ -305,6 +344,7 @@ export function Layout() {
                   <>
                     <li><Link to="/account/profile" className="text-sm text-zinc-500 transition-colors hover:text-zinc-300">Profile</Link></li>
                     <li><Link to="/orders" className="text-sm text-zinc-500 transition-colors hover:text-zinc-300">Orders</Link></li>
+                    <li><Link to="/wishlist" className="text-sm text-zinc-500 transition-colors hover:text-zinc-300">Wishlist</Link></li>
                     <li><Link to="/cart" className="text-sm text-zinc-500 transition-colors hover:text-zinc-300">Cart</Link></li>
                   </>
                 ) : (

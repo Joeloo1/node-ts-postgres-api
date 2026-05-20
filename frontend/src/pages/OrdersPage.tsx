@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { motion, type Variants } from "framer-motion";
 import { OrdersSkeleton } from "../components/ProductSkeleton";
 import { apiFetch } from "../lib/api";
+import { usePageTitle } from "../hooks/usePageTitle";
 import { productImageUrl } from "../lib/productImage";
 import type { Order } from "../lib/types";
 import { ChevronRightIcon, PackageIcon } from "../components/Icons";
@@ -29,6 +30,7 @@ const rowFade: Variants = {
 };
 
 export function OrdersPage() {
+  usePageTitle("Orders");
   const { data, isPending, isError, error } = useQuery({
     queryKey: ["orders"],
     queryFn: async () => {

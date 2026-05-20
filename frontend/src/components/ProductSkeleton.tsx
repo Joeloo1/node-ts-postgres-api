@@ -148,6 +148,63 @@ export function ProductSkeletonGrid3({ count = 12 }: { count?: number }) {
   );
 }
 
+export function AccountProfileSkeleton() {
+  return (
+    <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6 space-y-6">
+      <SkeletonBox className="h-5 w-20" />
+      <div className="flex items-center gap-4">
+        <SkeletonBox className="size-16 rounded-full shrink-0" />
+        <div className="space-y-2">
+          <SkeletonBox className="h-4 w-24" />
+          <SkeletonBox className="h-3 w-40" />
+        </div>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="space-y-1">
+            <SkeletonBox className="h-3 w-16" />
+            <SkeletonBox className="h-4 w-full" />
+          </div>
+        ))}
+      </div>
+      <div className="space-y-3 border-t border-zinc-800 pt-6">
+        <SkeletonBox className="h-4 w-28" />
+        {[1, 2, 3].map((i) => <SkeletonBox key={i} className="h-10 w-full rounded-lg" />)}
+        <SkeletonBox className="h-10 w-28 rounded-lg" />
+      </div>
+    </div>
+  );
+}
+
+export function AccountAddressesSkeleton() {
+  return (
+    <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6 space-y-4">
+      <SkeletonBox className="h-5 w-24" />
+      {[1, 2].map((i) => (
+        <div key={i} className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4 space-y-2">
+          <SkeletonBox className="h-4 w-3/4" />
+          <SkeletonBox className="h-3 w-1/2" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function AdminTableSkeleton({ rows = 5 }: { rows?: number }) {
+  return (
+    <div className="mt-4 space-y-2">
+      <div className="grid grid-cols-4 gap-4 border-b border-zinc-800 pb-2">
+        {[1, 2, 3, 4].map((i) => <SkeletonBox key={i} className="h-3 w-full" />)}
+      </div>
+      {Array.from({ length: rows }).map((_, i) => (
+        <div key={i} className="grid grid-cols-4 gap-4 border-b border-zinc-900 py-3">
+          {[1, 2, 3, 4].map((j) => <SkeletonBox key={j} className="h-4 w-full" />)}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function ProductDetailSkeleton() {
   return (
     <div className="space-y-12">

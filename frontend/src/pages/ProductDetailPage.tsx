@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Spinner } from "../components/Spinner";
@@ -119,7 +120,9 @@ export function ProductDetailPage() {
       queryClient.invalidateQueries({ queryKey: ["cart"] });
       setAddedToCart(true);
       setTimeout(() => setAddedToCart(false), 2500);
+      toast.success("Added to cart");
     },
+    onError: () => toast.error("Could not add to cart"),
   });
 
   const reviewMutation = useMutation({
@@ -138,9 +141,12 @@ export function ProductDetailPage() {
       setFormError(null);
       setReviewText("");
       queryClient.invalidateQueries({ queryKey: ["reviews", id] });
+      toast.success("Review submitted");
     },
     onError: (e) => {
-      setFormError(e instanceof ApiError ? e.message : "Could not submit review");
+      const msg = e instanceof ApiError ? e.message : "Could not submit review";
+      setFormError(msg);
+      toast.error(msg);
     },
   });
 

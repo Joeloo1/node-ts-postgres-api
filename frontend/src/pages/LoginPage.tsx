@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import { ApiError } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 
@@ -21,9 +22,12 @@ export function LoginPage() {
     setPending(true);
     try {
       await login(email, password);
+      toast.success("Welcome back!");
       navigate(from, { replace: true });
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Sign in failed");
+      const msg = err instanceof ApiError ? err.message : "Sign in failed";
+      setError(msg);
+      toast.error(msg);
     } finally {
       setPending(false);
     }

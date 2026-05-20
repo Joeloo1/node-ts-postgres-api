@@ -4,6 +4,7 @@ import { motion, type Variants } from "framer-motion";
 import { ProductCard } from "../components/ProductCard";
 import { ProductSkeletonGrid } from "../components/ProductSkeleton";
 import { usePageTitle } from "../hooks/usePageTitle";
+import { useAuth } from "../context/AuthContext";
 import { apiFetch } from "../lib/api";
 import type { Category, Product } from "../lib/types";
 import {
@@ -54,6 +55,8 @@ const cardFade: Variants = {
 
 export function HomePage() {
   usePageTitle("Shop");
+  const { token } = useAuth();
+  const isSignedIn = Boolean(token);
   const { data: products, isPending, isError } = useQuery({
     queryKey: ["products", "featured"],
     queryFn: async () => {
@@ -125,12 +128,14 @@ export function HomePage() {
                 Shop now
                 <ArrowRightIcon className="size-4" />
               </Link>
-              <Link
-                to="/register"
-                className="inline-flex items-center gap-2 rounded-xl border border-zinc-700 px-7 py-3.5 text-sm font-semibold text-zinc-200 transition-colors hover:border-zinc-600 hover:bg-zinc-800/80"
-              >
-                Create account
-              </Link>
+              {!isSignedIn && (
+                <Link
+                  to="/register"
+                  className="inline-flex items-center gap-2 rounded-xl border border-zinc-700 px-7 py-3.5 text-sm font-semibold text-zinc-200 transition-colors hover:border-zinc-600 hover:bg-zinc-800/80"
+                >
+                  Create account
+                </Link>
+              )}
             </motion.div>
 
             <motion.div variants={cardFade} className="flex flex-wrap items-center gap-6 pt-2 text-xs text-zinc-500">
@@ -299,12 +304,21 @@ export function HomePage() {
             Join thousands of customers who trust Northline for quality essentials.
           </p>
           <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
-            <Link
-              to="/register"
-              className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-7 py-3.5 text-sm font-semibold text-white transition-all hover:bg-emerald-500 hover:shadow-lg hover:shadow-emerald-500/20"
-            >
-              Create free account
-            </Link>
+            {isSignedIn ? (
+              <Link
+                to="/orders"
+                className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-7 py-3.5 text-sm font-semibold text-white transition-all hover:bg-emerald-500 hover:shadow-lg hover:shadow-emerald-500/20"
+              >
+                View your orders
+              </Link>
+            ) : (
+              <Link
+                to="/register"
+                className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-7 py-3.5 text-sm font-semibold text-white transition-all hover:bg-emerald-500 hover:shadow-lg hover:shadow-emerald-500/20"
+              >
+                Create free account
+              </Link>
+            )}
             <Link
               to="/products"
               className="inline-flex items-center gap-2 rounded-xl border border-zinc-600 px-7 py-3.5 text-sm font-semibold text-zinc-200 transition-colors hover:border-zinc-500 hover:bg-zinc-800/80"

@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import { ApiError } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 
@@ -26,9 +27,12 @@ export function RegisterPage() {
         passwordConfirm,
         phoneNumber: phoneNumber.trim() || undefined,
       });
+      toast.success("Account created! Welcome to Northline.");
       navigate("/", { replace: true });
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Registration failed");
+      const msg = err instanceof ApiError ? err.message : "Registration failed";
+      setError(msg);
+      toast.error(msg);
     } finally {
       setPending(false);
     }

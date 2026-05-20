@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { Link, useNavigate } from "react-router-dom";
 import { Spinner } from "../components/Spinner";
 import { ApiError, apiFetch } from "../lib/api";
@@ -29,6 +30,7 @@ export function CartPage() {
       });
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["cart"] }),
+    onError: () => toast.error("Could not update quantity"),
   });
 
   const removeItem = useMutation({
@@ -38,7 +40,11 @@ export function CartPage() {
         auth: true,
       });
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["cart"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["cart"] });
+      toast.success("Item removed");
+    },
+    onError: () => toast.error("Could not remove item"),
   });
 
   const placeOrder = useMutation({
@@ -54,7 +60,9 @@ export function CartPage() {
       await apiFetch("/api/v1/cart", { method: "DELETE", auth: true });
       queryClient.invalidateQueries({ queryKey: ["cart"] });
       queryClient.invalidateQueries({ queryKey: ["orders"] });
+      toast.success("Order placed successfully!");
     },
+    onError: () => toast.error("Could not place order. Please try again."),
   });
 
   if (cartQuery.isPending) {

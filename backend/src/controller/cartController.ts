@@ -87,7 +87,18 @@ export const getMyCart = catchAsync(
       include: {
         items: {
           include: {
-            product: true,
+            product: {
+              select: {
+                product_id: true,
+                name: true,
+                price: true,
+                discount: true,
+                image: true,
+                images: true,
+                availability: true,
+                unit: true,
+              },
+            },
           },
         },
       },

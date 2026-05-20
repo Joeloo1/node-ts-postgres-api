@@ -22,7 +22,7 @@ const getUserQueryKey = (query: any) => `users:list:${JSON.stringify(query)}`;
 
 const clearUserCache = async () => {
   const keys = await redis.keys("users:list:*");
-  if (keys.length > 0) await redis.del(keys);
+  if (keys.length > 0) await Promise.all(keys.map((k) => redis.del(k)));
 };
 
 // update user

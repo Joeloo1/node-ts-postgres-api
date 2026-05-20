@@ -1,7 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { Spinner } from "../components/Spinner";
+import { motion, type Variants } from "framer-motion";
+import { OrdersSkeleton } from "../components/ProductSkeleton";
 import { apiFetch } from "../lib/api";
+import { productImageUrl } from "../lib/productImage";
 import type { Order } from "../lib/types";
 import { ChevronRightIcon, PackageIcon } from "../components/Icons";
 
@@ -20,6 +22,12 @@ const statusStyles: Record<string, { label: string; className: string }> = {
   CANCELLED:  { label: "Cancelled",  className: "bg-zinc-800/80 text-zinc-500 border-zinc-700/40" },
 };
 
+const stagger: Variants = { hidden: {}, show: { transition: { staggerChildren: 0.06 } } };
+const rowFade: Variants = {
+  hidden: { opacity: 0, y: 12 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.3, ease: [0.25, 0.1, 0.25, 1] } },
+};
+
 export function OrdersPage() {
   const { data, isPending, isError, error } = useQuery({
     queryKey: ["orders"],
@@ -29,13 +37,7 @@ export function OrdersPage() {
     },
   });
 
-  if (isPending) {
-    return (
-      <div className="flex justify-center py-24">
-        <Spinner />
-      </div>
-    );
-  }
+  if (isPending) return <OrdersSkeleton />;
 
   if (isError) {
     return (
@@ -53,10 +55,7 @@ export function OrdersPage() {
         <PackageIcon className="size-14 text-zinc-700" />
         <h1 className="mt-5 font-display text-2xl font-bold text-white">No orders yet</h1>
         <p className="mt-2 text-zinc-500">When you check out, your orders appear here.</p>
-        <Link
-          to="/products"
-          className="mt-8 inline-flex rounded-xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-500"
-        >
+        <Link to="/products" className="mt-8 inline-flex rounded-xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-500">
           Start shopping
         </Link>
       </div>
@@ -67,49 +66,70 @@ export function OrdersPage() {
     <div className="space-y-6">
       <div>
         <h1 className="font-display text-3xl font-bold text-white">Orders</h1>
-        <p className="mt-1 text-sm text-zinc-500">
-          {orders.length} order{orders.length !== 1 ? "s" : ""} total
-        </p>
+        <p className="mt-1 text-sm text-zinc-500">{orders.length} order{orders.length !== 1 ? "s" : ""} total</p>
       </div>
 
-      <ul className="space-y-3">
+      <motion.ul className="space-y-3" variants={stagger} initial="hidden" animate="show">
         {orders.map((o) => {
           const status = statusStyles[o.status] ?? { label: o.status, className: "bg-zinc-800 text-zinc-400" };
+          const thumbs = (o.items ?? [])
+            .slice(0, 3)
+            .map((item) => item.product ? productImageUrl(item.product as { name: string; image: string | null; images?: string[] | null }) : null)
+            .filter(Boolean) as string[];
+          const extraCount = (o.items?.length ?? 0) - thumbs.length;
+
           return (
-            <li key={o.id}>
+            <motion.li key={o.id} variants={rowFade}>
               <Link
                 to={`/orders/${o.id}`}
                 className="group flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-zinc-800/70 bg-zinc-900/30 px-5 py-4 transition-all hover:border-zinc-700 hover:bg-zinc-900/60"
               >
-                <div className="min-w-0">
-                  <p className="font-mono text-xs text-zinc-500">
-                    #{o.id.slice(0, 8).toUpperCase()}
-                  </p>
-                  <p className="mt-1 text-sm text-zinc-400">
-                    {new Date(o.createdAt).toLocaleDateString("en-US", {
-                      year: "numeric",
-                      month: "short",
-                      day: "numeric",
-                    })}
-                  </p>
+                {/* Left: order info + thumbnails */}
+                <div className="flex items-center gap-4 min-w-0">
+                  {/* Product thumbnails */}
+                  {thumbs.length > 0 && (
+                    <div className="flex -space-x-2 shrink-0">
+                      {thumbs.map((src, i) => (
+                        <div
+                          key={i}
+                          className="size-11 overflow-hidden rounded-xl border-2 border-zinc-900 bg-zinc-800"
+                          style={{ zIndex: thumbs.length - i }}
+                        >
+                          <img src={src} alt="" className="h-full w-full object-cover" loading="lazy" />
+                        </div>
+                      ))}
+                      {extraCount > 0 && (
+                        <div className="flex size-11 items-center justify-center rounded-xl border-2 border-zinc-900 bg-zinc-800 text-xs font-semibold text-zinc-400">
+                          +{extraCount}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="min-w-0">
+                    <p className="font-mono text-xs text-zinc-500">#{o.id.slice(0, 8).toUpperCase()}</p>
+                    <p className="mt-0.5 text-sm text-zinc-400">
+                      {new Date(o.createdAt).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}
+                    </p>
+                    <p className="mt-0.5 text-xs text-zinc-600">
+                      {o.items?.length ?? 0} item{(o.items?.length ?? 0) !== 1 ? "s" : ""}
+                    </p>
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-4">
-                  <span
-                    className={`rounded-full border px-3 py-1 text-xs font-semibold ${status.className}`}
-                  >
+                {/* Right: status + total */}
+                <div className="flex items-center gap-4 shrink-0">
+                  <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${status.className}`}>
                     {status.label}
                   </span>
-                  <p className="text-lg font-bold tabular-nums text-white">
-                    ${o.total.toFixed(2)}
-                  </p>
+                  <p className="text-lg font-bold tabular-nums text-white">${o.total.toFixed(2)}</p>
                   <ChevronRightIcon className="size-4 text-zinc-600 transition-transform group-hover:translate-x-0.5 group-hover:text-zinc-400" />
                 </div>
               </Link>
-            </li>
+            </motion.li>
           );
         })}
-      </ul>
+      </motion.ul>
     </div>
   );
 }

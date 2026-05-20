@@ -5,6 +5,7 @@ import { Layout } from "./components/Layout";
 import { AdminRoute } from "./components/AdminRoute";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AuthProvider } from "./context/AuthContext";
+import { WishlistProvider } from "./context/WishlistContext";
 import { AccountPage } from "./pages/AccountPage";
 import { AccountAddressesPage } from "./pages/AccountAddressesPage";
 import { AccountProfilePage } from "./pages/AccountProfilePage";
@@ -19,6 +20,7 @@ import { ProductDetailPage } from "./pages/ProductDetailPage";
 import { ProductsPage } from "./pages/ProductsPage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { ForbiddenPage } from "./pages/ForbiddenPage";
+import { NotFoundPage } from "./pages/NotFoundPage";
 import { AdminCategoriesPage } from "./pages/admin/AdminCategoriesPage";
 import { AdminOrdersPage } from "./pages/admin/AdminOrdersPage";
 import { AdminProductsPage } from "./pages/admin/AdminProductsPage";
@@ -39,6 +41,7 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
+        <WishlistProvider>
         <BrowserRouter>
           <Toaster
             position="bottom-right"
@@ -110,10 +113,11 @@ export default function App() {
               <Route path="403" element={<ForbiddenPage />} />
               <Route path="acount" element={<Navigate to="/account" replace />} />
               <Route path="accout" element={<Navigate to="/account" replace />} />
-              <Route path="*" element={<Navigate to="/" replace />} />
+              <Route path="*" element={<NotFoundPage />} />
             </Route>
           </Routes>
         </BrowserRouter>
+        </WishlistProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

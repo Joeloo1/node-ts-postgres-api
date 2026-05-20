@@ -70,7 +70,14 @@ export const getMyOrder = catchAsync(
     logger.info(`Fetching orders for user ID: ${req.user!.id}`);
     const orders = await prisma.order.findMany({
       where: { userId: req.user!.id },
-      include: { items: true },
+      orderBy: { createdAt: "desc" },
+      include: {
+        items: {
+          include: {
+            product: { select: { name: true, image: true, images: true } },
+          },
+        },
+      },
     });
 
     logger.info("Orders fetched successfully");
@@ -113,7 +120,7 @@ export const getOrderById = catchAsync(
 
 // update Order (only Admin)
 export const updateOrder = catchAsync(
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (req: Request, res: Response, _next: NextFunction) => {
     const { status } = req.body;
 
     logger.info("updating order status");

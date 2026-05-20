@@ -53,6 +53,11 @@ export type OrderItem = {
   product_id: string;
   quantity: number;
   price: number;
+  product?: {
+    name: string;
+    image: string | null;
+    images?: string[] | null;
+  };
 };
 
 export type Order = {

@@ -1,9 +1,20 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { productImageUrl } from "../lib/productImage";
 import type { Product } from "../lib/types";
-import { CartIcon, StarIcon } from "./Icons";
+import { CartIcon, HeartIcon, StarIcon } from "./Icons";
+import { useWishlist } from "../context/WishlistContext";
+import { useAuth } from "../context/AuthContext";
+import { apiFetch } from "../lib/api";
 
 export function ProductCard({ product }: { product: Product }) {
+  const { token } = useAuth();
+  const { toggle, has } = useWishlist();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const isWishlisted = has(product.product_id);
+
   const categoryName =
     product.category && "name" in product.category ? product.category.name : null;
   const price =
@@ -11,8 +22,40 @@ export function ProductCard({ product }: { product: Product }) {
       ? product.price * (1 - product.discount / 100)
       : product.price;
 
+  const addToCart = useMutation({
+    mutationFn: async () => {
+      await apiFetch("/api/v1/cart/items", {
+        method: "POST",
+        auth: true,
+        body: JSON.stringify({ product_id: product.product_id, quantity: 1 }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["cart"] });
+      toast.success("Added to cart");
+    },
+    onError: () => toast.error("Could not add to cart"),
+  });
+
+  function handleAddToCart(e: React.MouseEvent) {
+    e.preventDefault();
+    if (!token) {
+      navigate("/login");
+      return;
+    }
+    addToCart.mutate();
+  }
+
+  function handleWishlist(e: React.MouseEvent) {
+    e.preventDefault();
+    toggle(product.product_id);
+    toast(isWishlisted ? "Removed from wishlist" : "Saved to wishlist", {
+      icon: isWishlisted ? "🗑️" : "❤️",
+    });
+  }
+
   return (
-    <article className="group flex flex-col overflow-hidden rounded-2xl border border-zinc-800/70 bg-zinc-900/30 transition-all duration-300 hover:border-zinc-700 hover:bg-zinc-900/60 hover:shadow-xl hover:shadow-black/30">
+    <article className="group flex flex-col overflow-hidden rounded-2xl border border-zinc-800/70 bg-zinc-900/30 transition-all duration-300 hover:border-zinc-700 hover:bg-zinc-900/60 hover:shadow-xl hover:shadow-black/40">
 
       {/* Image */}
       <Link
@@ -26,10 +69,9 @@ export function ProductCard({ product }: { product: Product }) {
           loading="lazy"
         />
 
-        {/* Dim overlay on hover */}
-        <div className="absolute inset-0 bg-black/0 transition-colors duration-300 group-hover:bg-black/15" />
+        <div className="absolute inset-0 bg-black/0 transition-colors duration-300 group-hover:bg-black/20" />
 
-        {/* Out of stock overlay */}
+        {/* Out of stock */}
         {!product.availability && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-[2px]">
             <span className="rounded-full border border-zinc-500/40 bg-zinc-900/80 px-3 py-1 text-xs font-semibold text-zinc-300">
@@ -45,11 +87,38 @@ export function ProductCard({ product }: { product: Product }) {
           </span>
         ) : null}
 
-        {/* Quick-view button — slides up on hover */}
+        {/* Top-right action buttons — slide in on hover */}
+        <div className="absolute right-3 top-3 flex flex-col gap-2 translate-x-3 opacity-0 transition-all duration-200 group-hover:translate-x-0 group-hover:opacity-100">
+          <button
+            type="button"
+            onClick={handleWishlist}
+            className={`flex size-8 items-center justify-center rounded-full shadow-lg backdrop-blur-sm transition-colors ${
+              isWishlisted
+                ? "bg-red-500 text-white"
+                : "bg-zinc-900/80 text-zinc-300 hover:bg-red-500 hover:text-white"
+            }`}
+            aria-label={isWishlisted ? "Remove from wishlist" : "Save to wishlist"}
+          >
+            <HeartIcon className="size-3.5" filled={isWishlisted} />
+          </button>
+
+          {product.availability && (
+            <button
+              type="button"
+              onClick={handleAddToCart}
+              disabled={addToCart.isPending}
+              className="flex size-8 items-center justify-center rounded-full bg-zinc-900/80 text-zinc-300 shadow-lg backdrop-blur-sm transition-colors hover:bg-emerald-600 hover:text-white disabled:opacity-50"
+              aria-label="Add to cart"
+            >
+              <CartIcon className="size-3.5" />
+            </button>
+          )}
+        </div>
+
+        {/* Bottom "View product" — slides up on hover */}
         {product.availability && (
           <div className="absolute bottom-3 left-3 right-3 translate-y-2 opacity-0 transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100">
             <span className="flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-xs font-semibold text-zinc-900 shadow-lg">
-              <CartIcon className="size-3.5" />
               View product
             </span>
           </div>

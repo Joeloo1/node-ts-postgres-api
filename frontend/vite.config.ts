@@ -16,11 +16,11 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          react: ["react", "react-dom"],
-          router: ["react-router-dom"],
-          query: ["@tanstack/react-query"],
-          motion: ["framer-motion"],
+        manualChunks(id) {
+          if (id.includes("node_modules/react") || id.includes("node_modules/react-dom")) return "react";
+          if (id.includes("node_modules/react-router")) return "router";
+          if (id.includes("node_modules/@tanstack")) return "query";
+          if (id.includes("node_modules/framer-motion")) return "motion";
         },
       },
     },

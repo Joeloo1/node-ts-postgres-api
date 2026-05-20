@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { motion, AnimatePresence } from "framer-motion";
 import { AppErrorBoundary } from "./AppErrorBoundary";
 import { useAuth } from "../context/AuthContext";
 import { apiFetch } from "../lib/api";
 import type { Cart } from "../lib/types";
-import { CartIcon, MenuIcon, XIcon, UserIcon } from "./Icons";
+import { CartIcon, MenuIcon, XIcon, UserIcon, ChevronUpIcon } from "./Icons";
 
 type CartRes = { status: string; data: { cart: Cart } };
 
@@ -23,6 +24,7 @@ export function Layout() {
   const { token, user, logout } = useAuth();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [showTop, setShowTop] = useState(false);
   const isSignedIn = Boolean(token);
   const isAdmin = isSignedIn && String((user as unknown as { roles?: string })?.roles) === "ADMIN";
 
@@ -39,7 +41,14 @@ export function Layout() {
 
   useEffect(() => {
     setMobileOpen(false);
+    window.scrollTo({ top: 0, behavior: "instant" });
   }, [location.pathname]);
+
+  useEffect(() => {
+    const onScroll = () => setShowTop(window.scrollY > 400);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   useEffect(() => {
     document.body.style.overflow = mobileOpen ? "hidden" : "";
@@ -234,9 +243,37 @@ export function Layout() {
       {/* Page content */}
       <main className="mx-auto min-h-[50vh] w-full max-w-6xl flex-1 px-4 py-8 sm:px-6">
         <AppErrorBoundary>
-          <Outlet />
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={location.pathname}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
+            >
+              <Outlet />
+            </motion.div>
+          </AnimatePresence>
         </AppErrorBoundary>
       </main>
+
+      {/* Back-to-top */}
+      <AnimatePresence>
+        {showTop && (
+          <motion.button
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            transition={{ duration: 0.18 }}
+            type="button"
+            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+            className="fixed bottom-6 right-6 z-50 flex size-11 items-center justify-center rounded-full border border-zinc-700/80 bg-zinc-900 text-zinc-300 shadow-xl transition-colors hover:border-emerald-500/50 hover:bg-zinc-800 hover:text-emerald-400"
+            aria-label="Back to top"
+          >
+            <ChevronUpIcon className="size-5" />
+          </motion.button>
+        )}
+      </AnimatePresence>
 
       {/* Footer */}
       <footer className="mt-16 border-t border-white/[0.06] bg-zinc-950">

@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Link, useNavigate } from "react-router-dom";
-import { Spinner } from "../components/Spinner";
+import { motion } from "framer-motion";
+import { CartSkeleton } from "../components/ProductSkeleton";
 import { ApiError, apiFetch } from "../lib/api";
 import { productImageUrl } from "../lib/productImage";
 import type { Cart } from "../lib/types";
@@ -65,13 +66,7 @@ export function CartPage() {
     onError: () => toast.error("Could not place order. Please try again."),
   });
 
-  if (cartQuery.isPending) {
-    return (
-      <div className="flex justify-center py-24">
-        <Spinner />
-      </div>
-    );
-  }
+  if (cartQuery.isPending) return <CartSkeleton />;
 
   if (cartQuery.isError) {
     return (
@@ -83,7 +78,15 @@ export function CartPage() {
 
   const cart = cartQuery.data!;
   const items = cart.items ?? [];
-  const subtotal = items.reduce((sum, i) => sum + i.product.price * i.quantity, 0);
+  const subtotal = items.reduce((sum, i) => {
+    const effectivePrice =
+      i.product.discount && i.product.discount > 0
+        ? i.product.price * (1 - i.product.discount / 100)
+        : i.product.price;
+    return sum + effectivePrice * i.quantity;
+  }, 0);
+  const SHIP_THRESHOLD = 50;
+  const shipProgress = Math.min((subtotal / SHIP_THRESHOLD) * 100, 100);
 
   if (items.length === 0) {
     return (
@@ -139,7 +142,13 @@ export function CartPage() {
                   {line.product.name}
                 </Link>
                 <p className="mt-0.5 text-sm tabular-nums text-zinc-500">
-                  ${line.product.price.toFixed(2)} each
+                  ${(line.product.discount && line.product.discount > 0
+                    ? line.product.price * (1 - line.product.discount / 100)
+                    : line.product.price
+                  ).toFixed(2)} each
+                  {line.product.discount && line.product.discount > 0 ? (
+                    <span className="ml-1.5 text-xs line-through text-zinc-600">${line.product.price.toFixed(2)}</span>
+                  ) : null}
                 </p>
 
                 <div className="mt-3 flex flex-wrap items-center gap-3">
@@ -192,7 +201,9 @@ export function CartPage() {
 
               <div className="shrink-0 text-right">
                 <p className="font-semibold tabular-nums text-white">
-                  ${(line.product.price * line.quantity).toFixed(2)}
+                  ${((line.product.discount && line.product.discount > 0
+                    ? line.product.price * (1 - line.product.discount / 100)
+                    : line.product.price) * line.quantity).toFixed(2)}
                 </p>
               </div>
             </li>
@@ -223,11 +234,28 @@ export function CartPage() {
             </span>
           </div>
 
-          {subtotal < 50 && (
-            <div className="rounded-xl border border-emerald-900/40 bg-emerald-950/30 px-3 py-2.5 text-xs text-emerald-400">
-              Add ${(50 - subtotal).toFixed(2)} more for free shipping
+          {/* Shipping progress bar */}
+          <div className="space-y-2 rounded-xl border border-zinc-800/60 bg-zinc-900/40 p-3">
+            <div className="flex justify-between text-xs">
+              <span className={subtotal >= SHIP_THRESHOLD ? "font-medium text-emerald-400" : "text-zinc-400"}>
+                {subtotal >= SHIP_THRESHOLD ? "🎉 Free shipping unlocked!" : "Free shipping progress"}
+              </span>
+              <span className="tabular-nums text-zinc-500">${subtotal.toFixed(2)} / $50</span>
             </div>
-          )}
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-800">
+              <motion.div
+                className="h-full rounded-full bg-emerald-500"
+                initial={{ width: 0 }}
+                animate={{ width: `${shipProgress}%` }}
+                transition={{ duration: 0.6, ease: [0.25, 0.1, 0.25, 1] }}
+              />
+            </div>
+            {subtotal < SHIP_THRESHOLD && (
+              <p className="text-xs text-zinc-500">
+                Add <span className="font-semibold text-white">${(SHIP_THRESHOLD - subtotal).toFixed(2)}</span> more for free shipping
+              </p>
+            )}
+          </div>
 
           {placeOrder.isError && (
             <p className="rounded-xl border border-red-900/40 bg-red-950/30 px-3 py-2 text-sm text-red-300">

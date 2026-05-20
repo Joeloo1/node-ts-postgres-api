@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
+import { usePageTitle } from "../hooks/usePageTitle";
 import { useAuth } from "../context/AuthContext";
 import { useWishlist } from "../context/WishlistContext";
 import { ApiError, apiFetch } from "../lib/api";
@@ -119,6 +120,7 @@ export function ProductDetailPage() {
   });
 
   const p = productQuery.data;
+  usePageTitle(p?.name ?? "Product");
 
   const relatedQuery = useQuery({
     queryKey: ["products", "related", p?.category_id, id],

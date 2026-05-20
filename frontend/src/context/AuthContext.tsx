@@ -2,18 +2,15 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
-  useState,
   type ReactNode,
 } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ApiError, apiFetch, getStoredToken, setStoredToken } from "../lib/api";
+import { ApiError, apiFetch } from "../lib/api";
 import type { User } from "../lib/types";
 
 type AuthResponse = {
   status: string;
-  token: string;
   data: { user: User };
 };
 
@@ -24,9 +21,9 @@ type MeResponse = {
 
 type AuthContextValue = {
   user: User | null;
+  /** Opaque session indicator — truthy when logged in, null when not. Never a raw JWT. */
   token: string | null;
   isLoading: boolean;
-  /** Set when GET /users/me fails (e.g. expired token) */
   profileError: string | null;
   login: (email: string, password: string) => Promise<void>;
   register: (payload: {
@@ -43,21 +40,26 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
-  const [token, setToken] = useState<string | null>(() => getStoredToken());
 
   const {
     data: user,
-    status: meStatus,
+    isPending,
     isError,
     error: meQueryError,
   } = useQuery({
-    queryKey: ["me", token],
+    queryKey: ["me"],
     queryFn: async () => {
-      const res = await apiFetch<MeResponse>("/api/v1/users/me", { auth: true });
-      return res.data;
+      try {
+        const res = await apiFetch<MeResponse>("/api/v1/users/me");
+        return (res.data as User) ?? null;
+      } catch (err) {
+        // 401 = not logged in — treat as null, not an error state
+        if (err instanceof ApiError && err.status === 401) return null;
+        throw err;
+      }
     },
-    enabled: Boolean(token),
     staleTime: 60_000,
+    retry: false,
   });
 
   const profileError =
@@ -67,24 +69,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         ? "Could not load your profile."
         : null;
 
-  useEffect(() => {
-    if (!token) return;
-    if (meQueryError instanceof ApiError && meQueryError.status === 401) {
-      setStoredToken(null);
-      setTimeout(() => setToken(null), 0);
-      queryClient.removeQueries({ queryKey: ["me"] });
-      queryClient.removeQueries({ queryKey: ["cart"] });
-    }
-  }, [token, meQueryError, queryClient]);
-
   const login = useCallback(
     async (email: string, password: string) => {
-      const res = await apiFetch<AuthResponse>("/api/v1/users/Login", {
+      await apiFetch<AuthResponse>("/api/v1/users/Login", {
         method: "POST",
         body: JSON.stringify({ email, password }),
       });
-      setStoredToken(res.token);
-      setToken(res.token);
+      // Cookie is set by the server — just refresh the /me query
       await queryClient.invalidateQueries({ queryKey: ["me"] });
     },
     [queryClient],
@@ -98,12 +89,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       passwordConfirm: string;
       phoneNumber?: string;
     }) => {
-      const res = await apiFetch<AuthResponse>("/api/v1/users/Signup", {
+      await apiFetch<AuthResponse>("/api/v1/users/Signup", {
         method: "POST",
         body: JSON.stringify(payload),
       });
-      setStoredToken(res.token);
-      setToken(res.token);
       await queryClient.invalidateQueries({ queryKey: ["me"] });
     },
     [queryClient],
@@ -111,32 +100,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     try {
-      await apiFetch("/api/v1/users/Logout", {
-        method: "POST",
-      });
+      await apiFetch("/api/v1/users/Logout", { method: "POST" });
     } catch {
-      // best effort: always clear local session
+      // best-effort: always clear local state
     }
-    setStoredToken(null);
-    setToken(null);
-    queryClient.removeQueries({ queryKey: ["me"] });
+    queryClient.setQueryData(["me"], null);
     queryClient.removeQueries({ queryKey: ["cart"] });
   }, [queryClient]);
 
-  const profileSettled = meStatus === "success" || meStatus === "error";
+  const resolvedUser = user ?? null;
 
   const value = useMemo<AuthContextValue>(
     () => ({
-      user: user ?? null,
-      token,
-      // Wait until /me has finished (success or error), not only v5 isPending/isLoading quirks
-      isLoading: Boolean(token) && !profileSettled,
+      user: resolvedUser,
+      // Expose an opaque non-null string when authenticated so existing
+      // Boolean(token) guards continue to work without holding the raw JWT.
+      token: resolvedUser ? "session" : null,
+      isLoading: isPending,
       profileError,
       login,
       register,
       logout,
     }),
-    [user, token, profileSettled, profileError, login, register, logout],
+    [resolvedUser, isPending, profileError, login, register, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

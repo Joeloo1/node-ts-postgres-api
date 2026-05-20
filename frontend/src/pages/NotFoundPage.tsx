@@ -1,7 +1,9 @@
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowLeftIcon, SearchIcon } from "../components/Icons";
+import { usePageTitle } from "../hooks/usePageTitle";
 
 export function NotFoundPage() {
+  usePageTitle("Page Not Found");
   const navigate = useNavigate();
 
   return (

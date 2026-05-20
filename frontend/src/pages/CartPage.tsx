@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { CartSkeleton } from "../components/ProductSkeleton";
+import { usePageTitle } from "../hooks/usePageTitle";
 import { ApiError, apiFetch } from "../lib/api";
 import { productImageUrl } from "../lib/productImage";
 import type { Cart } from "../lib/types";
@@ -11,6 +12,7 @@ import { MinusIcon, PackageIcon, PlusIcon, ShieldIcon, TrashIcon, TruckIcon } fr
 type CartRes = { status: string; data: { cart: Cart } };
 
 export function CartPage() {
+  usePageTitle("Cart");
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 

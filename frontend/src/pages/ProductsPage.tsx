@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { motion, type Variants } from "framer-motion";
 import { ProductCard } from "../components/ProductCard";
+import { usePageTitle } from "../hooks/usePageTitle";
 import { ProductSkeletonGrid3 } from "../components/ProductSkeleton";
 import { apiFetch } from "../lib/api";
 import type { Category, Pagination, Product } from "../lib/types";
@@ -34,6 +35,7 @@ const cardFade: Variants = {
 };
 
 export function ProductsPage() {
+  usePageTitle("Products");
   const [searchParams] = useSearchParams();
   const [page, setPage] = useState(1);
   const [name, setName] = useState("");

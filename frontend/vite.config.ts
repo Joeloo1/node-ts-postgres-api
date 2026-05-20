@@ -9,13 +9,19 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      "/api": {
-        target: "http://127.0.0.1:3000",
-        changeOrigin: true,
-      },
-      "/public": {
-        target: "http://127.0.0.1:3000",
-        changeOrigin: true,
+      "/api": { target: "http://127.0.0.1:3000", changeOrigin: true },
+      "/public": { target: "http://127.0.0.1:3000", changeOrigin: true },
+    },
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes("node_modules/react") || id.includes("node_modules/react-dom")) return "react";
+          if (id.includes("node_modules/react-router")) return "router";
+          if (id.includes("node_modules/@tanstack")) return "query";
+          if (id.includes("node_modules/framer-motion")) return "motion";
+        },
       },
     },
   },

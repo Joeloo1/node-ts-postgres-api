@@ -1,6 +1,8 @@
 import { Link } from "react-router-dom";
+import { usePageTitle } from "../hooks/usePageTitle";
 
 export function AboutPage() {
+  usePageTitle("About");
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div>

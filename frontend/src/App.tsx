@@ -20,7 +20,9 @@ import { ProductDetailPage } from "./pages/ProductDetailPage";
 import { ProductsPage } from "./pages/ProductsPage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { ForbiddenPage } from "./pages/ForbiddenPage";
+import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
+import { WishlistPage } from "./pages/WishlistPage";
 import { AdminCategoriesPage } from "./pages/admin/AdminCategoriesPage";
 import { AdminOrdersPage } from "./pages/admin/AdminOrdersPage";
 import { AdminProductsPage } from "./pages/admin/AdminProductsPage";
@@ -58,9 +60,11 @@ export default function App() {
               <Route index element={<HomePage />} />
               <Route path="products" element={<ProductsPage />} />
               <Route path="about" element={<AboutPage />} />
+              <Route path="wishlist" element={<WishlistPage />} />
               <Route path="products/:id" element={<ProductDetailPage />} />
               <Route path="login" element={<LoginPage />} />
               <Route path="register" element={<RegisterPage />} />
+              <Route path="forgot-password" element={<ForgotPasswordPage />} />
               <Route
                 path="cart"
                 element={

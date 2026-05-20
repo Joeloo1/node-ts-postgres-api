@@ -25,7 +25,12 @@ import { AdminUsersPage } from "./pages/admin/AdminUsersPage";
 
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: { retry: 1, refetchOnWindowFocus: false },
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+      staleTime: 60_000,       // serve from memory for 1 min — no spinner on revisit
+      gcTime: 5 * 60_000,      // keep unused cache for 5 min
+    },
   },
 });
 

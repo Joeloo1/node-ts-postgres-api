@@ -41,14 +41,14 @@ model Products {
   product_id   String    @id @default(uuid()) @db.Uuid
   name         String    @db.VarChar(255)
   description  String?
-  price        Float     
+  price        Float
   unit         String?   @db.VarChar(50)
   image        String?
   images       String[]  @default([])
-  discount     Float?    
+  discount     Float?
   availability Boolean   @default(true)
   brand        String?   @db.VarChar(100)
-  rating       Float?    
+  rating       Float?
   category_id  Int?
   createdAt    DateTime  @default(now()) @db.Timestamp(6)
   updatedAt    DateTime  @updatedAt @db.Timestamp(6)
@@ -56,6 +56,13 @@ model Products {
   reviews      Review[]
   cartItems    CartItem[]
   orderItems   OrderItem[]
+
+  @@index([category_id])
+  @@index([createdAt(sort: Desc)])
+  @@index([price])
+  @@index([rating])
+  @@index([availability])
+  @@index([category_id, createdAt(sort: Desc)])
 }
 
 model User {

@@ -98,8 +98,11 @@ export const getOrderById = catchAsync(
     const order = await prisma.order.findUnique({
       where: { id: req.params.id },
       include: {
-        items: true,
-        user: true,
+        items: {
+          include: {
+            product: { select: { name: true, image: true, images: true } },
+          },
+        },
       },
     });
 
@@ -108,7 +111,12 @@ export const getOrderById = catchAsync(
       return next(new AppError("Order not found", 404));
     }
 
-    logger.info(`Order with ID: ${req.params.id} fetched suessfully`);
+    if (order.userId !== req.user!.id) {
+      logger.warn(`User ${req.user!.id} attempted to access order ${order.id} belonging to ${order.userId}`);
+      return next(new AppError("You do not have permission to view this order", 403));
+    }
+
+    logger.info(`Order with ID: ${req.params.id} fetched successfully`);
     res.status(200).json({
       status: "success",
       data: {
@@ -196,6 +204,45 @@ export const cancelOrder = catchAsync(
       data: {
         order: cancelledOrder,
       },
+    });
+  },
+);
+
+// Get All Orders (ADMIN)
+export const getAllOrders = catchAsync(
+  async (req: Request, res: Response, _next: NextFunction) => {
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 20));
+    const skip = (page - 1) * limit;
+    const status = req.query.status as string | undefined;
+
+    const where = status ? { status: status as OrderStatus } : {};
+
+    const [orders, total] = await Promise.all([
+      prisma.order.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: "desc" },
+        include: {
+          items: {
+            include: {
+              product: { select: { name: true, image: true } },
+            },
+          },
+        },
+      }),
+      prisma.order.count({ where }),
+    ]);
+
+    logger.info("Admin fetched all orders");
+    res.status(200).json({
+      status: "success",
+      results: orders.length,
+      total,
+      totalPages: Math.ceil(total / limit),
+      page,
+      data: { orders },
     });
   },
 );

@@ -12,38 +12,26 @@ const startServer = async () => {
   try {
     logger.info("Connecting to database...");
     await connectDB();
-    console.log("✅ Database connected");
 
     logger.info("Connecting to Redis...");
     await connectRedis();
-    logger.info("✅ Redis connected");
 
-    console.log("Starting HTTP server...");
     server = app.listen(port, () => {
-      logger.info(`🟢 server running on port: ${port}...`);
+      logger.info(`Server running on port ${port}`);
     });
 
-    // Keep track of server state
     server.on("error", (err) => {
-      console.error("❌ Server error:", err.message);
       logger.error("Server error", err);
     });
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);
-    const fullError = err instanceof Error ? err.stack : String(err);
-    logger.error("Error:", errorMessage);
-    console.error("Details:", fullError);
-    logger.error("Startup failed...", err);
+    logger.error(`Startup failed: ${errorMessage}`, { stack: err instanceof Error ? err.stack : undefined });
     process.exit(1);
   }
 };
 
-// Start server
-console.log("Initializing server startup...");
 startServer().catch((err) => {
-  const msg = err instanceof Error ? err.message : String(err);
-  console.error("🔥 Uncaught error during initialization:", msg);
-  console.error(err);
+  logger.error("Uncaught error during initialization", err);
   process.exit(1);
 });
 

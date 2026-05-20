@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction, Router } from "express";
+import { Request, Response, NextFunction } from "express";
 import catchAsync from "../utils/catchAsync";
 import AppError from "../utils/AppError";
 import { createReviewSchema } from "../Schema/reviewsSchema";
@@ -8,11 +8,17 @@ import { client as redis } from "../config/redis";
 
 const REDIS_TTL = 3600;
 const getReviewKey = (id: string) => `review:${id}`;
-const getReviewQueryKey = (query: any) => `user:list:${JSON.stringify(query)}`;
+
+const getReviewQueryKey = (query: Record<string, unknown>) => {
+  const sorted = Object.keys(query)
+    .sort()
+    .reduce<Record<string, unknown>>((acc, k) => { acc[k] = query[k]; return acc; }, {});
+  return `reviews:list:${JSON.stringify(sorted)}`;
+};
 
 const clearReviewCache = async () => {
-  const keys = await redis.keys("users:list:*");
-  if (keys.length > 0) await redis.del(keys);
+  const keys = await redis.keys("reviews:list:*");
+  if (keys.length > 0) await Promise.all(keys.map((k) => redis.del(k)));
 };
 
 // create review

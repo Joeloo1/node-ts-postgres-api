@@ -37,21 +37,19 @@ app.use(
 // set seurity HTTP Header
 app.use(helmet());
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use("/public", express.static(path.join(__dirname, "../public")));
 
-// Development logging
-console.log(process.env.NODE_ENV);
 if (process.env.NODE_ENV === "development") {
   app.use(morgan("dev"));
 }
 
 // Request Limiting from the same IP
 const Limiter = rateLimit({
-  max: 100,
-  windowMs: 60 * 60 * 1000,
-  message: "To many request from this IP, Please try again in an hour",
+  max: 300,
+  windowMs: 15 * 60 * 1000,
+  message: "Too many requests from this IP, please try again in 15 minutes",
   handler: (req: Request, res: Response) => {
     logger.warn("Rate limit exceeded", {
       ip: req.ip,
@@ -59,7 +57,7 @@ const Limiter = rateLimit({
     });
     res.status(429).json({
       status: "fail",
-      message: "To many request from this IP, Please try again in an hour",
+      message: "Too many requests from this IP, please try again in 15 minutes",
     });
   },
 });
@@ -74,6 +72,11 @@ app.use((req: Request, res: Response, next: NextFunction) => {
     ip: req.ip,
   });
   next();
+});
+
+// Health check
+app.get("/api/v1/health", (_req, res) => {
+  res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
 // product Routes

@@ -23,7 +23,7 @@ import type { CookieOptions } from "express";
 
 const clearUsersListCache = async () => {
   const keys = await redis.keys("users:list:*");
-  if (keys.length > 0) await redis.del(keys);
+  if (keys.length > 0) await Promise.all(keys.map((k) => redis.del(k)));
 };
 
 const buildAuthCookieOptions = (): CookieOptions => {
@@ -167,7 +167,7 @@ export const login = catchAsync(
 
 // Protect routes
 export const Protect = catchAsync(
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (req: Request, _res: Response, next: NextFunction) => {
     let token;
     if (
       req.headers.authorization &&

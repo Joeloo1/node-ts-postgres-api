@@ -12,10 +12,16 @@ import {
 } from "../utils/queryBuilder";
 import logger from "../config/logger";
 
-const REDIS_TTL = 3600; // 1 hour in seconds
+const REDIS_TTL = 3600;
 const getProductKey = (id: string) => `product:${id}`;
-const getProductsQueryKey = (query: any) =>
-  `products:list:${JSON.stringify(query)}`;
+
+// Sort keys so query param order never produces a different cache key
+const getProductsQueryKey = (query: Record<string, unknown>) => {
+  const sorted = Object.keys(query)
+    .sort()
+    .reduce<Record<string, unknown>>((acc, k) => { acc[k] = query[k]; return acc; }, {});
+  return `products:list:${JSON.stringify(sorted)}`;
+};
 
 const productCategoryInclude = {
   category: {
@@ -47,7 +53,7 @@ const baseListSelect = (includeImages: boolean) =>
 
 const clearProductCache = async () => {
   const keys = await redis.keys("products:list:*");
-  if (keys.length > 0) await redis.del(keys);
+  if (keys.length > 0) await Promise.all(keys.map((k) => redis.del(k)));
 };
 
 // CREATE PRODUCT
@@ -103,10 +109,10 @@ export const getAllProducts = catchAsync(
 
     const cacheKey = getProductsQueryKey(req.query);
 
-    //  Try to fetch from Redis
     const cachedData = await redis.get(cacheKey);
     if (cachedData) {
       logger.info("Serving products from cache");
+      res.setHeader("Cache-Control", "public, max-age=30, stale-while-revalidate=600");
       return res.status(200).json(JSON.parse(cachedData));
     }
 
@@ -161,9 +167,9 @@ export const getAllProducts = catchAsync(
         hasPrev: filters.page > 1,
       },
     };
-    // 3. Save to Redis
     await redis.setEx(cacheKey, REDIS_TTL, JSON.stringify(responseData));
 
+    res.setHeader("Cache-Control", "public, max-age=30, stale-while-revalidate=600");
     res.status(200).json(responseData);
   },
 );
@@ -187,6 +193,7 @@ export const getProduct = catchAsync(
         );
         await redis.del(cacheKey);
       } else {
+        res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=600");
         return res.status(200).json({
           status: "Success",
           source: "cached",
@@ -206,10 +213,10 @@ export const getProduct = catchAsync(
       return next(new AppError("Product not found", 400));
     }
 
-    //  Store in Cache
     await redis.setEx(cacheKey, REDIS_TTL, JSON.stringify(product));
 
     logger.info("Product Fetched by ID successfully");
+    res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=600");
     res.status(200).json({
       status: "Success",
       data: { product },

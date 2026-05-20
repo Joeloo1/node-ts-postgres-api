@@ -34,79 +34,124 @@ export function RegisterPage() {
     }
   }
 
+  const inputClass =
+    "mt-1.5 w-full rounded-xl border border-zinc-700/80 bg-zinc-950 px-4 py-3 text-sm text-white placeholder:text-zinc-600 transition focus:border-emerald-500/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/30";
+
   return (
-    <div className="mx-auto max-w-md space-y-8">
-      <div>
-        <h1 className="font-display text-3xl font-bold text-white">Create account</h1>
-        <p className="mt-1 text-zinc-500">Matches POST /api/v1/users/Signup</p>
-      </div>
-      <form onSubmit={onSubmit} className="space-y-4 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
-        {error ? <p className="text-sm text-red-400">{error}</p> : null}
-        <label className="block text-sm">
-          <span className="text-zinc-500">Name</span>
-          <input
-            required
-            minLength={2}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
-          />
-        </label>
-        <label className="block text-sm">
-          <span className="text-zinc-500">Email</span>
-          <input
-            type="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
-          />
-        </label>
-        <label className="block text-sm">
-          <span className="text-zinc-500">Phone (optional)</span>
-          <input
-            value={phoneNumber}
-            onChange={(e) => setPhoneNumber(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
-            placeholder="10–14 digits if provided"
-          />
-        </label>
-        <label className="block text-sm">
-          <span className="text-zinc-500">Password</span>
-          <input
-            type="password"
-            required
-            minLength={8}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
-          />
-        </label>
-        <label className="block text-sm">
-          <span className="text-zinc-500">Confirm password</span>
-          <input
-            type="password"
-            required
-            minLength={8}
-            value={passwordConfirm}
-            onChange={(e) => setPasswordConfirm(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
-          />
-        </label>
-        <button
-          type="submit"
-          disabled={pending}
-          className="w-full rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+    <div className="flex min-h-[72vh] items-center justify-center py-12">
+      <div className="w-full max-w-[460px] space-y-8">
+
+        {/* Brand mark */}
+        <div className="text-center">
+          <div className="mx-auto mb-5 flex size-14 items-center justify-center rounded-2xl bg-emerald-600 font-display text-2xl font-bold text-white shadow-lg shadow-emerald-900/30">
+            N
+          </div>
+          <h1 className="font-display text-2xl font-bold text-white">
+            Create your account
+          </h1>
+          <p className="mt-2 text-sm text-zinc-500">
+            Join Northline and start shopping today
+          </p>
+        </div>
+
+        {/* Form card */}
+        <form
+          onSubmit={onSubmit}
+          className="space-y-4 rounded-2xl border border-zinc-800/80 bg-zinc-900/40 p-7"
         >
-          {pending ? "Creating…" : "Register"}
-        </button>
-      </form>
-      <p className="text-center text-sm text-zinc-500">
-        Already have an account?{" "}
-        <Link to="/login" className="font-medium text-emerald-400 hover:underline">
-          Sign in
-        </Link>
-      </p>
+          {error && (
+            <div className="rounded-xl border border-red-900/40 bg-red-950/30 px-4 py-3">
+              <p className="text-sm text-red-300">{error}</p>
+            </div>
+          )}
+
+          <div>
+            <label className="text-xs font-medium text-zinc-400">Full name</label>
+            <input
+              required
+              minLength={2}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className={inputClass}
+              placeholder="Jane Smith"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-medium text-zinc-400">Email address</label>
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className={inputClass}
+              placeholder="you@example.com"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-medium text-zinc-400">
+              Phone number{" "}
+              <span className="font-normal text-zinc-600">(optional)</span>
+            </label>
+            <input
+              value={phoneNumber}
+              onChange={(e) => setPhoneNumber(e.target.value)}
+              className={inputClass}
+              placeholder="10–14 digits"
+            />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="text-xs font-medium text-zinc-400">Password</label>
+              <input
+                type="password"
+                required
+                minLength={8}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className={inputClass}
+                placeholder="Min. 8 characters"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-zinc-400">Confirm password</label>
+              <input
+                type="password"
+                required
+                minLength={8}
+                value={passwordConfirm}
+                onChange={(e) => setPasswordConfirm(e.target.value)}
+                className={inputClass}
+                placeholder="Re-enter password"
+              />
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={pending}
+            className="w-full rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-500 disabled:opacity-50"
+          >
+            {pending ? "Creating account…" : "Create account"}
+          </button>
+
+          <p className="text-center text-xs text-zinc-600">
+            By creating an account you agree to our terms of service.
+          </p>
+        </form>
+
+        <p className="text-center text-sm text-zinc-500">
+          Already have an account?{" "}
+          <Link
+            to="/login"
+            className="font-semibold text-emerald-400 transition-colors hover:text-emerald-300"
+          >
+            Sign in
+          </Link>
+        </p>
+      </div>
     </div>
   );
 }

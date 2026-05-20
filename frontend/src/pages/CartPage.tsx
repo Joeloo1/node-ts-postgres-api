@@ -4,6 +4,7 @@ import { Spinner } from "../components/Spinner";
 import { ApiError, apiFetch } from "../lib/api";
 import { productImageUrl } from "../lib/productImage";
 import type { Cart } from "../lib/types";
+import { MinusIcon, PackageIcon, PlusIcon, ShieldIcon, TrashIcon, TruckIcon } from "../components/Icons";
 
 type CartRes = { status: string; data: { cart: Cart } };
 
@@ -66,9 +67,9 @@ export function CartPage() {
 
   if (cartQuery.isError) {
     return (
-      <p className="rounded-xl border border-red-900/50 bg-red-950/30 p-4 text-red-200">
-        {(cartQuery.error as Error).message}
-      </p>
+      <div className="rounded-2xl border border-red-900/40 bg-red-950/20 p-6 text-center">
+        <p className="text-sm text-red-300">{(cartQuery.error as Error).message}</p>
+      </div>
     );
   }
 
@@ -78,12 +79,15 @@ export function CartPage() {
 
   if (items.length === 0) {
     return (
-      <div className="rounded-2xl border border-zinc-800 bg-zinc-900/30 p-12 text-center">
-        <h1 className="font-display text-2xl font-bold text-white">Your cart is empty</h1>
-        <p className="mt-2 text-zinc-500">Add something from the shop.</p>
+      <div className="flex flex-col items-center justify-center rounded-3xl border border-zinc-800/70 bg-zinc-900/30 py-20 text-center">
+        <PackageIcon className="size-14 text-zinc-700" />
+        <h1 className="mt-5 font-display text-2xl font-bold text-white">
+          Your cart is empty
+        </h1>
+        <p className="mt-2 text-zinc-500">Add something from the shop to get started.</p>
         <Link
           to="/products"
-          className="mt-6 inline-flex rounded-xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white hover:bg-emerald-500"
+          className="mt-8 inline-flex rounded-xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-500"
         >
           Browse products
         </Link>
@@ -93,59 +97,92 @@ export function CartPage() {
 
   return (
     <div className="space-y-8">
-      <h1 className="font-display text-3xl font-bold text-white">Cart</h1>
+      <div>
+        <h1 className="font-display text-3xl font-bold text-white">Your cart</h1>
+        <p className="mt-1 text-sm text-zinc-500">
+          {items.length} item{items.length !== 1 ? "s" : ""}
+        </p>
+      </div>
+
       <div className="grid gap-8 lg:grid-cols-3">
-        <ul className="space-y-4 lg:col-span-2">
+        {/* Cart items */}
+        <ul className="space-y-3 lg:col-span-2">
           {items.map((line) => (
             <li
               key={line.id}
-              className="flex gap-4 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4"
+              className="flex gap-4 rounded-2xl border border-zinc-800/70 bg-zinc-900/30 p-4 transition-colors hover:border-zinc-700"
             >
               <Link
                 to={`/products/${line.product.product_id}`}
-                className="h-24 w-24 shrink-0 overflow-hidden rounded-lg bg-zinc-900"
+                className="h-24 w-24 shrink-0 overflow-hidden rounded-xl bg-zinc-900"
               >
                 <img
                   src={productImageUrl(line.product)}
-                  alt=""
-                  className="h-full w-full object-cover"
+                  alt={line.product.name}
+                  className="h-full w-full object-cover transition-transform hover:scale-105"
                 />
               </Link>
+
               <div className="min-w-0 flex-1">
                 <Link
                   to={`/products/${line.product.product_id}`}
-                  className="font-medium text-white hover:text-emerald-400"
+                  className="font-medium text-white transition-colors hover:text-emerald-400 line-clamp-2"
                 >
                   {line.product.name}
                 </Link>
-                <p className="mt-1 text-sm tabular-nums text-zinc-500">
+                <p className="mt-0.5 text-sm tabular-nums text-zinc-500">
                   ${line.product.price.toFixed(2)} each
                 </p>
+
                 <div className="mt-3 flex flex-wrap items-center gap-3">
-                  <label className="flex items-center gap-2 text-sm text-zinc-400">
-                    Qty
-                    <input
-                      type="number"
-                      min={1}
-                      max={999}
-                      value={line.quantity}
-                      onChange={(e) => {
-                        const q = Math.max(1, Number(e.target.value) || 1);
-                        updateQty.mutate({ itemId: line.id, quantity: q });
-                      }}
-                      className="w-16 rounded border border-zinc-700 bg-zinc-950 px-2 py-1 text-white"
-                    />
-                  </label>
+                  {/* Qty stepper */}
+                  <div className="flex items-center rounded-lg border border-zinc-700/80 bg-zinc-950">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        updateQty.mutate({
+                          itemId: line.id,
+                          quantity: Math.max(1, line.quantity - 1),
+                        })
+                      }
+                      disabled={updateQty.isPending}
+                      className="px-2.5 py-1.5 text-zinc-400 transition-colors hover:text-white disabled:opacity-50"
+                      aria-label="Decrease quantity"
+                    >
+                      <MinusIcon className="size-3.5" />
+                    </button>
+                    <span className="w-8 select-none text-center text-sm font-semibold text-white">
+                      {line.quantity}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        updateQty.mutate({
+                          itemId: line.id,
+                          quantity: Math.min(999, line.quantity + 1),
+                        })
+                      }
+                      disabled={updateQty.isPending}
+                      className="px-2.5 py-1.5 text-zinc-400 transition-colors hover:text-white disabled:opacity-50"
+                      aria-label="Increase quantity"
+                    >
+                      <PlusIcon className="size-3.5" />
+                    </button>
+                  </div>
+
                   <button
                     type="button"
                     onClick={() => removeItem.mutate(line.id)}
-                    className="text-sm text-red-400 hover:underline"
+                    disabled={removeItem.isPending}
+                    className="flex items-center gap-1.5 text-sm text-zinc-500 transition-colors hover:text-red-400 disabled:opacity-50"
                   >
+                    <TrashIcon className="size-3.5" />
                     Remove
                   </button>
                 </div>
               </div>
-              <div className="text-right">
+
+              <div className="shrink-0 text-right">
                 <p className="font-semibold tabular-nums text-white">
                   ${(line.product.price * line.quantity).toFixed(2)}
                 </p>
@@ -153,43 +190,78 @@ export function CartPage() {
             </li>
           ))}
         </ul>
-        <aside className="h-fit space-y-4 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
-          <h2 className="font-display text-lg font-semibold text-white">Summary</h2>
-          <p className="flex justify-between text-zinc-400">
-            <span>Subtotal</span>
-            <span className="tabular-nums text-white">${subtotal.toFixed(2)}</span>
-          </p>
-          <p className="text-xs text-zinc-600">
-            Checkout creates an order from cart lines and clears the cart (demo flow).
-          </p>
-          {placeOrder.isError ? (
-            <p className="text-sm text-red-400">
+
+        {/* Order summary */}
+        <aside className="h-fit space-y-5 rounded-2xl border border-zinc-800/70 bg-zinc-900/30 p-6">
+          <h2 className="font-display text-lg font-semibold text-white">Order summary</h2>
+
+          <div className="space-y-2.5 text-sm">
+            <div className="flex justify-between text-zinc-400">
+              <span>Subtotal ({items.length} item{items.length !== 1 ? "s" : ""})</span>
+              <span className="tabular-nums text-white">${subtotal.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between text-zinc-400">
+              <span>Shipping</span>
+              <span className="text-emerald-400">
+                {subtotal >= 50 ? "Free" : "$4.99"}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex justify-between border-t border-zinc-800/60 pt-3 text-base font-semibold text-white">
+            <span>Total</span>
+            <span className="tabular-nums">
+              ${(subtotal + (subtotal >= 50 ? 0 : 4.99)).toFixed(2)}
+            </span>
+          </div>
+
+          {subtotal < 50 && (
+            <div className="rounded-xl border border-emerald-900/40 bg-emerald-950/30 px-3 py-2.5 text-xs text-emerald-400">
+              Add ${(50 - subtotal).toFixed(2)} more for free shipping
+            </div>
+          )}
+
+          {placeOrder.isError && (
+            <p className="rounded-xl border border-red-900/40 bg-red-950/30 px-3 py-2 text-sm text-red-300">
               {placeOrder.error instanceof ApiError
                 ? placeOrder.error.message
-                : "Order failed"}
+                : "Order failed — try again"}
             </p>
-          ) : null}
+          )}
+
           <button
             type="button"
             disabled={placeOrder.isPending}
             onClick={() =>
               placeOrder.mutate(
                 items.map((i) => ({ product_id: i.product_id, quantity: i.quantity })),
-                {
-                  onSuccess: (orderId) => navigate(`/orders/${orderId}`),
-                },
+                { onSuccess: (orderId) => navigate(`/orders/${orderId}`) },
               )
             }
-            className="w-full rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+            className="w-full rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-500 disabled:opacity-50"
           >
             {placeOrder.isPending ? "Placing order…" : "Place order"}
           </button>
+
           <Link
             to="/products"
-            className="block text-center text-sm text-zinc-500 hover:text-zinc-300"
+            className="block text-center text-xs text-zinc-500 transition-colors hover:text-zinc-300"
           >
             Continue shopping
           </Link>
+
+          {/* Trust badges */}
+          <div className="space-y-2 border-t border-zinc-800/60 pt-4">
+            {[
+              { icon: ShieldIcon, text: "Secure checkout" },
+              { icon: TruckIcon, text: "Free shipping over $50" },
+            ].map(({ icon: Icon, text }) => (
+              <div key={text} className="flex items-center gap-2 text-xs text-zinc-500">
+                <Icon className="size-4 shrink-0 text-zinc-400" />
+                {text}
+              </div>
+            ))}
+          </div>
         </aside>
       </div>
     </div>

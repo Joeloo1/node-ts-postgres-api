@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Link, useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { CartSkeleton } from "../components/ProductSkeleton";
 import { usePageTitle } from "../hooks/usePageTitle";
 import { ApiError, apiFetch } from "../lib/api";
@@ -10,6 +10,13 @@ import type { Cart } from "../lib/types";
 import { MinusIcon, PackageIcon, PlusIcon, ShieldIcon, TrashIcon, TruckIcon } from "../components/Icons";
 
 type CartRes = { status: string; data: { cart: Cart } };
+
+const stagger: Variants = { hidden: {}, show: { transition: { staggerChildren: 0.07 } } };
+const rowFade: Variants = {
+  hidden: { opacity: 0, y: 14 },
+  show:   { opacity: 1, y: 0, transition: { duration: 0.3, ease: [0.25, 0.1, 0.25, 1] } },
+  exit:   { opacity: 0, x: 30, transition: { duration: 0.2 } },
+};
 
 export function CartPage() {
   usePageTitle("Cart");
@@ -92,12 +99,12 @@ export function CartPage() {
 
   if (items.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-3xl border border-zinc-800/70 bg-zinc-900/30 py-20 text-center">
-        <PackageIcon className="size-14 text-zinc-700" />
-        <h1 className="mt-5 font-display text-2xl font-bold text-white">
+      <div className="flex flex-col items-center justify-center rounded-3xl border border-stroke bg-card py-20 text-center">
+        <PackageIcon className="size-14 text-ink4" />
+        <h1 className="mt-5 font-display text-2xl font-bold text-ink">
           Your cart is empty
         </h1>
-        <p className="mt-2 text-zinc-500">Add something from the shop to get started.</p>
+        <p className="mt-2 text-ink4">Add something from the shop to get started.</p>
         <Link
           to="/products"
           className="mt-8 inline-flex rounded-xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-500"
@@ -110,24 +117,37 @@ export function CartPage() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="font-display text-3xl font-bold text-white">Your cart</h1>
-        <p className="mt-1 text-sm text-zinc-500">
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+      >
+        <h1 className="font-display text-3xl font-bold text-ink">Your cart</h1>
+        <p className="mt-1 text-sm text-ink4">
           {items.length} item{items.length !== 1 ? "s" : ""}
         </p>
-      </div>
+      </motion.div>
 
       <div className="grid gap-8 lg:grid-cols-3">
         {/* Cart items */}
-        <ul className="space-y-3 lg:col-span-2">
+        <motion.ul
+          className="space-y-3 lg:col-span-2"
+          variants={stagger}
+          initial="hidden"
+          animate="show"
+        >
+          <AnimatePresence initial={false}>
           {items.map((line) => (
-            <li
+            <motion.li
               key={line.id}
-              className="flex gap-4 rounded-2xl border border-zinc-800/70 bg-zinc-900/30 p-4 transition-colors hover:border-zinc-700"
+              variants={rowFade}
+              exit="exit"
+              layout
+              className="flex gap-4 rounded-2xl border border-stroke bg-card p-4 transition-colors hover:border-edge"
             >
               <Link
                 to={`/products/${line.product.product_id}`}
-                className="h-24 w-24 shrink-0 overflow-hidden rounded-xl bg-zinc-900"
+                className="h-24 w-24 shrink-0 overflow-hidden rounded-xl bg-raised"
               >
                 <img
                   src={productImageUrl(line.product)}
@@ -139,23 +159,23 @@ export function CartPage() {
               <div className="min-w-0 flex-1">
                 <Link
                   to={`/products/${line.product.product_id}`}
-                  className="font-medium text-white transition-colors hover:text-emerald-400 line-clamp-2"
+                  className="font-medium text-ink transition-colors hover:text-emerald-400 line-clamp-2"
                 >
                   {line.product.name}
                 </Link>
-                <p className="mt-0.5 text-sm tabular-nums text-zinc-500">
+                <p className="mt-0.5 text-sm tabular-nums text-ink4">
                   ${(line.product.discount && line.product.discount > 0
                     ? line.product.price * (1 - line.product.discount / 100)
                     : line.product.price
                   ).toFixed(2)} each
                   {line.product.discount && line.product.discount > 0 ? (
-                    <span className="ml-1.5 text-xs line-through text-zinc-600">${line.product.price.toFixed(2)}</span>
+                    <span className="ml-1.5 text-xs line-through text-ink4">${line.product.price.toFixed(2)}</span>
                   ) : null}
                 </p>
 
                 <div className="mt-3 flex flex-wrap items-center gap-3">
                   {/* Qty stepper */}
-                  <div className="flex items-center rounded-lg border border-zinc-700/80 bg-zinc-950">
+                  <div className="flex items-center rounded-lg border border-stroke bg-input">
                     <button
                       type="button"
                       onClick={() =>
@@ -165,12 +185,12 @@ export function CartPage() {
                         })
                       }
                       disabled={updateQty.isPending}
-                      className="px-2.5 py-1.5 text-zinc-400 transition-colors hover:text-white disabled:opacity-50"
+                      className="px-2.5 py-1.5 text-ink3 transition-colors hover:text-ink disabled:opacity-50"
                       aria-label="Decrease quantity"
                     >
                       <MinusIcon className="size-3.5" />
                     </button>
-                    <span className="w-8 select-none text-center text-sm font-semibold text-white">
+                    <span className="w-8 select-none text-center text-sm font-semibold text-ink">
                       {line.quantity}
                     </span>
                     <button
@@ -182,7 +202,7 @@ export function CartPage() {
                         })
                       }
                       disabled={updateQty.isPending}
-                      className="px-2.5 py-1.5 text-zinc-400 transition-colors hover:text-white disabled:opacity-50"
+                      className="px-2.5 py-1.5 text-ink3 transition-colors hover:text-ink disabled:opacity-50"
                       aria-label="Increase quantity"
                     >
                       <PlusIcon className="size-3.5" />
@@ -193,7 +213,7 @@ export function CartPage() {
                     type="button"
                     onClick={() => removeItem.mutate(line.id)}
                     disabled={removeItem.isPending}
-                    className="flex items-center gap-1.5 text-sm text-zinc-500 transition-colors hover:text-red-400 disabled:opacity-50"
+                    className="flex items-center gap-1.5 text-sm text-ink4 transition-colors hover:text-red-400 disabled:opacity-50"
                   >
                     <TrashIcon className="size-3.5" />
                     Remove
@@ -202,26 +222,32 @@ export function CartPage() {
               </div>
 
               <div className="shrink-0 text-right">
-                <p className="font-semibold tabular-nums text-white">
+                <p className="font-semibold tabular-nums text-ink">
                   ${((line.product.discount && line.product.discount > 0
                     ? line.product.price * (1 - line.product.discount / 100)
                     : line.product.price) * line.quantity).toFixed(2)}
                 </p>
               </div>
-            </li>
+            </motion.li>
           ))}
-        </ul>
+          </AnimatePresence>
+        </motion.ul>
 
         {/* Order summary */}
-        <aside className="h-fit space-y-5 rounded-2xl border border-zinc-800/70 bg-zinc-900/30 p-6">
-          <h2 className="font-display text-lg font-semibold text-white">Order summary</h2>
+        <motion.aside
+          className="h-fit space-y-5 rounded-2xl border border-stroke bg-card p-6"
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.4, delay: 0.15, ease: [0.25, 0.1, 0.25, 1] }}
+        >
+          <h2 className="font-display text-lg font-semibold text-ink">Order summary</h2>
 
           <div className="space-y-2.5 text-sm">
-            <div className="flex justify-between text-zinc-400">
+            <div className="flex justify-between text-ink3">
               <span>Subtotal ({items.length} item{items.length !== 1 ? "s" : ""})</span>
-              <span className="tabular-nums text-white">${subtotal.toFixed(2)}</span>
+              <span className="tabular-nums text-ink">${subtotal.toFixed(2)}</span>
             </div>
-            <div className="flex justify-between text-zinc-400">
+            <div className="flex justify-between text-ink3">
               <span>Shipping</span>
               <span className="text-emerald-400">
                 {subtotal >= 50 ? "Free" : "$4.99"}
@@ -229,7 +255,7 @@ export function CartPage() {
             </div>
           </div>
 
-          <div className="flex justify-between border-t border-zinc-800/60 pt-3 text-base font-semibold text-white">
+          <div className="flex justify-between border-t border-stroke pt-3 text-base font-semibold text-ink">
             <span>Total</span>
             <span className="tabular-nums">
               ${(subtotal + (subtotal >= 50 ? 0 : 4.99)).toFixed(2)}
@@ -237,14 +263,14 @@ export function CartPage() {
           </div>
 
           {/* Shipping progress bar */}
-          <div className="space-y-2 rounded-xl border border-zinc-800/60 bg-zinc-900/40 p-3">
+          <div className="space-y-2 rounded-xl border border-stroke bg-card p-3">
             <div className="flex justify-between text-xs">
-              <span className={subtotal >= SHIP_THRESHOLD ? "font-medium text-emerald-400" : "text-zinc-400"}>
+              <span className={subtotal >= SHIP_THRESHOLD ? "font-medium text-emerald-400" : "text-ink3"}>
                 {subtotal >= SHIP_THRESHOLD ? "🎉 Free shipping unlocked!" : "Free shipping progress"}
               </span>
-              <span className="tabular-nums text-zinc-500">${subtotal.toFixed(2)} / $50</span>
+              <span className="tabular-nums text-ink4">${subtotal.toFixed(2)} / $50</span>
             </div>
-            <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-800">
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-well">
               <motion.div
                 className="h-full rounded-full bg-emerald-500"
                 initial={{ width: 0 }}
@@ -253,8 +279,8 @@ export function CartPage() {
               />
             </div>
             {subtotal < SHIP_THRESHOLD && (
-              <p className="text-xs text-zinc-500">
-                Add <span className="font-semibold text-white">${(SHIP_THRESHOLD - subtotal).toFixed(2)}</span> more for free shipping
+              <p className="text-xs text-ink4">
+                Add <span className="font-semibold text-ink">${(SHIP_THRESHOLD - subtotal).toFixed(2)}</span> more for free shipping
               </p>
             )}
           </div>
@@ -283,24 +309,24 @@ export function CartPage() {
 
           <Link
             to="/products"
-            className="block text-center text-xs text-zinc-500 transition-colors hover:text-zinc-300"
+            className="block text-center text-xs text-ink4 transition-colors hover:text-ink2"
           >
             Continue shopping
           </Link>
 
           {/* Trust badges */}
-          <div className="space-y-2 border-t border-zinc-800/60 pt-4">
+          <div className="space-y-2 border-t border-stroke pt-4">
             {[
               { icon: ShieldIcon, text: "Secure checkout" },
               { icon: TruckIcon, text: "Free shipping over $50" },
             ].map(({ icon: Icon, text }) => (
-              <div key={text} className="flex items-center gap-2 text-xs text-zinc-500">
-                <Icon className="size-4 shrink-0 text-zinc-400" />
+              <div key={text} className="flex items-center gap-2 text-xs text-ink4">
+                <Icon className="size-4 shrink-0 text-ink3" />
                 {text}
               </div>
             ))}
           </div>
-        </aside>
+        </motion.aside>
       </div>
     </div>
   );

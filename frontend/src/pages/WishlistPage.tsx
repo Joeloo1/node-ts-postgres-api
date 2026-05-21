@@ -46,12 +46,12 @@ export function WishlistPage() {
   if (ids.length === 0) {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center gap-6 text-center">
-        <div className="flex size-20 items-center justify-center rounded-3xl bg-zinc-900 border border-zinc-800">
-          <HeartIcon className="size-9 text-zinc-600" />
+        <div className="flex size-20 items-center justify-center rounded-3xl bg-raised border border-stroke">
+          <HeartIcon className="size-9 text-ink4" />
         </div>
         <div>
-          <h1 className="font-display text-2xl font-bold text-white">Your wishlist is empty</h1>
-          <p className="mt-2 text-zinc-500">Save items you love and come back to them anytime.</p>
+          <h1 className="font-display text-2xl font-bold text-ink">Your wishlist is empty</h1>
+          <p className="mt-2 text-ink4">Save items you love and come back to them anytime.</p>
         </div>
         <Link
           to="/products"
@@ -67,8 +67,8 @@ export function WishlistPage() {
     <div className="space-y-8">
       <div className="flex items-end justify-between gap-4">
         <div>
-          <h1 className="font-display text-3xl font-bold text-white">Wishlist</h1>
-          <p className="mt-1 text-zinc-500">{ids.length} saved {ids.length === 1 ? "item" : "items"}</p>
+          <h1 className="font-display text-3xl font-bold text-ink">Wishlist</h1>
+          <p className="mt-1 text-ink4">{ids.length} saved {ids.length === 1 ? "item" : "items"}</p>
         </div>
         <button
           type="button"
@@ -77,7 +77,7 @@ export function WishlistPage() {
               ids.forEach((id) => toggle(id));
             }
           }}
-          className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-400 hover:border-zinc-600 hover:text-zinc-200 transition-colors"
+          className="rounded-lg border border-edge px-3 py-2 text-sm text-ink3 hover:border-edge hover:text-ink2 transition-colors"
         >
           Clear all
         </button>

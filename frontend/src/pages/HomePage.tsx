@@ -108,14 +108,14 @@ export function HomePage() {
             </motion.div>
 
             <motion.h1 variants={cardFade} className="font-display text-5xl font-bold leading-[1.08] tracking-tight sm:text-7xl">
-              <span className="text-white">Quality goods,</span>
+              <span className="text-ink">Quality goods,</span>
               <br />
               <span className="bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-300 bg-clip-text text-transparent">
                 thoughtfully curated.
               </span>
             </motion.h1>
 
-            <motion.p variants={cardFade} className="max-w-lg text-lg leading-relaxed text-zinc-400">
+            <motion.p variants={cardFade} className="max-w-lg text-lg leading-relaxed text-ink3">
               Discover essentials from electronics to everyday items — honest
               pricing, seamless checkout, and products worth keeping.
             </motion.p>
@@ -131,14 +131,14 @@ export function HomePage() {
               {!isSignedIn && (
                 <Link
                   to="/register"
-                  className="inline-flex items-center gap-2 rounded-xl border border-zinc-700 px-7 py-3.5 text-sm font-semibold text-zinc-200 transition-colors hover:border-zinc-600 hover:bg-zinc-800/80"
+                  className="inline-flex items-center gap-2 rounded-xl border border-edge px-7 py-3.5 text-sm font-semibold text-ink2 transition-colors hover:border-edge hover:bg-hover"
                 >
                   Create account
                 </Link>
               )}
             </motion.div>
 
-            <motion.div variants={cardFade} className="flex flex-wrap items-center gap-6 pt-2 text-xs text-zinc-500">
+            <motion.div variants={cardFade} className="flex flex-wrap items-center gap-6 pt-2 text-xs text-ink4">
               <div className="flex items-center gap-1.5">
                 <span className="text-amber-400">★★★★★</span>
                 <span>4.9 / 5 from 2,300+ reviews</span>
@@ -146,7 +146,7 @@ export function HomePage() {
               <div className="flex items-center gap-2">
                 <div className="flex -space-x-2">
                   {["J", "A", "M", "S"].map((l) => (
-                    <div key={l} className="flex size-6 items-center justify-center rounded-full bg-zinc-700 text-[9px] font-bold text-zinc-300 ring-1 ring-zinc-950">
+                    <div key={l} className="flex size-6 items-center justify-center rounded-full bg-well text-[9px] font-bold text-ink2 ring-1 ring-page">
                       {l}
                     </div>
                   ))}
@@ -170,14 +170,14 @@ export function HomePage() {
           <motion.div
             key={title}
             variants={cardFade}
-            className="flex flex-col items-center gap-3 rounded-2xl border border-zinc-800/70 bg-zinc-900/30 p-5 text-center transition-all hover:border-zinc-700 hover:bg-zinc-900/60"
+            className="flex flex-col items-center gap-3 rounded-2xl border border-stroke bg-card p-5 text-center transition-all hover:border-edge hover:bg-raised"
           >
             <div className="flex size-11 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400">
               <Icon className="size-5" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-white">{title}</p>
-              <p className="mt-0.5 text-xs text-zinc-500">{desc}</p>
+              <p className="text-sm font-semibold text-ink">{title}</p>
+              <p className="mt-0.5 text-xs text-ink4">{desc}</p>
             </div>
           </motion.div>
         ))}
@@ -194,7 +194,7 @@ export function HomePage() {
           <div className="mb-7 flex items-end justify-between gap-4">
             <div>
               <p className="text-xs font-semibold uppercase tracking-widest text-emerald-400/80">Browse</p>
-              <h2 className="mt-1 font-display text-2xl font-bold text-white">Shop by category</h2>
+              <h2 className="mt-1 font-display text-2xl font-bold text-ink">Shop by category</h2>
             </div>
             <Link
               to="/products"
@@ -221,7 +221,7 @@ export function HomePage() {
                     className={`group relative flex flex-col overflow-hidden rounded-2xl bg-gradient-to-b ${v.from} to-zinc-950 ring-1 ${v.ring} p-5 transition-all duration-300 hover:scale-[1.03] hover:shadow-xl hover:shadow-black/40`}
                   >
                     <span className="text-3xl">{v.emoji}</span>
-                    <p className="mt-3 text-sm font-semibold text-zinc-200 group-hover:text-white transition-colors">
+                    <p className="mt-3 text-sm font-semibold text-ink2 group-hover:text-ink transition-colors">
                       {cat.name}
                     </p>
                     <div className="absolute -right-3 -top-3 text-6xl opacity-[0.07] transition-transform duration-300 group-hover:scale-110 group-hover:opacity-[0.12]">
@@ -245,8 +245,8 @@ export function HomePage() {
         <div className="mb-8 flex items-end justify-between gap-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-widest text-emerald-400/80">Fresh stock</p>
-            <h2 className="mt-1 font-display text-2xl font-bold text-white">New arrivals</h2>
-            <p className="mt-1 text-sm text-zinc-500">The latest additions to our catalog</p>
+            <h2 className="mt-1 font-display text-2xl font-bold text-ink">New arrivals</h2>
+            <p className="mt-1 text-sm text-ink4">The latest additions to our catalog</p>
           </div>
           <Link
             to="/products"
@@ -297,10 +297,10 @@ export function HomePage() {
           }}
         />
         <div className="relative">
-          <h2 className="font-display text-4xl font-bold text-white sm:text-5xl">
+          <h2 className="font-display text-4xl font-bold text-ink sm:text-5xl">
             Ready to start shopping?
           </h2>
-          <p className="mx-auto mt-4 max-w-md text-zinc-400">
+          <p className="mx-auto mt-4 max-w-md text-ink3">
             Join thousands of customers who trust Northline for quality essentials.
           </p>
           <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
@@ -321,7 +321,7 @@ export function HomePage() {
             )}
             <Link
               to="/products"
-              className="inline-flex items-center gap-2 rounded-xl border border-zinc-600 px-7 py-3.5 text-sm font-semibold text-zinc-200 transition-colors hover:border-zinc-500 hover:bg-zinc-800/80"
+              className="inline-flex items-center gap-2 rounded-xl border border-edge px-7 py-3.5 text-sm font-semibold text-ink2 transition-colors hover:border-edge hover:bg-hover"
             >
               Browse catalog
             </Link>

@@ -43,11 +43,11 @@ export function LoginPage() {
   }
 
   const inputClass =
-    "w-full rounded-xl border border-zinc-700/80 bg-zinc-950 px-4 py-3 text-sm text-white placeholder:text-zinc-600 transition focus:border-emerald-500/60 focus:outline-none focus:ring-2 focus:ring-emerald-500/20";
+    "w-full rounded-xl border border-stroke bg-input px-4 py-3 text-sm text-ink placeholder:text-ink4 transition focus:border-emerald-500/60 focus:outline-none focus:ring-2 focus:ring-emerald-500/20";
 
   return (
     <div className="flex min-h-[82vh] items-center justify-center py-10">
-      <div className="grid w-full max-w-4xl overflow-hidden rounded-3xl border border-zinc-800/80 bg-zinc-900/30 lg:grid-cols-[1fr_1.1fr]">
+      <div className="grid w-full max-w-4xl overflow-hidden rounded-3xl border border-stroke bg-card lg:grid-cols-[1fr_1.1fr]">
 
         {/* Left panel — brand */}
         <div className="relative hidden flex-col justify-between overflow-hidden bg-emerald-950/60 p-10 lg:flex">
@@ -103,8 +103,8 @@ export function LoginPage() {
           </div>
 
           <div className="mb-8">
-            <h1 className="font-display text-2xl font-bold text-white">Welcome back</h1>
-            <p className="mt-1.5 text-sm text-zinc-500">Sign in to your account to continue</p>
+            <h1 className="font-display text-2xl font-bold text-ink">Welcome back</h1>
+            <p className="mt-1.5 text-sm text-ink4">Sign in to your account to continue</p>
           </div>
 
           <form onSubmit={onSubmit} className="space-y-5">
@@ -119,7 +119,7 @@ export function LoginPage() {
             )}
 
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-zinc-400">Email address</label>
+              <label className="text-xs font-medium text-ink3">Email address</label>
               <input
                 type="email"
                 autoComplete="email"
@@ -133,7 +133,7 @@ export function LoginPage() {
 
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-medium text-zinc-400">Password</label>
+                <label className="text-xs font-medium text-ink3">Password</label>
                 <Link
                   to="/forgot-password"
                   className="text-xs font-medium text-emerald-500 hover:text-emerald-400 transition-colors"
@@ -156,7 +156,7 @@ export function LoginPage() {
                   type="button"
                   tabIndex={-1}
                   onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-ink4 hover:text-ink2 transition-colors"
                   aria-label={showPassword ? "Hide password" : "Show password"}
                 >
                   {showPassword ? <EyeOffIcon className="size-4.5" /> : <EyeIcon className="size-4.5" />}
@@ -183,7 +183,7 @@ export function LoginPage() {
             </button>
           </form>
 
-          <p className="mt-8 text-center text-sm text-zinc-500">
+          <p className="mt-8 text-center text-sm text-ink4">
             No account?{" "}
             <Link to="/register" className="font-semibold text-emerald-400 hover:text-emerald-300 transition-colors">
               Create one for free

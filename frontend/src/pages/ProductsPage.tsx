@@ -91,7 +91,7 @@ export function ProductsPage() {
     : null;
 
   const inputClass =
-    "w-full rounded-xl border border-zinc-700/80 bg-zinc-950 px-3 py-2.5 text-sm text-white placeholder:text-zinc-600 transition focus:border-emerald-500/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/30";
+    "w-full rounded-xl border border-stroke bg-input px-3 py-2.5 text-sm text-ink placeholder:text-ink4 transition focus:border-emerald-500/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/30";
 
   return (
     <div>
@@ -99,17 +99,17 @@ export function ProductsPage() {
       <div className="mb-8 flex items-center justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-widest text-emerald-400/80">Catalog</p>
-          <h1 className="mt-1 font-display text-3xl font-bold text-white">Shop</h1>
+          <h1 className="mt-1 font-display text-3xl font-bold text-ink">Shop</h1>
         </div>
         <div className="flex items-center gap-3">
           {data?.pagination && (
-            <p className="text-sm text-zinc-500">{data.pagination.total} product{data.pagination.total !== 1 ? "s" : ""}</p>
+            <p className="text-sm text-ink4">{data.pagination.total} product{data.pagination.total !== 1 ? "s" : ""}</p>
           )}
           {/* Mobile filter toggle */}
           <button
             type="button"
             onClick={() => setSidebarOpen((x) => !x)}
-            className="flex items-center gap-2 rounded-xl border border-zinc-700/80 bg-zinc-900/40 px-4 py-2.5 text-sm font-medium text-zinc-300 transition-colors hover:border-zinc-600 hover:text-white lg:hidden"
+            className="flex items-center gap-2 rounded-xl border border-stroke bg-card px-4 py-2.5 text-sm font-medium text-ink2 transition-colors hover:border-edge hover:text-ink lg:hidden"
           >
             <SlidersIcon className="size-4" />
             Filters
@@ -133,7 +133,7 @@ export function ProductsPage() {
 
             {/* Search */}
             <div>
-              <p className="mb-2.5 text-xs font-semibold uppercase tracking-widest text-zinc-400">Search</p>
+              <p className="mb-2.5 text-xs font-semibold uppercase tracking-widest text-ink3">Search</p>
               <div className="relative">
                 <SearchIcon className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-500" />
                 <input
@@ -159,7 +159,7 @@ export function ProductsPage() {
 
             {/* Sort */}
             <div>
-              <p className="mb-2.5 text-xs font-semibold uppercase tracking-widest text-zinc-400">Sort by</p>
+              <p className="mb-2.5 text-xs font-semibold uppercase tracking-widest text-ink3">Sort by</p>
               <div className="space-y-1">
                 {SORT_OPTIONS.map((opt) => (
                   <button
@@ -169,10 +169,10 @@ export function ProductsPage() {
                     className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm transition-colors ${
                       sortKey === opt.value
                         ? "bg-emerald-600/20 text-emerald-400 font-medium"
-                        : "text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-200"
+                        : "text-ink3 hover:bg-hover hover:text-ink2"
                     }`}
                   >
-                    <span className={`size-1.5 rounded-full shrink-0 ${sortKey === opt.value ? "bg-emerald-400" : "bg-zinc-700"}`} />
+                    <span className={`size-1.5 rounded-full shrink-0 ${sortKey === opt.value ? "bg-emerald-400" : "bg-edge"}`} />
                     {opt.label}
                   </button>
                 ))}
@@ -182,7 +182,7 @@ export function ProductsPage() {
             {/* Categories */}
             {categories && categories.length > 0 && (
               <div>
-                <p className="mb-2.5 text-xs font-semibold uppercase tracking-widest text-zinc-400">Category</p>
+                <p className="mb-2.5 text-xs font-semibold uppercase tracking-widest text-ink3">Category</p>
                 <div className="space-y-1">
                   <button
                     type="button"
@@ -190,10 +190,10 @@ export function ProductsPage() {
                     className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm transition-colors ${
                       !categoryId
                         ? "bg-emerald-600/20 text-emerald-400 font-medium"
-                        : "text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-200"
+                        : "text-ink3 hover:bg-hover hover:text-ink2"
                     }`}
                   >
-                    <span className={`size-1.5 rounded-full shrink-0 ${!categoryId ? "bg-emerald-400" : "bg-zinc-700"}`} />
+                    <span className={`size-1.5 rounded-full shrink-0 ${!categoryId ? "bg-emerald-400" : "bg-edge"}`} />
                     All categories
                   </button>
                   {categories.map((c) => (
@@ -204,10 +204,10 @@ export function ProductsPage() {
                       className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm transition-colors ${
                         categoryId === String(c.category_id)
                           ? "bg-emerald-600/20 text-emerald-400 font-medium"
-                          : "text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-200"
+                          : "text-ink3 hover:bg-hover hover:text-ink2"
                       }`}
                     >
-                      <span className={`size-1.5 rounded-full shrink-0 ${categoryId === String(c.category_id) ? "bg-emerald-400" : "bg-zinc-700"}`} />
+                      <span className={`size-1.5 rounded-full shrink-0 ${categoryId === String(c.category_id) ? "bg-emerald-400" : "bg-edge"}`} />
                       {c.name}
                     </button>
                   ))}
@@ -220,7 +220,7 @@ export function ProductsPage() {
               <button
                 type="button"
                 onClick={clearFilters}
-                className="flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-700/80 px-4 py-2.5 text-sm font-medium text-zinc-400 transition-colors hover:border-zinc-600 hover:text-zinc-200"
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-stroke px-4 py-2.5 text-sm font-medium text-ink3 transition-colors hover:border-edge hover:text-ink2"
               >
                 <XIcon className="size-4" />
                 Clear filters
@@ -236,17 +236,17 @@ export function ProductsPage() {
           {hasActiveFilters && (
             <div className="flex flex-wrap items-center gap-2">
               {search && (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-zinc-800 px-3 py-1 text-xs font-medium text-zinc-300">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-well px-3 py-1 text-xs font-medium text-ink2">
                   &quot;{search}&quot;
-                  <button type="button" onClick={() => { setName(""); setSearch(""); setPage(1); }} className="text-zinc-500 hover:text-white" aria-label="Remove search">
+                  <button type="button" onClick={() => { setName(""); setSearch(""); setPage(1); }} className="text-ink4 hover:text-ink" aria-label="Remove search">
                     <XIcon className="size-3" />
                   </button>
                 </span>
               )}
               {categoryId && selectedCategoryName && (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-zinc-800 px-3 py-1 text-xs font-medium text-zinc-300">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-well px-3 py-1 text-xs font-medium text-ink2">
                   {selectedCategoryName}
-                  <button type="button" onClick={() => { setCategoryId(""); setPage(1); }} className="text-zinc-500 hover:text-white" aria-label="Remove category">
+                  <button type="button" onClick={() => { setCategoryId(""); setPage(1); }} className="text-ink4 hover:text-ink" aria-label="Remove category">
                     <XIcon className="size-3" />
                   </button>
                 </span>
@@ -262,14 +262,14 @@ export function ProductsPage() {
               <p className="text-sm text-red-300">{(error as Error).message}</p>
             </div>
           ) : data?.data.products.length === 0 ? (
-            <div className="rounded-2xl border border-zinc-800/70 bg-zinc-900/30 py-24 text-center">
-              <FilterIcon className="mx-auto size-12 text-zinc-700" />
-              <p className="mt-4 font-semibold text-zinc-400">No products found</p>
-              <p className="mt-1 text-sm text-zinc-600">Try adjusting your filters</p>
+            <div className="rounded-2xl border border-stroke bg-card py-24 text-center">
+              <FilterIcon className="mx-auto size-12 text-ink4" />
+              <p className="mt-4 font-semibold text-ink3">No products found</p>
+              <p className="mt-1 text-sm text-ink4">Try adjusting your filters</p>
               <button
                 type="button"
                 onClick={clearFilters}
-                className="mt-6 rounded-xl bg-zinc-800 px-5 py-2.5 text-sm font-semibold text-zinc-200 transition-colors hover:bg-zinc-700"
+                className="mt-6 rounded-xl bg-well px-5 py-2.5 text-sm font-semibold text-ink2 transition-colors hover:bg-raised"
               >
                 Clear filters
               </button>
@@ -297,7 +297,7 @@ export function ProductsPage() {
                     type="button"
                     disabled={!data.pagination.hasPrev}
                     onClick={() => setPage((x) => Math.max(1, x - 1))}
-                    className="rounded-xl border border-zinc-700/80 bg-zinc-900/50 px-5 py-2.5 text-sm font-medium text-zinc-200 transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-30"
+                    className="rounded-xl border border-stroke bg-card px-5 py-2.5 text-sm font-medium text-ink2 transition-colors hover:bg-hover disabled:cursor-not-allowed disabled:opacity-30"
                   >
                     ← Previous
                   </button>
@@ -312,7 +312,7 @@ export function ProductsPage() {
                       }, [])
                       .map((item, i) =>
                         item === "ellipsis" ? (
-                          <span key={`e-${i}`} className="px-2 text-sm text-zinc-600">…</span>
+                          <span key={`e-${i}`} className="px-2 text-sm text-ink4">…</span>
                         ) : (
                           <button
                             key={item}
@@ -321,7 +321,7 @@ export function ProductsPage() {
                             className={`size-10 rounded-xl text-sm font-medium transition-colors ${
                               item === page
                                 ? "bg-emerald-600 text-white"
-                                : "border border-zinc-700/80 bg-zinc-900/50 text-zinc-300 hover:bg-zinc-800"
+                                : "border border-stroke bg-card text-ink2 hover:bg-hover"
                             }`}
                           >
                             {item}
@@ -334,7 +334,7 @@ export function ProductsPage() {
                     type="button"
                     disabled={!data.pagination.hasNext}
                     onClick={() => setPage((x) => x + 1)}
-                    className="rounded-xl border border-zinc-700/80 bg-zinc-900/50 px-5 py-2.5 text-sm font-medium text-zinc-200 transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-30"
+                    className="rounded-xl border border-stroke bg-card px-5 py-2.5 text-sm font-medium text-ink2 transition-colors hover:bg-hover disabled:cursor-not-allowed disabled:opacity-30"
                   >
                     Next →
                   </button>

@@ -129,7 +129,7 @@ export function RegisterPage() {
           {/* Mobile brand */}
           <div className="mb-8 flex items-center gap-2.5 lg:hidden">
             <div className="flex size-8 items-center justify-center rounded-xl bg-emerald-600 font-display font-bold text-white">N</div>
-            <span className="font-display text-base font-semibold text-white">Northline</span>
+            <span className="font-display text-base font-semibold text-ink">Northline</span>
           </div>
 
           <div className="mb-7">

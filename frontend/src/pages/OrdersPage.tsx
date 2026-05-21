@@ -15,11 +15,11 @@ type OrdersRes = {
 };
 
 const statusStyles: Record<string, { label: string; className: string }> = {
-  PENDING:    { label: "Pending",    className: "bg-amber-500/15 text-amber-400 border-amber-500/20" },
-  PAID:       { label: "Paid",       className: "bg-emerald-500/15 text-emerald-400 border-emerald-500/20" },
-  PROCESSING: { label: "Processing", className: "bg-sky-500/15 text-sky-400 border-sky-500/20" },
-  SHIPPED:    { label: "Shipped",    className: "bg-violet-500/15 text-violet-400 border-violet-500/20" },
-  DELIVERED:  { label: "Delivered",  className: "bg-emerald-500/15 text-emerald-300 border-emerald-500/20" },
+  PENDING:    { label: "Pending",    className: "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/25" },
+  PAID:       { label: "Paid",       className: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/25" },
+  PROCESSING: { label: "Processing", className: "bg-sky-500/15 text-sky-700 dark:text-sky-400 border-sky-500/25" },
+  SHIPPED:    { label: "Shipped",    className: "bg-violet-500/15 text-violet-700 dark:text-violet-400 border-violet-500/25" },
+  DELIVERED:  { label: "Delivered",  className: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/25" },
   CANCELLED:  { label: "Cancelled",  className: "bg-well text-ink4 border-edge/40" },
 };
 

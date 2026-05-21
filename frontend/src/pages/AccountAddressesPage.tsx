@@ -22,13 +22,13 @@ const card = {
   show: (i: number) => ({
     opacity: 1,
     y: 0,
-    transition: { duration: 0.35, delay: i * 0.09, ease: [0.25, 0.1, 0.25, 1] as number[] },
+    transition: { duration: 0.35, delay: i * 0.09, ease: [0.25, 0.1, 0.25, 1] as [number, number, number, number] },
   }),
 };
 
 const listItem = {
   hidden: { opacity: 0, x: -12 },
-  show: { opacity: 1, x: 0, transition: { duration: 0.28, ease: [0.25, 0.1, 0.25, 1] as number[] } },
+  show: { opacity: 1, x: 0, transition: { duration: 0.28, ease: [0.25, 0.1, 0.25, 1] as [number, number, number, number] } },
   exit: { opacity: 0, x: 12, transition: { duration: 0.2 } },
 };
 

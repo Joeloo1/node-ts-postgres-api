@@ -31,7 +31,7 @@ const containerVariants = {
 
 const itemVariants = {
   hidden: { opacity: 0, y: 16 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.25, 0.1, 0.25, 1] as number[] } },
+  show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.25, 0.1, 0.25, 1] as [number, number, number, number] } },
 };
 
 export function AccountPage() {
@@ -78,7 +78,7 @@ export function AccountPage() {
             className="overflow-hidden rounded-2xl border border-stroke bg-card"
           >
             {/* Gradient header */}
-            <div className="relative h-16 bg-gradient-to-br from-emerald-900/60 via-zinc-900 to-zinc-900">
+            <div className="relative h-16 bg-gradient-to-br from-emerald-500/20 via-emerald-500/5 to-transparent dark:from-emerald-900/60 dark:via-zinc-900/80 dark:to-zinc-900">
               <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-10%,rgba(16,185,129,0.15),transparent)]" />
             </div>
 

@@ -261,7 +261,7 @@ export function ProductDetailPage() {
               </span>
             )}
             {p.availability ? (
-              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-400">
+              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
                 <span className="size-1.5 rounded-full bg-emerald-500" />
                 In stock
               </span>
@@ -282,7 +282,7 @@ export function ProductDetailPage() {
             {p.discount && p.discount > 0 ? (
               <>
                 <span className="text-lg text-ink4 line-through">${p.price.toFixed(2)}</span>
-                <span className="rounded-full border border-emerald-500/20 bg-emerald-500/15 px-2.5 py-0.5 text-sm font-bold text-emerald-400">
+                <span className="rounded-full border border-emerald-500/20 bg-emerald-500/15 px-2.5 py-0.5 text-sm font-bold text-emerald-700 dark:text-emerald-400">
                   −{Math.round(p.discount)}%
                 </span>
               </>
@@ -358,7 +358,7 @@ export function ProductDetailPage() {
             </div>
 
             {!p.availability && (
-              <p className="text-sm text-amber-300/90">This item is currently out of stock.</p>
+              <p className="text-sm text-amber-700 dark:text-amber-300/90">This item is currently out of stock.</p>
             )}
           </div>
 
@@ -500,7 +500,7 @@ export function ProductDetailPage() {
               <button
                 type="submit"
                 disabled={reviewMutation.isPending}
-                className="rounded-xl bg-zinc-100 px-5 py-2.5 text-sm font-semibold text-zinc-900 transition-colors hover:bg-white disabled:opacity-50"
+                className="rounded-xl border border-stroke bg-raised px-5 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-well disabled:opacity-50"
               >
                 {reviewMutation.isPending ? "Submitting…" : "Submit review"}
               </button>

@@ -135,7 +135,7 @@ export function ProductsPage() {
             <div>
               <p className="mb-2.5 text-xs font-semibold uppercase tracking-widest text-ink3">Search</p>
               <div className="relative">
-                <SearchIcon className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-500" />
+                <SearchIcon className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink4" />
                 <input
                   value={name}
                   onChange={(e) => setName(e.target.value)}

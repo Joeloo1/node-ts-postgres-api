@@ -2,17 +2,67 @@
 @import "@fontsource-variable/dm-sans";
 @import "@fontsource-variable/instrument-sans";
 
+/* Class-based dark mode: dark: variants apply inside .dark */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --font-sans: "DM Sans Variable", "DM Sans", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Instrument Sans Variable", "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
+
+  /* ── Semantic color tokens (light mode defaults) ─────────────────── */
+
+  /* Backgrounds */
+  --color-page:   #ffffff;                  /* page bg */
+  --color-card:   rgba(249,250,251,0.85);   /* card/surface bg */
+  --color-raised: #f3f4f6;                  /* elevated/panel bg */
+  --color-well:   #e5e7eb;                  /* inset/muted bg */
+
+  /* Borders */
+  --color-stroke: #e5e7eb;                  /* primary border */
+  --color-edge:   #d1d5db;                  /* stronger border */
+
+  /* Text */
+  --color-ink:    #111827;                  /* primary text */
+  --color-ink2:   #374151;                  /* secondary text */
+  --color-ink3:   #6b7280;                  /* muted text */
+  --color-ink4:   #9ca3af;                  /* very muted */
+
+  /* Interactive */
+  --color-hover:  #f3f4f6;                  /* hover bg */
+  --color-active: #e5e7eb;                  /* active/selected bg */
+  --color-input:  #ffffff;                  /* input background */
 }
 
+/* ── Dark mode overrides ─────────────────────────────────────────────── */
+.dark {
+  --color-page:   #09090b;
+  --color-card:   rgba(24,24,27,0.45);
+  --color-raised: #18181b;
+  --color-well:   #27272a;
+
+  --color-stroke: #27272a;
+  --color-edge:   #3f3f46;
+
+  --color-ink:    #f4f4f5;
+  --color-ink2:   #d4d4d8;
+  --color-ink3:   #71717a;
+  --color-ink4:   #52525b;
+
+  --color-hover:  rgba(39,39,42,0.6);
+  --color-active: rgba(39,39,42,0.8);
+  --color-input:  #09090b;
+}
+
+/* ── Base styles ─────────────────────────────────────────────────────── */
 html {
   @apply antialiased scroll-smooth;
 }
 
 body {
-  @apply min-h-screen bg-zinc-950 text-zinc-100 font-sans;
+  @apply min-h-screen font-sans;
+  background-color: var(--color-page);
+  color: var(--color-ink);
+  transition: background-color 0.2s ease, color 0.15s ease;
 }
 
 #root {
@@ -26,13 +76,13 @@ body {
 /* Scrollbar */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { @apply rounded-full bg-zinc-700; }
-::-webkit-scrollbar-thumb:hover { @apply bg-zinc-600; }
+::-webkit-scrollbar-thumb { @apply rounded-full; background-color: var(--color-edge); }
+::-webkit-scrollbar-thumb:hover { background-color: var(--color-ink3); }
 
 /* Selection */
-::selection { @apply bg-emerald-500/20 text-white; }
+::selection { @apply bg-emerald-500/20 text-emerald-900 dark:text-white; }
 
-/* Animations */
+/* ── Animations ──────────────────────────────────────────────────────── */
 @keyframes fade-up {
   from { opacity: 0; transform: translateY(14px); }
   to   { opacity: 1; transform: translateY(0); }
@@ -51,6 +101,6 @@ body {
   100% { transform: scale(1.8); opacity: 0; }
 }
 
-.animate-fade-up   { animation: fade-up 0.45s ease forwards; }
-.animate-fade-in   { animation: fade-in 0.25s ease forwards; }
+.animate-fade-up    { animation: fade-up 0.45s ease forwards; }
+.animate-fade-in    { animation: fade-in 0.25s ease forwards; }
 .animate-slide-right { animation: slide-right 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards; }

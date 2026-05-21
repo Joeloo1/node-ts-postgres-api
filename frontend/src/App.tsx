@@ -6,6 +6,7 @@ import { AdminRoute } from "./components/AdminRoute";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AuthProvider } from "./context/AuthContext";
 import { WishlistProvider } from "./context/WishlistContext";
+import { ThemeProvider } from "./context/ThemeContext";
 import { AccountPage } from "./pages/AccountPage";
 import { AccountAddressesPage } from "./pages/AccountAddressesPage";
 import { AccountProfilePage } from "./pages/AccountProfilePage";
@@ -42,6 +43,7 @@ const queryClient = new QueryClient({
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
+      <ThemeProvider>
       <AuthProvider>
         <WishlistProvider>
         <BrowserRouter>
@@ -123,6 +125,7 @@ export default function App() {
         </BrowserRouter>
         </WishlistProvider>
       </AuthProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }

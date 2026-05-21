@@ -26,7 +26,7 @@ function getPasswordStrength(pw: string): Strength {
 }
 
 const strengthConfig = {
-  empty: { label: "", color: "bg-zinc-800", width: "w-0", textColor: "" },
+  empty: { label: "", color: "bg-well", width: "w-0", textColor: "" },
   weak: { label: "Weak", color: "bg-red-500", width: "w-1/3", textColor: "text-red-400" },
   fair: { label: "Fair", color: "bg-amber-500", width: "w-2/3", textColor: "text-amber-400" },
   strong: { label: "Strong", color: "bg-emerald-500", width: "w-full", textColor: "text-emerald-400" },
@@ -73,11 +73,11 @@ export function RegisterPage() {
   }
 
   const inputClass =
-    "w-full rounded-xl border border-zinc-700/80 bg-zinc-950 px-4 py-3 text-sm text-white placeholder:text-zinc-600 transition focus:border-emerald-500/60 focus:outline-none focus:ring-2 focus:ring-emerald-500/20";
+    "w-full rounded-xl border border-stroke bg-input px-4 py-3 text-sm text-ink placeholder:text-ink4 transition focus:border-emerald-500/60 focus:outline-none focus:ring-2 focus:ring-emerald-500/20";
 
   return (
     <div className="flex min-h-[82vh] items-center justify-center py-10">
-      <div className="grid w-full max-w-4xl overflow-hidden rounded-3xl border border-zinc-800/80 bg-zinc-900/30 lg:grid-cols-[1fr_1.2fr]">
+      <div className="grid w-full max-w-4xl overflow-hidden rounded-3xl border border-stroke bg-card lg:grid-cols-[1fr_1.2fr]">
 
         {/* Left panel — brand */}
         <div className="relative hidden flex-col justify-between overflow-hidden bg-emerald-950/60 p-10 lg:flex">
@@ -129,12 +129,12 @@ export function RegisterPage() {
           {/* Mobile brand */}
           <div className="mb-8 flex items-center gap-2.5 lg:hidden">
             <div className="flex size-8 items-center justify-center rounded-xl bg-emerald-600 font-display font-bold text-white">N</div>
-            <span className="font-display text-base font-semibold text-white">Northline</span>
+            <span className="font-display text-base font-semibold text-ink">Northline</span>
           </div>
 
           <div className="mb-7">
-            <h1 className="font-display text-2xl font-bold text-white">Create your account</h1>
-            <p className="mt-1.5 text-sm text-zinc-500">Free forever. No credit card required.</p>
+            <h1 className="font-display text-2xl font-bold text-ink">Create your account</h1>
+            <p className="mt-1.5 text-sm text-ink4">Free forever. No credit card required.</p>
           </div>
 
           <form onSubmit={onSubmit} className="space-y-4">
@@ -150,7 +150,7 @@ export function RegisterPage() {
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-zinc-400">Full name</label>
+                <label className="text-xs font-medium text-ink3">Full name</label>
                 <input
                   required
                   minLength={2}
@@ -162,8 +162,8 @@ export function RegisterPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-zinc-400">
-                  Phone{" "}<span className="text-zinc-600 font-normal">(optional)</span>
+                <label className="text-xs font-medium text-ink3">
+                  Phone{" "}<span className="text-ink4 font-normal">(optional)</span>
                 </label>
                 <input
                   value={phoneNumber}
@@ -176,7 +176,7 @@ export function RegisterPage() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-zinc-400">Email address</label>
+              <label className="text-xs font-medium text-ink3">Email address</label>
               <input
                 type="email"
                 required
@@ -189,7 +189,7 @@ export function RegisterPage() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-zinc-400">Password</label>
+              <label className="text-xs font-medium text-ink3">Password</label>
               <div className="relative">
                 <input
                   type={showPassword ? "text" : "password"}
@@ -205,7 +205,7 @@ export function RegisterPage() {
                   type="button"
                   tabIndex={-1}
                   onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-ink4 hover:text-ink2 transition-colors"
                   aria-label={showPassword ? "Hide password" : "Show password"}
                 >
                   {showPassword ? <EyeOffIcon className="size-4.5" /> : <EyeIcon className="size-4.5" />}
@@ -214,7 +214,7 @@ export function RegisterPage() {
               {/* Strength meter */}
               {password.length > 0 && (
                 <div className="space-y-1 pt-0.5">
-                  <div className="h-1 w-full rounded-full bg-zinc-800 overflow-hidden">
+                  <div className="h-1 w-full rounded-full bg-well overflow-hidden">
                     <div
                       className={`h-full rounded-full transition-all duration-500 ${sc.color} ${sc.width}`}
                     />
@@ -225,7 +225,7 @@ export function RegisterPage() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-zinc-400">Confirm password</label>
+              <label className="text-xs font-medium text-ink3">Confirm password</label>
               <div className="relative">
                 <input
                   type={showConfirm ? "text" : "password"}
@@ -247,7 +247,7 @@ export function RegisterPage() {
                   type="button"
                   tabIndex={-1}
                   onClick={() => setShowConfirm((v) => !v)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-ink4 hover:text-ink2 transition-colors"
                   aria-label={showConfirm ? "Hide password" : "Show password"}
                 >
                   {showConfirm ? <EyeOffIcon className="size-4.5" /> : <EyeIcon className="size-4.5" />}
@@ -279,12 +279,12 @@ export function RegisterPage() {
               )}
             </button>
 
-            <p className="text-center text-xs text-zinc-600">
+            <p className="text-center text-xs text-ink4">
               By creating an account you agree to our terms of service.
             </p>
           </form>
 
-          <p className="mt-6 text-center text-sm text-zinc-500">
+          <p className="mt-6 text-center text-sm text-ink4">
             Already have an account?{" "}
             <Link to="/login" className="font-semibold text-emerald-400 hover:text-emerald-300 transition-colors">
               Sign in

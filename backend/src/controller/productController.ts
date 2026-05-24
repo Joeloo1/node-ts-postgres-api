@@ -4,6 +4,7 @@ import { client as redis } from "../config/redis";
 import catchAsync from "../utils/catchAsync";
 import AppError from "../utils/AppError";
 import { productQuerySchema } from "../Schema/querySchema";
+import { updateProductSchema } from "../Schema/productSchema";
 import {
   buildWhereClause,
   buildOrderByClause,
@@ -11,6 +12,7 @@ import {
   getPaginationParams,
 } from "../utils/queryBuilder";
 import logger from "../config/logger";
+import { scanDel } from "../config/redis";
 
 const REDIS_TTL = 3600;
 const getProductKey = (id: string) => `product:${id}`;
@@ -52,8 +54,7 @@ const baseListSelect = (includeImages: boolean) =>
   }) as any;
 
 const clearProductCache = async () => {
-  const keys = await redis.keys("products:list:*");
-  if (keys.length > 0) await Promise.all(keys.map((k) => redis.del(k)));
+  await scanDel("products:list:*");
 };
 
 // CREATE PRODUCT
@@ -228,7 +229,7 @@ export const getProduct = catchAsync(
 export const updateProduct = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
     const productId = req.params.id;
-    const data = req.body;
+    const data = updateProductSchema.parse(req.body);
 
     const existingProduct = await prisma.products.findUnique({
       where: { product_id: productId },

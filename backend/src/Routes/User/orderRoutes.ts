@@ -2,6 +2,7 @@ import express from "express";
 import { Protect, restrictTo } from "../../controller/authController";
 import {
   createOrder,
+  checkoutFromCart,
   getMyOrder,
   getOrderById,
   updateOrder,
@@ -14,6 +15,7 @@ const router = express.Router();
 router.use(Protect);
 
 router.route("/").get(getMyOrder).post(createOrder);
+router.post("/checkout", checkoutFromCart);
 
 router
   .route("/:id")

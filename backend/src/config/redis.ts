@@ -37,6 +37,17 @@ export const client = new Proxy({} as RedisClientType, {
 
 export const getClient = initializeClient;
 
+// SCAN-safe cache invalidation — avoids blocking KEYS command in production
+export const scanDel = async (pattern: string): Promise<void> => {
+  const rc = initializeClient();
+  const keys: string[] = [];
+  for await (const page of rc.scanIterator({ MATCH: pattern, COUNT: 100 })) {
+    const pageKeys = Array.isArray(page) ? page : [page];
+    keys.push(...pageKeys);
+  }
+  if (keys.length > 0) await Promise.all(keys.map((k) => rc.del(k)));
+};
+
 export const connectRedis = async () => {
   try {
     const redisClient = initializeClient();

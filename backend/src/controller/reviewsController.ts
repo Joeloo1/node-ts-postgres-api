@@ -4,7 +4,7 @@ import AppError from "../utils/AppError";
 import { createReviewSchema } from "../Schema/reviewsSchema";
 import { prisma } from "../config/database";
 import logger from "../config/logger";
-import { client as redis } from "../config/redis";
+import { client as redis, scanDel } from "../config/redis";
 
 const REDIS_TTL = 3600;
 const getReviewKey = (id: string) => `review:${id}`;
@@ -17,8 +17,22 @@ const getReviewQueryKey = (query: Record<string, unknown>) => {
 };
 
 const clearReviewCache = async () => {
-  const keys = await redis.keys("reviews:list:*");
-  if (keys.length > 0) await Promise.all(keys.map((k) => redis.del(k)));
+  await scanDel("reviews:list:*");
+};
+
+const syncProductRating = async (productId: string) => {
+  const result = await prisma.review.aggregate({
+    where: { product_id: productId },
+    _avg: { rating: true },
+    _count: { rating: true },
+  });
+  const avg = result._avg.rating ?? null;
+  await prisma.products.update({
+    where: { product_id: productId },
+    data: { rating: avg },
+  });
+  await redis.del(`product:${productId}`);
+  await scanDel("products:list:*");
 };
 
 // create review
@@ -51,6 +65,7 @@ export const createReview = catchAsync(
     });
 
     await clearReviewCache();
+    await syncProductRating(product_id);
 
     logger.info("Review created successfully");
     res.status(200).json({
@@ -86,6 +101,7 @@ export const updateReview = catchAsync(
 
     await redis.del(getReviewKey(review.id));
     await clearReviewCache();
+    await syncProductRating(review.product_id);
 
     logger.info(`Review with ID: ${req.params.id} updated successfully`);
     res.status(201).json({
@@ -161,6 +177,7 @@ export const deleteReview = catchAsync(
 
     await redis.del(getReviewKey(review.id));
     await clearReviewCache();
+    await syncProductRating(review.product_id);
 
     logger.info(`Review with ID: ${req.params.id} deleted successfully`);
     res.status(200).json({

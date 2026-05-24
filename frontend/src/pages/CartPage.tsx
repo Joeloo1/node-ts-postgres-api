@@ -6,7 +6,7 @@ import { CartSkeleton } from "../components/ProductSkeleton";
 import { usePageTitle } from "../hooks/usePageTitle";
 import { ApiError, apiFetch } from "../lib/api";
 import { productImageUrl } from "../lib/productImage";
-import type { Cart } from "../lib/types";
+import type { Cart, CartItem } from "../lib/types";
 import { MinusIcon, PackageIcon, PlusIcon, ShieldIcon, TrashIcon, TruckIcon } from "../components/Icons";
 
 type CartRes = { status: string; data: { cart: Cart } };
@@ -39,8 +39,25 @@ export function CartPage() {
         body: JSON.stringify({ quantity }),
       });
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["cart"] }),
-    onError: () => toast.error("Could not update quantity"),
+    onMutate: async ({ itemId, quantity }) => {
+      await queryClient.cancelQueries({ queryKey: ["cart"] });
+      const previous = queryClient.getQueryData<Cart>(["cart"]);
+      queryClient.setQueryData<Cart>(["cart"], (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          items: old.items.map((i: CartItem) =>
+            i.id === itemId ? { ...i, quantity } : i,
+          ),
+        };
+      });
+      return { previous };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(["cart"], ctx.previous);
+      toast.error("Could not update quantity");
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["cart"] }),
   });
 
   const removeItem = useMutation({
@@ -50,29 +67,41 @@ export function CartPage() {
         auth: true,
       });
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["cart"] });
-      toast.success("Item removed");
+    onMutate: async (itemId) => {
+      await queryClient.cancelQueries({ queryKey: ["cart"] });
+      const previous = queryClient.getQueryData<Cart>(["cart"]);
+      queryClient.setQueryData<Cart>(["cart"], (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          items: old.items.filter((i: CartItem) => i.id !== itemId),
+        };
+      });
+      return { previous };
     },
-    onError: () => toast.error("Could not remove item"),
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(["cart"], ctx.previous);
+      toast.error("Could not remove item");
+    },
+    onSuccess: () => toast.success("Item removed"),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["cart"] }),
   });
 
   const placeOrder = useMutation({
-    mutationFn: async (items: { product_id: string; quantity: number }[]) => {
-      const res = await apiFetch<{ data: { order: { id: string } } }>("/api/v1/order", {
+    mutationFn: async () => {
+      const res = await apiFetch<{ data: { order: { id: string } } }>("/api/v1/order/checkout", {
         method: "POST",
         auth: true,
-        body: JSON.stringify({ items }),
       });
       return res.data.order.id;
     },
-    onSuccess: async () => {
-      await apiFetch("/api/v1/cart", { method: "DELETE", auth: true });
+    onSuccess: (orderId) => {
       queryClient.invalidateQueries({ queryKey: ["cart"] });
       queryClient.invalidateQueries({ queryKey: ["orders"] });
       toast.success("Order placed successfully!");
+      navigate(`/orders/${orderId}`);
     },
-    onError: () => toast.error("Could not place order. Please try again."),
+    onError: (e) => toast.error(e instanceof ApiError ? e.message : "Could not place order. Please try again."),
   });
 
   if (cartQuery.isPending) return <CartSkeleton />;
@@ -296,12 +325,7 @@ export function CartPage() {
           <button
             type="button"
             disabled={placeOrder.isPending}
-            onClick={() =>
-              placeOrder.mutate(
-                items.map((i) => ({ product_id: i.product_id, quantity: i.quantity })),
-                { onSuccess: (orderId) => navigate(`/orders/${orderId}`) },
-              )
-            }
+            onClick={() => placeOrder.mutate()}
             className="w-full rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-500 disabled:opacity-50"
           >
             {placeOrder.isPending ? "Placing order…" : "Place order"}

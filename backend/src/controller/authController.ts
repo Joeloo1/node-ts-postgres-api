@@ -18,13 +18,15 @@ import logger from "../config/logger";
 import { Role } from "../types/role.types";
 import { JwtPayload } from "../types/auth.types";
 import { UserRole } from "@prisma/client";
-import { client as redis } from "../config/redis";
+import { client as redis, scanDel } from "../config/redis";
 import type { CookieOptions } from "express";
 
 const clearUsersListCache = async () => {
-  const keys = await redis.keys("users:list:*");
-  if (keys.length > 0) await Promise.all(keys.map((k) => redis.del(k)));
+  await scanDel("users:list:*");
 };
+
+const AUTH_USER_TTL = 300; // 5 minutes
+const getAuthUserKey = (id: string) => `auth:user:${id}`;
 
 const buildAuthCookieOptions = (): CookieOptions => {
   const isProd = process.env.NODE_ENV === "production";
@@ -95,6 +97,27 @@ export const signup = catchAsync(
     // New signup affects admin user listings cached by userController.
     await clearUsersListCache();
 
+    // Send email verification
+    const rawVerifyToken = crypto.randomBytes(32).toString("hex");
+    const hashedVerifyToken = crypto.createHash("sha256").update(rawVerifyToken).digest("hex");
+    const verifyTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+    await prisma.user.update({
+      where: { id: newUser.id },
+      data: { verifyToken: hashedVerifyToken, verifyTokenExpiry },
+    });
+
+    const verifyURL = `${req.protocol}://${req.get("host")}/api/v1/users/verifyEmail/${rawVerifyToken}`;
+    try {
+      await sendMail({
+        email: newUser.email,
+        subject: "Verify your email address (valid for 24 hours)",
+        message: `Welcome to Northline! Please verify your email by visiting: ${verifyURL}`,
+      });
+    } catch {
+      logger.warn("Failed to send verification email", { email: newUser.email });
+    }
+
     const token = signToken({ id: newUser.id });
     setAuthCookie(res, token);
 
@@ -107,6 +130,7 @@ export const signup = catchAsync(
       profileImage: newUser.profileImage,
       createAt: newUser.createdAt,
       updatedAt: newUser.updatedAt,
+      isVerified: newUser.isVerified,
     };
     logger.info("User created successfully", { email: newUser.email });
     res.status(201).json({
@@ -190,10 +214,22 @@ export const Protect = catchAsync(
       token,
       process.env.JWT_SECRET as string,
     ) as JwtPayload;
-    // check if user still exists
-    const currentUser = await prisma.user.findUnique({
-      where: { id: decoded.id },
-    });
+
+    // check if user still exists — serve from cache when possible
+    let currentUser;
+    const cacheKey = getAuthUserKey(decoded.id);
+    const cachedUser = await redis.get(cacheKey);
+    if (cachedUser) {
+      currentUser = JSON.parse(cachedUser);
+      currentUser.passwordChangedAt = currentUser.passwordChangedAt
+        ? new Date(currentUser.passwordChangedAt)
+        : null;
+    } else {
+      currentUser = await prisma.user.findUnique({ where: { id: decoded.id } });
+      if (currentUser) {
+        await redis.setEx(cacheKey, AUTH_USER_TTL, JSON.stringify(currentUser));
+      }
+    }
 
     if (!currentUser) {
       logger.warn("Unauthorized access attempt - user no longer exists", {
@@ -364,6 +400,8 @@ export const resetPassword = catchAsync(
       },
     });
 
+    await redis.del(getAuthUserKey(user.id));
+
     logger.info("Password reset successful", { email: user.email });
     res.status(200).json({
       status: "success",
@@ -424,13 +462,52 @@ export const updatePassword = catchAsync(
       },
     });
 
-    // 4. Force the user to re-login
+    // 4. Force the user to re-login — invalidate auth cache
+    await redis.del(getAuthUserKey(user.id));
+
     logger.info("Password updated successfully, user must re-login", {
       userId: user.id,
     });
     res.status(200).json({
       status: "success",
       message: "Password updated successfully. Please log in again.",
+    });
+  },
+);
+
+// Verify email
+export const verifyEmail = catchAsync(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const { token } = req.params;
+    const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+
+    const user = await prisma.user.findFirst({
+      where: {
+        verifyToken: hashedToken,
+        verifyTokenExpiry: { gt: new Date() },
+      },
+    });
+
+    if (!user) {
+      logger.warn("Email verification attempt with invalid or expired token");
+      return next(new AppError("Verification link is invalid or has expired", 400));
+    }
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        isVerified: true,
+        verifyToken: null,
+        verifyTokenExpiry: null,
+      },
+    });
+
+    await redis.del(getAuthUserKey(user.id));
+
+    logger.info("Email verified successfully", { email: user.email });
+    res.status(200).json({
+      status: "success",
+      message: "Email verified successfully.",
     });
   },
 );

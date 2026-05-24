@@ -23,10 +23,11 @@ const STATUS_STYLES: Record<OrderStatus, string> = {
   SHIPPED:    "bg-sky-500/15 text-sky-700 dark:text-sky-400 border-sky-500/25",
   DELIVERED:  "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/25",
   CANCELLED:  "bg-well text-ink4 border-edge/40",
+  REFUNDED:   "bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/25",
 };
 
 const ALL_STATUSES: OrderStatus[] = [
-  "PENDING", "PAID", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED",
+  "PENDING", "PAID", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED", "REFUNDED",
 ];
 
 export function AdminOrdersPage() {

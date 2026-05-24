@@ -1,12 +1,13 @@
 import { Request, Response, NextFunction, Router } from "express";
 import catchAsync from "../utils/catchAsync";
 import AppError from "../utils/AppError";
+
 import { prisma } from "../config/database";
 import { updateUserSchema } from "../Schema/userSchema";
-// import { User } from "@prisma/client";
 import { filterObj } from "../utils/filterObj";
+import { sanitizeUser } from "../utils/sanitizeUser";
 import logger from "../config/logger";
-import { client as redis } from "../config/redis";
+import { client as redis, scanDel } from "../config/redis";
 
 // declare global {
 //   namespace Express {
@@ -21,8 +22,7 @@ const getUserKey = (id: string) => `user:${id}`;
 const getUserQueryKey = (query: any) => `users:list:${JSON.stringify(query)}`;
 
 const clearUserCache = async () => {
-  const keys = await redis.keys("users:list:*");
-  if (keys.length > 0) await Promise.all(keys.map((k) => redis.del(k)));
+  await scanDel("users:list:*");
 };
 
 // update user
@@ -67,7 +67,7 @@ export const updateMe = catchAsync(
     res.status(200).json({
       status: "success",
       message: "User updated successfully",
-      user: updatedUser,
+      user: sanitizeUser(updatedUser),
     });
   },
 );
@@ -88,7 +88,7 @@ export const getMe = catchAsync(
     logger.info(`User with ID: ${req.user!.id} fetched successfully`);
     res.status(200).json({
       status: "success",
-      data: user,
+      data: sanitizeUser(user),
     });
   },
 );
@@ -96,15 +96,17 @@ export const getMe = catchAsync(
 // delete Me
 export const deleteMe = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
-    logger.info(`User with ID: ${req.user!.id} is deactivating their account`);
+    const userId = req.user!.id;
+    logger.info(`User with ID: ${userId} is deactivating their account`);
     await prisma.user.update({
-      where: { id: req.user!.id },
+      where: { id: userId },
       data: { active: false },
     });
 
-    logger.info(
-      `User with ID: ${req.user!.id} successfully deactivated their account`,
-    );
+    await redis.del(getUserKey(userId));
+    await redis.del(`auth:user:${userId}`);
+
+    logger.info(`User with ID: ${userId} successfully deactivated their account`);
     res.status(200).json({
       status: "success",
       data: null,
@@ -118,6 +120,7 @@ export const deleteMe = catchAsync(
 // get all the user
 export const getAllUsers = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
+    const includeInactive = req.query.includeInactive === "true";
     const cacheKey = getUserQueryKey(req.query);
 
     // check redis
@@ -135,16 +138,18 @@ export const getAllUsers = catchAsync(
     }
 
     logger.info("Admin fetching all users");
-    const users = await prisma.user.findMany();
+    const where = includeInactive ? {} : { active: true };
+    const users = await prisma.user.findMany({ where });
+    const safeUsers = users.map(sanitizeUser);
 
-    await redis.setEx(cacheKey, REDIS_TTL, JSON.stringify(users));
+    await redis.setEx(cacheKey, REDIS_TTL, JSON.stringify(safeUsers));
 
     logger.info(`Fetched ${users.length} users successfully`);
     res.status(200).json({
       status: "success",
-      results: users.length,
+      results: safeUsers.length,
       data: {
-        users,
+        users: safeUsers,
       },
     });
   },
@@ -176,12 +181,13 @@ export const getUser = catchAsync(
       return next(new AppError("There is no user with the ID", 404));
     }
 
-    await redis.setEx(cacheKey, REDIS_TTL, JSON.stringify(user));
+    const safeUser = sanitizeUser(user);
+    await redis.setEx(cacheKey, REDIS_TTL, JSON.stringify(safeUser));
 
     logger.info(`User with ID:${req.params.id} fetched successfully`);
     res.status(200).json({
       status: "success",
-      data: { user },
+      data: { user: safeUser },
     });
   },
 );
@@ -218,27 +224,34 @@ export const updateUser = catchAsync(
     res.status(200).json({
       status: "success",
       data: {
-        user: updatedUser,
+        user: sanitizeUser(updatedUser),
       },
     });
   },
 );
 
-// delete user
+// delete user (soft-delete — preserves order history)
 export const deleteUser = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
     const userId = req.params.id;
-    logger.info(
-      `Admin deleting user with ID: ${req.params.id} from the database`,
-    );
-    await prisma.user.delete({
+    logger.info(`Admin soft-deleting user with ID: ${userId}`);
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      logger.warn(`User with ID: ${userId} not found`);
+      return next(new AppError("No user found with this ID", 404));
+    }
+
+    await prisma.user.update({
       where: { id: userId },
+      data: { active: false },
     });
 
     await redis.del(getUserKey(userId));
+    await redis.del(`auth:user:${userId}`);
     await clearUserCache();
 
-    logger.info(`User with ID: ${req.params.id} deleted successfully`);
+    logger.info(`User with ID: ${userId} deactivated successfully`);
     res.status(204).json({
       status: "success",
       data: null,

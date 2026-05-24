@@ -18,6 +18,7 @@ const statusStyles: Record<string, { label: string; className: string; dot: stri
   SHIPPED:    { label: "Shipped",    className: "bg-violet-500/15 text-violet-400 border-violet-500/20",  dot: "bg-violet-400" },
   DELIVERED:  { label: "Delivered",  className: "bg-emerald-500/15 text-emerald-300 border-emerald-500/20", dot: "bg-emerald-300" },
   CANCELLED:  { label: "Cancelled",  className: "bg-zinc-800/80 text-zinc-500 border-zinc-700/40",        dot: "bg-zinc-500" },
+  REFUNDED:   { label: "Refunded",   className: "bg-blue-500/15 text-blue-400 border-blue-500/20",         dot: "bg-blue-400" },
 };
 
 export function OrderDetailPage() {
@@ -201,6 +202,11 @@ export function OrderDetailPage() {
           {order.status === "CANCELLED" && (
             <div className="rounded-xl border border-zinc-700/40 bg-zinc-800/40 px-4 py-3 text-xs text-zinc-500">
               This order was cancelled.
+            </div>
+          )}
+          {order.status === "REFUNDED" && (
+            <div className="rounded-xl border border-blue-800/40 bg-blue-950/30 px-4 py-3 text-xs text-blue-400">
+              A refund has been issued for this order.
             </div>
           )}
         </div>

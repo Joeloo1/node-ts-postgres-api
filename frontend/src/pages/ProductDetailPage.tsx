@@ -112,11 +112,10 @@ export function ProductDetailPage() {
     queryFn: async () => {
       const res = await apiFetch<ReviewsRes>(
         `/api/v1/reviews?product_id=${encodeURIComponent(id!)}`,
-        { auth: true },
       );
       return res.data.reviews;
     },
-    enabled: Boolean(id) && Boolean(user),
+    enabled: Boolean(id),
   });
 
   const p = productQuery.data;
@@ -254,7 +253,7 @@ export function ProductDetailPage() {
 
         {/* Info */}
         <div className="space-y-6">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             {categoryName && (
               <span className="text-xs font-semibold uppercase tracking-widest text-emerald-500/90">
                 {categoryName}
@@ -268,6 +267,11 @@ export function ProductDetailPage() {
             ) : (
               <span className="inline-flex items-center gap-1 rounded-full border border-stroke bg-well px-2.5 py-0.5 text-xs font-semibold text-ink3">
                 Out of stock
+              </span>
+            )}
+            {p.stock !== undefined && p.stock > 0 && p.stock < 10 && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-0.5 text-xs font-semibold text-amber-600 dark:text-amber-400">
+                Only {p.stock} left!
               </span>
             )}
           </div>
@@ -424,53 +428,46 @@ export function ProductDetailPage() {
           )}
         </div>
 
-        {!user ? (
-          <div className="rounded-2xl border border-stroke bg-card p-6 text-center">
-            <p className="text-ink4">
-              <Link to="/login" className="font-medium text-emerald-400 transition-colors hover:text-emerald-300">Sign in</Link>{" "}
-              to read and write reviews.
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {reviewsQuery.isPending ? (
-              <div className="space-y-3">
-                {[1, 2].map((i) => (
-                  <div key={i} className="h-24 animate-pulse rounded-2xl bg-well" />
-                ))}
-              </div>
-            ) : reviewsQuery.data?.length ? (
-              <ul className="space-y-3">
-                {reviewsQuery.data.map((r) => (
-                  <li key={r.id} className="rounded-2xl border border-stroke bg-card p-5">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div className="flex items-center gap-3">
-                        <div className="flex size-9 items-center justify-center rounded-full bg-well text-sm font-semibold text-ink2">
-                          {(r.user?.name ?? "C")[0].toUpperCase()}
-                        </div>
-                        <div>
-                          <p className="text-sm font-semibold text-ink">{r.user?.name ?? "Customer"}</p>
-                          <p className="text-xs text-ink4">
-                            {new Date(r.createdAt).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}
-                          </p>
-                        </div>
+        <div className="space-y-6">
+          {reviewsQuery.isPending ? (
+            <div className="space-y-3">
+              {[1, 2].map((i) => (
+                <div key={i} className="h-24 animate-pulse rounded-2xl bg-well" />
+              ))}
+            </div>
+          ) : reviewsQuery.data?.length ? (
+            <ul className="space-y-3">
+              {reviewsQuery.data.map((r) => (
+                <li key={r.id} className="rounded-2xl border border-stroke bg-card p-5">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="flex size-9 items-center justify-center rounded-full bg-well text-sm font-semibold text-ink2">
+                        {(r.user?.name ?? "C")[0].toUpperCase()}
                       </div>
-                      <div className="flex items-center gap-0.5">
-                        {[1, 2, 3, 4, 5].map((n) => (
-                          <span key={n} className={`text-sm ${n <= r.rating ? "text-amber-400" : "text-ink4"}`}>★</span>
-                        ))}
+                      <div>
+                        <p className="text-sm font-semibold text-ink">{r.user?.name ?? "Customer"}</p>
+                        <p className="text-xs text-ink4">
+                          {new Date(r.createdAt).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}
+                        </p>
                       </div>
                     </div>
-                    {r.content && <p className="mt-3 text-sm leading-relaxed text-ink3">{r.content}</p>}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <div className="rounded-2xl border border-stroke bg-card p-8 text-center">
-                <p className="text-ink4">No reviews yet — be the first to leave one.</p>
-              </div>
-            )}
+                    <div className="flex items-center gap-0.5">
+                      {[1, 2, 3, 4, 5].map((n) => (
+                        <span key={n} className={`text-sm ${n <= r.rating ? "text-amber-400" : "text-ink4"}`}>★</span>
+                      ))}
+                    </div>
+                  </div>
+                  {r.content && <p className="mt-3 text-sm leading-relaxed text-ink3">{r.content}</p>}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="rounded-2xl border border-stroke bg-card p-8 text-center">
+              <p className="text-ink4">No reviews yet — be the first to leave one.</p>
+            </div>
+          )}
 
+          {user ? (
             <form
               className="space-y-5 rounded-2xl border border-stroke bg-card p-6"
               onSubmit={(e) => { e.preventDefault(); reviewMutation.mutate(); }}
@@ -505,8 +502,15 @@ export function ProductDetailPage() {
                 {reviewMutation.isPending ? "Submitting…" : "Submit review"}
               </button>
             </form>
-          </div>
-        )}
+          ) : (
+            <div className="rounded-2xl border border-stroke bg-card p-6 text-center">
+              <p className="text-ink4">
+                <Link to="/login" className="font-medium text-emerald-400 transition-colors hover:text-emerald-300">Sign in</Link>{" "}
+                to write a review.
+              </p>
+            </div>
+          )}
+        </div>
       </motion.section>
     </motion.div>
   );

@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { motion, type Variants } from "framer-motion";
+import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { ProductCard } from "../components/ProductCard";
 import { usePageTitle } from "../hooks/usePageTitle";
 import { ProductSkeletonGrid3 } from "../components/ProductSkeleton";
@@ -34,6 +34,159 @@ const cardFade: Variants = {
   show:   { opacity: 1, y: 0, transition: { duration: 0.3, ease: [0.25, 0.1, 0.25, 1] } },
 };
 
+const inputClass =
+  "w-full rounded-xl border border-stroke bg-input px-3 py-2.5 text-sm text-ink placeholder:text-ink4 transition focus:border-emerald-500/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/30";
+
+// Shared filter panel used in both desktop sidebar and mobile drawer
+function FilterPanel({
+  name, setName, search, setSearch,
+  sortKey, setSortKey,
+  categoryId, setCategoryId,
+  minPrice, setMinPrice,
+  maxPrice, setMaxPrice,
+  categories, hasActiveFilters,
+  setPage, onDone,
+}: {
+  name: string; setName: (v: string) => void;
+  search: string; setSearch: (v: string) => void;
+  sortKey: string; setSortKey: (v: string) => void;
+  categoryId: string; setCategoryId: (v: string) => void;
+  minPrice: string; setMinPrice: (v: string) => void;
+  maxPrice: string; setMaxPrice: (v: string) => void;
+  categories: Category[] | undefined;
+  hasActiveFilters: boolean;
+  setPage: (v: number) => void;
+  onDone?: () => void;
+}) {
+  function clearFilters() {
+    setName(""); setSearch(""); setCategoryId(""); setMinPrice(""); setMaxPrice(""); setPage(1);
+  }
+
+  return (
+    <div className="space-y-7">
+      {/* Search */}
+      <div>
+        <p className="mb-2.5 text-xs font-semibold uppercase tracking-widest text-ink3">Search</p>
+        <div className="relative">
+          <SearchIcon className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink4" />
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") { setSearch(name); setPage(1); onDone?.(); }
+            }}
+            className={`${inputClass} pl-9`}
+            placeholder="Search products…"
+          />
+        </div>
+        {name !== search && name && (
+          <button
+            type="button"
+            onClick={() => { setSearch(name); setPage(1); onDone?.(); }}
+            className="mt-2 w-full rounded-xl bg-emerald-600 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-500"
+          >
+            Search
+          </button>
+        )}
+      </div>
+
+      {/* Sort */}
+      <div>
+        <p className="mb-2.5 text-xs font-semibold uppercase tracking-widest text-ink3">Sort by</p>
+        <div className="space-y-1">
+          {SORT_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => { setSortKey(opt.value); setPage(1); }}
+              className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm transition-colors ${
+                sortKey === opt.value
+                  ? "bg-emerald-600/20 text-emerald-400 font-medium"
+                  : "text-ink3 hover:bg-hover hover:text-ink2"
+              }`}
+            >
+              <span className={`size-1.5 rounded-full shrink-0 ${sortKey === opt.value ? "bg-emerald-400" : "bg-edge"}`} />
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Price range */}
+      <div>
+        <p className="mb-2.5 text-xs font-semibold uppercase tracking-widest text-ink3">Price range</p>
+        <div className="flex items-center gap-2">
+          <input
+            type="number"
+            min={0}
+            value={minPrice}
+            onChange={(e) => { setMinPrice(e.target.value); setPage(1); }}
+            placeholder="Min"
+            className={`${inputClass} w-full`}
+          />
+          <span className="shrink-0 text-xs text-ink4">–</span>
+          <input
+            type="number"
+            min={0}
+            value={maxPrice}
+            onChange={(e) => { setMaxPrice(e.target.value); setPage(1); }}
+            placeholder="Max"
+            className={`${inputClass} w-full`}
+          />
+        </div>
+      </div>
+
+      {/* Categories */}
+      {categories && categories.length > 0 && (
+        <div>
+          <p className="mb-2.5 text-xs font-semibold uppercase tracking-widest text-ink3">Category</p>
+          <div className="space-y-1">
+            <button
+              type="button"
+              onClick={() => { setCategoryId(""); setPage(1); }}
+              className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm transition-colors ${
+                !categoryId
+                  ? "bg-emerald-600/20 text-emerald-400 font-medium"
+                  : "text-ink3 hover:bg-hover hover:text-ink2"
+              }`}
+            >
+              <span className={`size-1.5 rounded-full shrink-0 ${!categoryId ? "bg-emerald-400" : "bg-edge"}`} />
+              All categories
+            </button>
+            {categories.map((c) => (
+              <button
+                key={c.category_id}
+                type="button"
+                onClick={() => { setCategoryId(String(c.category_id)); setPage(1); }}
+                className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm transition-colors ${
+                  categoryId === String(c.category_id)
+                    ? "bg-emerald-600/20 text-emerald-400 font-medium"
+                    : "text-ink3 hover:bg-hover hover:text-ink2"
+                }`}
+              >
+                <span className={`size-1.5 rounded-full shrink-0 ${categoryId === String(c.category_id) ? "bg-emerald-400" : "bg-edge"}`} />
+                {c.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Clear */}
+      {hasActiveFilters && (
+        <button
+          type="button"
+          onClick={clearFilters}
+          className="flex w-full items-center justify-center gap-2 rounded-xl border border-stroke px-4 py-2.5 text-sm font-medium text-ink3 transition-colors hover:border-edge hover:text-ink2"
+        >
+          <XIcon className="size-4" />
+          Clear filters
+        </button>
+      )}
+    </div>
+  );
+}
+
 export function ProductsPage() {
   usePageTitle("Products");
   const [searchParams] = useSearchParams();
@@ -46,7 +199,9 @@ export function ProductsPage() {
     const ord = searchParams.get("order") ?? "desc";
     return `${by}:${ord}`;
   });
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [minPrice, setMinPrice] = useState(() => searchParams.get("price_gte") ?? "");
+  const [maxPrice, setMaxPrice] = useState(() => searchParams.get("price_lte") ?? "");
 
   const [sortBy, order] = sortKey.split(":") as [string, "asc" | "desc"];
 
@@ -56,10 +211,12 @@ export function ProductsPage() {
     p.set("limit", "12");
     if (search.trim()) p.set("name", search.trim());
     if (categoryId) p.set("category_id", categoryId);
+    if (minPrice) p.set("price_gte", minPrice);
+    if (maxPrice) p.set("price_lte", maxPrice);
     p.set("sortBy", sortBy);
     p.set("order", order);
     return p.toString();
-  }, [page, search, categoryId, sortBy, order]);
+  }, [page, search, categoryId, minPrice, maxPrice, sortBy, order]);
 
   const { data: categories } = useQuery({
     queryKey: ["categories"],
@@ -78,37 +235,42 @@ export function ProductsPage() {
   });
 
   function clearFilters() {
-    setName("");
-    setSearch("");
-    setCategoryId("");
-    setPage(1);
+    setName(""); setSearch(""); setCategoryId(""); setMinPrice(""); setMaxPrice(""); setPage(1);
   }
 
-  const hasActiveFilters = Boolean(search || categoryId);
-  const activeFilterCount = [search, categoryId].filter(Boolean).length;
+  const hasActiveFilters = Boolean(search || categoryId || minPrice || maxPrice);
+  const activeFilterCount = [search, categoryId, minPrice, maxPrice].filter(Boolean).length;
   const selectedCategoryName = categoryId
     ? categories?.find((c) => String(c.category_id) === categoryId)?.name
     : null;
 
-  const inputClass =
-    "w-full rounded-xl border border-stroke bg-input px-3 py-2.5 text-sm text-ink placeholder:text-ink4 transition focus:border-emerald-500/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/30";
+  const filterProps = {
+    name, setName, search, setSearch,
+    sortKey, setSortKey,
+    categoryId, setCategoryId,
+    minPrice, setMinPrice,
+    maxPrice, setMaxPrice,
+    categories, hasActiveFilters, setPage,
+  };
 
   return (
     <div>
       {/* ── Page header ─────────────────────────── */}
-      <div className="mb-8 flex items-center justify-between gap-4">
+      <div className="mb-6 flex items-center justify-between gap-4 sm:mb-8">
         <div>
           <p className="text-xs font-semibold uppercase tracking-widest text-emerald-400/80">Catalog</p>
-          <h1 className="mt-1 font-display text-3xl font-bold text-ink">Shop</h1>
+          <h1 className="mt-1 font-display text-2xl font-bold text-ink sm:text-3xl">Shop</h1>
         </div>
         <div className="flex items-center gap-3">
           {data?.pagination && (
-            <p className="text-sm text-ink4">{data.pagination.total} product{data.pagination.total !== 1 ? "s" : ""}</p>
+            <p className="hidden text-sm text-ink4 sm:block">
+              {data.pagination.total} product{data.pagination.total !== 1 ? "s" : ""}
+            </p>
           )}
-          {/* Mobile filter toggle */}
+          {/* Mobile filter button */}
           <button
             type="button"
-            onClick={() => setSidebarOpen((x) => !x)}
+            onClick={() => setDrawerOpen(true)}
             className="flex items-center gap-2 rounded-xl border border-stroke bg-card px-4 py-2.5 text-sm font-medium text-ink2 transition-colors hover:border-edge hover:text-ink lg:hidden"
           >
             <SlidersIcon className="size-4" />
@@ -122,115 +284,47 @@ export function ProductsPage() {
         </div>
       </div>
 
-      <div className="flex gap-8">
-        {/* ── Sidebar ─────────────────────────────── */}
-        <aside
-          className={`${
-            sidebarOpen ? "block" : "hidden"
-          } lg:block w-full lg:w-56 xl:w-60 shrink-0`}
-        >
-          <div className="sticky top-24 space-y-7">
+      {/* ── Mobile category scroll chips ──────────── */}
+      {categories && categories.length > 0 && (
+        <div className="mb-5 -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 lg:hidden scrollbar-none">
+          <button
+            type="button"
+            onClick={() => { setCategoryId(""); setPage(1); }}
+            className={`shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-colors ${
+              !categoryId
+                ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-400"
+                : "border-stroke bg-card text-ink3 hover:border-edge hover:text-ink2"
+            }`}
+          >
+            All
+          </button>
+          {categories.map((c) => (
+            <button
+              key={c.category_id}
+              type="button"
+              onClick={() => { setCategoryId(String(c.category_id)); setPage(1); }}
+              className={`shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-colors ${
+                categoryId === String(c.category_id)
+                  ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-400"
+                  : "border-stroke bg-card text-ink3 hover:border-edge hover:text-ink2"
+              }`}
+            >
+              {c.name}
+            </button>
+          ))}
+        </div>
+      )}
 
-            {/* Search */}
-            <div>
-              <p className="mb-2.5 text-xs font-semibold uppercase tracking-widest text-ink3">Search</p>
-              <div className="relative">
-                <SearchIcon className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink4" />
-                <input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") { setSearch(name); setPage(1); }
-                  }}
-                  className={`${inputClass} pl-9`}
-                  placeholder="Search products…"
-                />
-              </div>
-              {name !== search && name && (
-                <button
-                  type="button"
-                  onClick={() => { setSearch(name); setPage(1); }}
-                  className="mt-2 w-full rounded-xl bg-emerald-600 py-2 text-sm font-semibold text-white transition-colors hover:bg-emerald-500"
-                >
-                  Search
-                </button>
-              )}
-            </div>
-
-            {/* Sort */}
-            <div>
-              <p className="mb-2.5 text-xs font-semibold uppercase tracking-widest text-ink3">Sort by</p>
-              <div className="space-y-1">
-                {SORT_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => { setSortKey(opt.value); setPage(1); }}
-                    className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm transition-colors ${
-                      sortKey === opt.value
-                        ? "bg-emerald-600/20 text-emerald-400 font-medium"
-                        : "text-ink3 hover:bg-hover hover:text-ink2"
-                    }`}
-                  >
-                    <span className={`size-1.5 rounded-full shrink-0 ${sortKey === opt.value ? "bg-emerald-400" : "bg-edge"}`} />
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Categories */}
-            {categories && categories.length > 0 && (
-              <div>
-                <p className="mb-2.5 text-xs font-semibold uppercase tracking-widest text-ink3">Category</p>
-                <div className="space-y-1">
-                  <button
-                    type="button"
-                    onClick={() => { setCategoryId(""); setPage(1); }}
-                    className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm transition-colors ${
-                      !categoryId
-                        ? "bg-emerald-600/20 text-emerald-400 font-medium"
-                        : "text-ink3 hover:bg-hover hover:text-ink2"
-                    }`}
-                  >
-                    <span className={`size-1.5 rounded-full shrink-0 ${!categoryId ? "bg-emerald-400" : "bg-edge"}`} />
-                    All categories
-                  </button>
-                  {categories.map((c) => (
-                    <button
-                      key={c.category_id}
-                      type="button"
-                      onClick={() => { setCategoryId(String(c.category_id)); setPage(1); }}
-                      className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm transition-colors ${
-                        categoryId === String(c.category_id)
-                          ? "bg-emerald-600/20 text-emerald-400 font-medium"
-                          : "text-ink3 hover:bg-hover hover:text-ink2"
-                      }`}
-                    >
-                      <span className={`size-1.5 rounded-full shrink-0 ${categoryId === String(c.category_id) ? "bg-emerald-400" : "bg-edge"}`} />
-                      {c.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Clear */}
-            {hasActiveFilters && (
-              <button
-                type="button"
-                onClick={clearFilters}
-                className="flex w-full items-center justify-center gap-2 rounded-xl border border-stroke px-4 py-2.5 text-sm font-medium text-ink3 transition-colors hover:border-edge hover:text-ink2"
-              >
-                <XIcon className="size-4" />
-                Clear filters
-              </button>
-            )}
+      <div className="flex gap-7 xl:gap-10">
+        {/* ── Desktop sidebar ─────────────────────── */}
+        <aside className="hidden lg:block w-52 xl:w-60 shrink-0">
+          <div className="sticky top-24">
+            <FilterPanel {...filterProps} />
           </div>
         </aside>
 
         {/* ── Main content ────────────────────────── */}
-        <div className="flex-1 min-w-0 space-y-6">
+        <div className="flex-1 min-w-0 space-y-5">
 
           {/* Active filter chips */}
           {hasActiveFilters && (
@@ -278,7 +372,7 @@ export function ProductsPage() {
             <>
               <motion.div
                 key={queryString}
-                className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3"
+                className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-3"
                 variants={stagger}
                 initial="hidden"
                 animate="show"
@@ -297,9 +391,9 @@ export function ProductsPage() {
                     type="button"
                     disabled={!data.pagination.hasPrev}
                     onClick={() => setPage((x) => Math.max(1, x - 1))}
-                    className="rounded-xl border border-stroke bg-card px-5 py-2.5 text-sm font-medium text-ink2 transition-colors hover:bg-hover disabled:cursor-not-allowed disabled:opacity-30"
+                    className="rounded-xl border border-stroke bg-card px-4 py-2.5 text-sm font-medium text-ink2 transition-colors hover:bg-hover disabled:cursor-not-allowed disabled:opacity-30"
                   >
-                    ← Previous
+                    ← Prev
                   </button>
 
                   <div className="flex items-center gap-1">
@@ -334,7 +428,7 @@ export function ProductsPage() {
                     type="button"
                     disabled={!data.pagination.hasNext}
                     onClick={() => setPage((x) => x + 1)}
-                    className="rounded-xl border border-stroke bg-card px-5 py-2.5 text-sm font-medium text-ink2 transition-colors hover:bg-hover disabled:cursor-not-allowed disabled:opacity-30"
+                    className="rounded-xl border border-stroke bg-card px-4 py-2.5 text-sm font-medium text-ink2 transition-colors hover:bg-hover disabled:cursor-not-allowed disabled:opacity-30"
                   >
                     Next →
                   </button>
@@ -344,6 +438,73 @@ export function ProductsPage() {
           )}
         </div>
       </div>
+
+      {/* ── Mobile filter bottom drawer ──────────── */}
+      <AnimatePresence>
+        {drawerOpen && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              key="backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden"
+              onClick={() => setDrawerOpen(false)}
+            />
+
+            {/* Drawer */}
+            <motion.div
+              key="drawer"
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 30, stiffness: 300 }}
+              className="fixed bottom-0 left-0 right-0 z-50 max-h-[88vh] overflow-y-auto rounded-t-3xl border-t border-stroke bg-page lg:hidden"
+            >
+              {/* Handle + header */}
+              <div className="sticky top-0 z-10 border-b border-stroke bg-page/95 px-5 pb-4 pt-3 backdrop-blur-sm">
+                <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-edge" />
+                <div className="flex items-center justify-between">
+                  <p className="font-display text-lg font-semibold text-ink">Filters</p>
+                  <button
+                    type="button"
+                    onClick={() => setDrawerOpen(false)}
+                    className="flex size-8 items-center justify-center rounded-lg text-ink3 transition-colors hover:bg-hover"
+                  >
+                    <XIcon className="size-5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Filter content */}
+              <div className="px-5 py-6">
+                <FilterPanel
+                  {...filterProps}
+                  onDone={() => setDrawerOpen(false)}
+                />
+              </div>
+
+              {/* Done button */}
+              <div className="sticky bottom-0 border-t border-stroke bg-page/95 px-5 pb-8 pt-4 backdrop-blur-sm">
+                <button
+                  type="button"
+                  onClick={() => setDrawerOpen(false)}
+                  className="w-full rounded-xl bg-emerald-600 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-500"
+                >
+                  Show results
+                  {data?.pagination && (
+                    <span className="ml-2 text-emerald-200">
+                      ({data.pagination.total})
+                    </span>
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

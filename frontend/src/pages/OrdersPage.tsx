@@ -21,6 +21,7 @@ const statusStyles: Record<string, { label: string; className: string }> = {
   SHIPPED:    { label: "Shipped",    className: "bg-violet-500/15 text-violet-700 dark:text-violet-400 border-violet-500/25" },
   DELIVERED:  { label: "Delivered",  className: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/25" },
   CANCELLED:  { label: "Cancelled",  className: "bg-well text-ink4 border-edge/40" },
+  REFUNDED:   { label: "Refunded",   className: "bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/25" },
 };
 
 const stagger: Variants = { hidden: {}, show: { transition: { staggerChildren: 0.06 } } };

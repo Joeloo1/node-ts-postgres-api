@@ -35,6 +35,7 @@ type ProductSeed = {
   image: string;
   images: string[];
   rating: number;
+  stock?: number;
 };
 
 const PRODUCTS: ProductSeed[] = [
@@ -55,6 +56,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1546435578-e62e24c8ccbf"),
     ],
     rating: 4.8,
+    stock: 5,
   },
   {
     name: "Apple AirPods Pro (2nd Generation)",
@@ -70,6 +72,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1590658268037-6bf12165cd8e"),
     ],
     rating: 4.7,
+    stock: 42,
   },
   {
     name: "Keychron K8 Pro Wireless Mechanical Keyboard",
@@ -85,6 +88,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1595044426077-d36d9236d54a"),
     ],
     rating: 4.6,
+    stock: 67,
   },
   {
     name: "Logitech MX Master 3S Wireless Mouse",
@@ -100,6 +104,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1563770660941-10b7a86236e9"),
     ],
     rating: 4.7,
+    stock: 88,
   },
   {
     name: "Apple Watch Series 9 GPS 45mm",
@@ -116,6 +121,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1434494206212-716b93f7a9b9"),
     ],
     rating: 4.8,
+    stock: 3,
   },
   {
     name: "JBL Charge 5 Portable Bluetooth Speaker",
@@ -131,6 +137,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1583384383840-e5e2e9b08b50"),
     ],
     rating: 4.6,
+    stock: 54,
   },
   {
     name: "Apple iPad (10th Generation) 64GB Wi-Fi",
@@ -146,6 +153,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1609921213416-c8f1c3ebad80"),
     ],
     rating: 4.6,
+    stock: 29,
   },
   {
     name: "Samsung T7 Portable SSD 1TB",
@@ -161,6 +169,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1558618666-fcd25c85cd64"),
     ],
     rating: 4.7,
+    stock: 73,
   },
   {
     name: "Anker 65W Nano II USB-C Charger",
@@ -175,6 +184,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1583863788434-1b8b1a27b16b"),
     ],
     rating: 4.5,
+    stock: 120,
   },
   {
     name: "LG 27UP850N 27\" 4K USB-C Monitor",
@@ -191,6 +201,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1593642632559-0c6d3fc62b89"),
     ],
     rating: 4.6,
+    stock: 7,
   },
 
   // ── HOME & KITCHEN ─────────────────────────────────────────────────────────
@@ -209,6 +220,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1512568400610-350c7aae26af"),
     ],
     rating: 4.6,
+    stock: 35,
   },
   {
     name: "Instant Pot Duo 7-in-1 Electric Pressure Cooker 6Qt",
@@ -223,6 +235,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1556909172-54557c7e4fb7"),
     ],
     rating: 4.7,
+    stock: 61,
   },
   {
     name: "KitchenAid Artisan Series 5-Qt Stand Mixer",
@@ -238,6 +251,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1594736797933-d0501ba2fe65"),
     ],
     rating: 4.9,
+    stock: 4,
   },
   {
     name: "Ninja Air Fryer Pro XL 5.5Qt",
@@ -253,6 +267,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1556909114-f6e7ad7d3136"),
     ],
     rating: 4.6,
+    stock: 48,
   },
   {
     name: "Lodge 12-Inch Cast Iron Skillet",
@@ -268,6 +283,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1556910103-1c02745b0e09"),
     ],
     rating: 4.8,
+    stock: 95,
   },
   {
     name: "Hydro Flask 32oz Wide Mouth Water Bottle",
@@ -282,6 +298,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1602143407151-7111542de6e8"),
     ],
     rating: 4.7,
+    stock: 110,
   },
   {
     name: "Pyrex Simply Store Glass Container Set 18pc",
@@ -296,6 +313,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1610348725531-843dff563e2c"),
     ],
     rating: 4.6,
+    stock: 78,
   },
   {
     name: "Vitamix E310 Explorian Blender",
@@ -311,6 +329,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1584797810879-0c53e7e6ff31"),
     ],
     rating: 4.8,
+    stock: 22,
   },
   {
     name: "Bamboo Cutting Board Set (3-Piece)",
@@ -325,6 +344,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1547496502-affa22d38842"),
     ],
     rating: 4.6,
+    stock: 85,
   },
 
   // ── FASHION ────────────────────────────────────────────────────────────────
@@ -341,6 +361,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1542219550-37153d387c27"),
     ],
     rating: 4.5,
+    stock: 56,
   },
   {
     name: "Patagonia Better Sweater Full-Zip Jacket",
@@ -355,6 +376,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1539533018447-63fcce2678e3"),
     ],
     rating: 4.7,
+    stock: 38,
   },
   {
     name: "New Balance 990v6 Running Sneakers",
@@ -370,6 +392,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1491553154263-9e2f945e8f86"),
     ],
     rating: 4.6,
+    stock: 45,
   },
   {
     name: "Ray-Ban Aviator Classic Sunglasses",
@@ -385,6 +408,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1574258495973-a1ba53c68d68"),
     ],
     rating: 4.6,
+    stock: 63,
   },
   {
     name: "Carhartt WIP Chase Crewneck Sweatshirt",
@@ -399,6 +423,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1521572163474-6864f9cf17ab"),
     ],
     rating: 4.5,
+    stock: 72,
   },
   {
     name: "Herschel Little America Backpack 25L",
@@ -413,6 +438,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1553062407-98eeb64c6a62"),
     ],
     rating: 4.5,
+    stock: 49,
   },
   {
     name: "Timberland Premium 6-Inch Waterproof Boot",
@@ -427,6 +453,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1542291026-7eec264c27ff"),
     ],
     rating: 4.5,
+    stock: 33,
   },
   {
     name: "Arc'teryx Atom LT Hoody",
@@ -441,6 +468,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1587402800671-ba09f979b25a"),
     ],
     rating: 4.7,
+    stock: 6,
   },
 
   // ── SPORTS & OUTDOORS ──────────────────────────────────────────────────────
@@ -458,6 +486,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1506126613408-eca07ce68773"),
     ],
     rating: 4.8,
+    stock: 57,
   },
   {
     name: "Theragun Mini (3rd Gen) Percussion Massager",
@@ -473,6 +502,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1571019613454-1cb2f99b2d8b"),
     ],
     rating: 4.6,
+    stock: 31,
   },
   {
     name: "Osprey Farpoint 40 Travel Backpack",
@@ -487,6 +517,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1622260614153-03223fb72052"),
     ],
     rating: 4.7,
+    stock: 44,
   },
   {
     name: "Coleman Portable Camping Quad Chair",
@@ -502,6 +533,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1478131143081-80f7f84ca84d"),
     ],
     rating: 4.4,
+    stock: 82,
   },
   {
     name: "Black Diamond Trail Sport Trekking Poles",
@@ -516,6 +548,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1551632811-561732d1e306"),
     ],
     rating: 4.5,
+    stock: 66,
   },
   {
     name: "Wilson Pro Staff RF97 Tennis Racket",
@@ -530,6 +563,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1554068865-24ceec13d6c2"),
     ],
     rating: 4.5,
+    stock: 28,
   },
   {
     name: "Nike Resistance Band Set (5 Bands)",
@@ -544,6 +578,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1598289431512-b97b0917affc"),
     ],
     rating: 4.4,
+    stock: 94,
   },
   {
     name: "Garmin Forerunner 265 GPS Running Watch",
@@ -560,6 +595,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1523275335684-37898b6baf30"),
     ],
     rating: 4.7,
+    stock: 8,
   },
 
   // ── BEAUTY ─────────────────────────────────────────────────────────────────
@@ -577,6 +613,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1571781926291-c477ebfd024b"),
     ],
     rating: 4.8,
+    stock: 140,
   },
   {
     name: "The Ordinary Niacinamide 10% + Zinc 1%",
@@ -592,6 +629,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1556228453-efd6c1ff04f6"),
     ],
     rating: 4.7,
+    stock: 200,
   },
   {
     name: "La Roche-Posay Anthelios Melt-in Milk SPF 60",
@@ -606,6 +644,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1556228453-efd6c1ff04f6"),
     ],
     rating: 4.6,
+    stock: 175,
   },
   {
     name: "Olaplex No.3 Hair Perfector Treatment",
@@ -620,6 +659,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1535585209827-a15fcdbc4c2d"),
     ],
     rating: 4.7,
+    stock: 93,
   },
   {
     name: "Philips Sonicare ProtectiveClean 4100 Toothbrush",
@@ -635,6 +675,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1559190394-df5a28aab5c5"),
     ],
     rating: 4.5,
+    stock: 52,
   },
   {
     name: "Charlotte Tilbury Magic Cream 50ml",
@@ -649,6 +690,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1556228578-8c89e6adf883"),
     ],
     rating: 4.7,
+    stock: 7,
   },
   {
     name: "Drunk Elephant T.L.C. Sukari Babyfacial",
@@ -663,6 +705,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1596462502278-27bfdc403348"),
     ],
     rating: 4.6,
+    stock: 41,
   },
 
   // ── BOOKS & MEDIA ──────────────────────────────────────────────────────────
@@ -680,6 +723,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1495640388908-05fa85288e61"),
     ],
     rating: 4.9,
+    stock: 120,
   },
   {
     name: "Salt, Fat, Acid, Heat by Samin Nosrat",
@@ -694,6 +738,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1507048331197-7d4ac70811cf"),
     ],
     rating: 4.8,
+    stock: 85,
   },
   {
     name: "Dune by Frank Herbert",
@@ -708,6 +753,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1495640388908-05fa85288e61"),
     ],
     rating: 4.8,
+    stock: 67,
   },
   {
     name: "Miles Davis – Kind of Blue Vinyl LP (180g)",
@@ -722,6 +768,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1603048297172-c92544798d5a"),
     ],
     rating: 4.9,
+    stock: 9,
   },
   {
     name: "The Creative Act: A Way of Being by Rick Rubin",
@@ -736,6 +783,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1524995997946-a1c2e315a42f"),
     ],
     rating: 4.7,
+    stock: 98,
   },
   {
     name: "The Design of Everyday Things by Don Norman",
@@ -750,6 +798,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1456513080510-7bf3a84b82f8"),
     ],
     rating: 4.7,
+    stock: 74,
   },
 
   // ── TOYS & GAMES ───────────────────────────────────────────────────────────
@@ -766,6 +815,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1587654780291-39c9404d746b"),
     ],
     rating: 4.9,
+    stock: 2,
   },
   {
     name: "Catan Board Game (5th Edition)",
@@ -780,6 +830,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1611996575749-79a3a250f948"),
     ],
     rating: 4.7,
+    stock: 59,
   },
   {
     name: "Ravensburger Krypt Silver 654-Piece Puzzle",
@@ -794,6 +845,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1558864566-73e81d84e59c"),
     ],
     rating: 4.5,
+    stock: 103,
   },
   {
     name: "Jellycat Bashful Elephant Stuffed Animal",
@@ -808,6 +860,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1559715745-e1b33a271c8f"),
     ],
     rating: 4.9,
+    stock: 76,
   },
   {
     name: "Exploding Kittens Card Game",
@@ -822,6 +875,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1566576912321-d58ddd7a6088"),
     ],
     rating: 4.7,
+    stock: 88,
   },
   {
     name: "Hot Wheels Ultimate Garage Playset",
@@ -837,6 +891,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1566576912321-d58ddd7a6088"),
     ],
     rating: 4.5,
+    stock: 37,
   },
 
   // ── GARDEN & TOOLS ─────────────────────────────────────────────────────────
@@ -854,6 +909,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1504148455328-c376907d081c"),
     ],
     rating: 4.8,
+    stock: 47,
   },
   {
     name: "Fiskars Bypass Pruning Shears (9-Inch)",
@@ -868,6 +924,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1416879595882-3373a0480b5b"),
     ],
     rating: 4.6,
+    stock: 115,
   },
   {
     name: "Stanley FatMax 25-Foot Tape Measure",
@@ -882,6 +939,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1504148455328-c376907d081c"),
     ],
     rating: 4.6,
+    stock: 200,
   },
   {
     name: "Philips Hue Lily XL Outdoor Spot Light",
@@ -896,6 +954,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1614594975525-e45190c55d0b"),
     ],
     rating: 4.5,
+    stock: 39,
   },
   {
     name: "Gardena Classic Hose Set 30m",
@@ -910,6 +969,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1416879595882-3373a0480b5b"),
     ],
     rating: 4.4,
+    stock: 68,
   },
 
   // ── OFFICE ─────────────────────────────────────────────────────────────────
@@ -927,6 +987,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1593642632559-0c6d3fc62b89"),
     ],
     rating: 4.9,
+    stock: 6,
   },
   {
     name: "VIVO Single Gas Spring Monitor Arm",
@@ -941,6 +1002,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1593642632559-0c6d3fc62b89"),
     ],
     rating: 4.5,
+    stock: 53,
   },
   {
     name: "Leuchtturm1917 Medium A5 Dotted Notebook",
@@ -955,6 +1017,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1517842645767-c639042777db"),
     ],
     rating: 4.7,
+    stock: 91,
   },
   {
     name: "Pilot G2 Premium Gel Pens (12-Pack, 0.7mm)",
@@ -969,6 +1032,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1517842645767-c639042777db"),
     ],
     rating: 4.7,
+    stock: 250,
   },
   {
     name: "Logitech MX Keys Mini Wireless Keyboard",
@@ -983,6 +1047,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1587829741301-dc798b83add3"),
     ],
     rating: 4.6,
+    stock: 79,
   },
   {
     name: "Rocketbook Smart Reusable Notebook",
@@ -997,6 +1062,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1456513080510-7bf3a84b82f8"),
     ],
     rating: 4.5,
+    stock: 144,
   },
 
   // ── GROCERIES & PANTRY ─────────────────────────────────────────────────────
@@ -1014,6 +1080,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1495474472359-6e7d7b10ff44"),
     ],
     rating: 4.7,
+    stock: 185,
   },
   {
     name: "California Olive Ranch Extra Virgin Olive Oil 16.9oz",
@@ -1028,6 +1095,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1474979266404-7eaacbcd87c5"),
     ],
     rating: 4.7,
+    stock: 162,
   },
   {
     name: "Bob's Red Mill Organic Rolled Oats 32oz",
@@ -1042,6 +1110,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1574323347407-f5e1ad6d020b"),
     ],
     rating: 4.7,
+    stock: 210,
   },
   {
     name: "Lindt Excellence 90% Dark Chocolate Bar 100g",
@@ -1056,6 +1125,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1481391319555-bae786bce8e8"),
     ],
     rating: 4.6,
+    stock: 320,
   },
   {
     name: "Harney & Sons Royal English Breakfast Tea 50ct",
@@ -1070,6 +1140,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1556679343-c7306c1976bc"),
     ],
     rating: 4.7,
+    stock: 195,
   },
   {
     name: "Nature Nate's Raw & Unfiltered Honey 32oz",
@@ -1084,6 +1155,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1587049352846-4a222e784d38"),
     ],
     rating: 4.8,
+    stock: 148,
   },
   {
     name: "Siete Grain-Free Tortilla Chips Sea Salt 5oz",
@@ -1098,6 +1170,7 @@ const PRODUCTS: ProductSeed[] = [
       img("1574323347407-f5e1ad6d020b"),
     ],
     rating: 4.5,
+    stock: 275,
   },
 ];
 
@@ -1157,6 +1230,7 @@ async function main() {
       availability: Math.random() > 0.05,
       brand: p.brand,
       rating: p.rating,
+      stock: p.stock ?? 50,
       category_id,
     };
 

@@ -5,58 +5,131 @@ import catchAsync from "../utils/catchAsync";
 import AppError from "../utils/AppError";
 import { CancelledBy, OrderStatus } from "@prisma/client";
 import logger from "../config/logger";
+import { createOrderSchema } from "../Schema/orderSchema";
 
 export const createOrder = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
     const userId = req.user!.id;
-    const { items } = req.body;
-    if (!items || !Array.isArray(items) || items.length === 0) {
-      return next(new AppError("Items is required and cannot be empty", 400));
-    }
+    const { items } = createOrderSchema.parse(req.body);
 
-    const productIds = items.map((item) => item.product_id);
-    const products = await prisma.products.findMany({
-      where: { product_id: { in: productIds } },
-    });
+    const order = await prisma.$transaction(async (tx) => {
+      const productIds = items.map((item) => item.product_id);
+      const products = await tx.products.findMany({
+        where: { product_id: { in: productIds } },
+      });
 
-    const productMap = new Map(products.map((p) => [p.product_id, p]));
-    let calculatedTotal = 0;
+      const productMap = new Map(products.map((p) => [p.product_id, p]));
+      let calculatedTotal = 0;
+      const orderItemsData: {
+        product_id: string;
+        quantity: number;
+        price: number;
+      }[] = [];
 
-    const orderItemsData = items.map((item) => {
-      const product = productMap.get(item.product_id);
+      for (const item of items) {
+        const product = productMap.get(item.product_id);
+        if (!product)
+          throw new AppError(`Product not found: ${item.product_id}`, 404);
+        if (product.stock < item.quantity) {
+          throw new AppError(
+            `Insufficient stock for "${product.name}". Available: ${product.stock}`,
+            400,
+          );
+        }
 
-      if (!product) {
-        throw new AppError(`Product not found: ${item.product_id}`, 404);
+        await tx.products.update({
+          where: { product_id: item.product_id },
+          data: { stock: { decrement: item.quantity } },
+        });
+
+        calculatedTotal += product.price * item.quantity;
+        orderItemsData.push({
+          product_id: item.product_id,
+          quantity: item.quantity,
+          price: product.price,
+        });
       }
-      if (item.quantity <= 0) {
-        throw new AppError(`Invalid quantity for ${product.name}`, 400);
-      }
 
-      calculatedTotal += product.price * item.quantity;
-
-      return {
-        product_id: item.product_id,
-        quantity: item.quantity,
-        price: product.price,
-      };
-    });
-
-    const order = await prisma.order.create({
-      data: {
-        userId,
-        total: calculatedTotal,
-        status: "PENDING",
-        items: {
-          create: orderItemsData,
+      return tx.order.create({
+        data: {
+          userId,
+          total: calculatedTotal,
+          status: "PENDING",
+          items: { create: orderItemsData },
         },
-      },
-      include: {
-        items: true,
-      },
+        include: { items: true },
+      });
     });
 
     logger.info(`Order ${order.id} created by user ${userId}`);
+    res.status(201).json({
+      status: "success",
+      data: { order },
+    });
+  },
+);
 
+// Checkout from cart
+export const checkoutFromCart = catchAsync(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const userId = req.user!.id;
+
+    const order = await prisma.$transaction(async (tx) => {
+      const cart = await tx.cart.findUnique({
+        where: { userId },
+        include: { items: { include: { product: true } } },
+      });
+
+      if (!cart || cart.items.length === 0) {
+        throw new AppError("Your cart is empty", 400);
+      }
+
+      let calculatedTotal = 0;
+      const orderItemsData: {
+        product_id: string;
+        quantity: number;
+        price: number;
+      }[] = [];
+
+      for (const item of cart.items) {
+        const product = item.product;
+        if (product.stock < item.quantity) {
+          throw new AppError(
+            `Insufficient stock for "${product.name}". Available: ${product.stock}`,
+            400,
+          );
+        }
+
+        await tx.products.update({
+          where: { product_id: item.product_id },
+          data: { stock: { decrement: item.quantity } },
+        });
+
+        calculatedTotal += product.price * item.quantity;
+        orderItemsData.push({
+          product_id: item.product_id,
+          quantity: item.quantity,
+          price: product.price,
+        });
+      }
+
+      const newOrder = await tx.order.create({
+        data: {
+          userId,
+          total: calculatedTotal,
+          status: "PENDING",
+          items: { create: orderItemsData },
+        },
+        include: { items: true },
+      });
+
+      // Clear the cart after successful order creation
+      await tx.cartItem.deleteMany({ where: { cartId: cart.id } });
+
+      return newOrder;
+    });
+
+    logger.info(`Order ${order.id} created from cart by user ${userId}`);
     res.status(201).json({
       status: "success",
       data: { order },
@@ -112,8 +185,12 @@ export const getOrderById = catchAsync(
     }
 
     if (order.userId !== req.user!.id) {
-      logger.warn(`User ${req.user!.id} attempted to access order ${order.id} belonging to ${order.userId}`);
-      return next(new AppError("You do not have permission to view this order", 403));
+      logger.warn(
+        `User ${req.user!.id} attempted to access order ${order.id} belonging to ${order.userId}`,
+      );
+      return next(
+        new AppError("You do not have permission to view this order", 403),
+      );
     }
 
     logger.info(`Order with ID: ${req.params.id} fetched successfully`);
@@ -186,16 +263,29 @@ export const cancelOrder = catchAsync(
     }
 
     logger.info(`Cancelling order with ID: ${orderId}`);
-    const cancelledOrder = await prisma.order.update({
-      where: {
-        id: orderId,
-        status: { in: cancellableStatus },
-      },
-      data: {
-        status: OrderStatus.CANCELLED,
-        cancelledAt: new Date(),
-        cancelledBy: CancelledBy.USER,
-      },
+    const cancelledOrder = await prisma.$transaction(async (tx) => {
+      const orderWithItems = await tx.order.findUnique({
+        where: { id: orderId },
+        include: { items: true },
+      });
+
+      if (orderWithItems) {
+        for (const item of orderWithItems.items) {
+          await tx.products.update({
+            where: { product_id: item.product_id },
+            data: { stock: { increment: item.quantity } },
+          });
+        }
+      }
+
+      return tx.order.update({
+        where: { id: orderId, status: { in: cancellableStatus } },
+        data: {
+          status: OrderStatus.CANCELLED,
+          cancelledAt: new Date(),
+          cancelledBy: CancelledBy.USER,
+        },
+      });
     });
 
     logger.info(`Order with ID: ${orderId} sucessfully cancelled`);
@@ -274,15 +364,29 @@ export const adminCancelOrder = catchAsync(
       return next(new AppError("Order cannot be cancelled at this stage", 400));
     }
 
-    const cancelledOrder = await prisma.order.update({
-      where: {
-        id: orderId,
-      },
-      data: {
-        status: OrderStatus.CANCELLED,
-        cancelledAt: new Date(),
-        cancelledBy: CancelledBy.ADMIN,
-      },
+    const cancelledOrder = await prisma.$transaction(async (tx) => {
+      const orderWithItems = await tx.order.findUnique({
+        where: { id: orderId },
+        include: { items: true },
+      });
+
+      if (orderWithItems) {
+        for (const item of orderWithItems.items) {
+          await tx.products.update({
+            where: { product_id: item.product_id },
+            data: { stock: { increment: item.quantity } },
+          });
+        }
+      }
+
+      return tx.order.update({
+        where: { id: orderId },
+        data: {
+          status: OrderStatus.CANCELLED,
+          cancelledAt: new Date(),
+          cancelledBy: CancelledBy.ADMIN,
+        },
+      });
     });
 
     res.status(200).json({

@@ -28,6 +28,7 @@ import { AdminCategoriesPage } from "./pages/admin/AdminCategoriesPage";
 import { AdminOrdersPage } from "./pages/admin/AdminOrdersPage";
 import { AdminProductsPage } from "./pages/admin/AdminProductsPage";
 import { AdminUsersPage } from "./pages/admin/AdminUsersPage";
+import { ScrollToTop } from "./components/ScrollToTop";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -47,6 +48,7 @@ export default function App() {
       <AuthProvider>
         <WishlistProvider>
         <BrowserRouter>
+          <ScrollToTop />
           <Toaster
             position="bottom-right"
             toastOptions={{

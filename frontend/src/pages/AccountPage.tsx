@@ -1,7 +1,8 @@
 import { NavLink, Navigate, Outlet, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import { useState } from "react";
 import { useAuth } from "../context/AuthContext";
-import { UserIcon, MapPinIcon, ShieldIcon } from "../components/Icons";
+import { UserIcon, MapPinIcon, ShieldIcon, XIcon } from "../components/Icons";
 
 function getProfileImageUrl(image?: string): string | null {
   if (!image) return null;
@@ -37,6 +38,8 @@ const itemVariants = {
 export function AccountPage() {
   const { user, logout } = useAuth();
   const location = useLocation();
+  const [verifyBannerDismissed, setVerifyBannerDismissed] = useState(false);
+  const showVerifyBanner = !verifyBannerDismissed && user?.isVerified === false;
 
   if (location.pathname === "/account") {
     return <Navigate to="/account/profile" replace />;
@@ -52,6 +55,37 @@ export function AccountPage() {
 
   return (
     <div>
+      {/* Email verification banner */}
+      <AnimatePresence>
+        {showVerifyBanner && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.25 }}
+            className="mb-6 flex items-start justify-between gap-3 rounded-2xl border border-amber-500/25 bg-amber-500/10 px-4 py-3.5"
+          >
+            <div className="flex items-start gap-3">
+              <span className="mt-0.5 text-base">✉️</span>
+              <div>
+                <p className="text-sm font-semibold text-amber-600 dark:text-amber-400">Verify your email address</p>
+                <p className="mt-0.5 text-xs text-amber-700/80 dark:text-amber-300/70">
+                  We sent a verification link to your inbox. Check your email to confirm your account.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setVerifyBannerDismissed(true)}
+              className="mt-0.5 shrink-0 text-amber-500/60 transition-colors hover:text-amber-400"
+              aria-label="Dismiss"
+            >
+              <XIcon className="size-4" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Page header */}
       <motion.div
         className="mb-8"

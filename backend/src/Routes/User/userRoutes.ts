@@ -6,6 +6,7 @@ import {
   logout,
   forgetPassword,
   resetPassword,
+  verifyEmail,
   Protect,
   updatePassword,
 } from "../../controller/authController";
@@ -28,6 +29,7 @@ router.post("/Logout", logout);
 
 router.post("/forgetPassword", forgetPassword);
 router.patch("/resetPassword/:token", resetPassword);
+router.get("/verifyEmail/:token", verifyEmail);
 
 router.use(Protect);
 

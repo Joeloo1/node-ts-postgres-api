@@ -12,6 +12,7 @@ export type Product = {
   image: string | null;
   images?: string[] | null;
   discount: number | null;
+  stock?: number;
   availability: boolean;
   brand: string | null;
   rating: number | null;
@@ -26,6 +27,7 @@ export type User = {
   roles: string;
   phoneNumber?: string | null;
   profileImage?: string;
+  isVerified?: boolean;
 };
 
 export type CartItem = {
@@ -46,7 +48,8 @@ export type OrderStatus =
   | "PROCESSING"
   | "SHIPPED"
   | "DELIVERED"
-  | "CANCELLED";
+  | "CANCELLED"
+  | "REFUNDED";
 
 export type OrderItem = {
   id: string;

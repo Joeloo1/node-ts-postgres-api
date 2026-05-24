@@ -40,10 +40,7 @@ export function ProductCard({ product }: { product: Product }) {
 
   function handleAddToCart(e: React.MouseEvent) {
     e.preventDefault();
-    if (!token) {
-      navigate("/login");
-      return;
-    }
+    if (!token) { navigate("/login"); return; }
     addToCart.mutate();
   }
 
@@ -56,21 +53,22 @@ export function ProductCard({ product }: { product: Product }) {
   }
 
   return (
-    <article className="group flex flex-col overflow-hidden rounded-2xl border border-stroke bg-card transition-all duration-300 hover:border-edge hover:bg-raised hover:shadow-xl hover:shadow-black/40">
+    <article className="group flex flex-col overflow-hidden rounded-2xl border border-stroke bg-card transition-all duration-300 hover:border-edge hover:bg-raised hover:shadow-xl hover:shadow-black/30">
 
       {/* Image */}
       <Link
         to={`/products/${product.product_id}`}
-        className="relative aspect-[4/3] overflow-hidden bg-raised"
+        className="relative aspect-square overflow-hidden bg-raised sm:aspect-[4/3]"
       >
         <img
           src={productImageUrl(product)}
           alt={product.name}
-          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]"
+          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.07]"
           loading="lazy"
         />
 
-        <div className="absolute inset-0 bg-black/0 transition-colors duration-300 group-hover:bg-black/20" />
+        {/* Hover overlay */}
+        <div className="absolute inset-0 bg-black/0 transition-colors duration-300 group-hover:bg-black/15" />
 
         {/* Out of stock */}
         {!product.availability && (
@@ -83,21 +81,23 @@ export function ProductCard({ product }: { product: Product }) {
 
         {/* Discount badge */}
         {product.discount && product.discount > 0 ? (
-          <span className="absolute left-3 top-3 rounded-full bg-emerald-500 px-2.5 py-1 text-xs font-bold text-white shadow">
+          <span className="absolute left-3 top-3 rounded-full bg-emerald-500 px-2.5 py-1 text-[11px] font-bold text-white shadow-md">
             −{Math.round(product.discount)}%
           </span>
         ) : null}
 
-        {/* Top-right action buttons — slide in on hover */}
-        <div className="absolute right-3 top-3 flex flex-col gap-2 translate-x-3 opacity-0 transition-all duration-200 group-hover:translate-x-0 group-hover:opacity-100">
+        {/* Action buttons — always visible on mobile, hover-only on sm+ */}
+        <div className="absolute right-2.5 top-2.5 flex flex-col gap-1.5
+          sm:translate-x-2 sm:opacity-0 sm:transition-all sm:duration-200
+          sm:group-hover:translate-x-0 sm:group-hover:opacity-100">
           <motion.button
             type="button"
             onClick={handleWishlist}
-            whileTap={{ scale: 0.85 }}
+            whileTap={{ scale: 0.82 }}
             className={`flex size-8 items-center justify-center rounded-full shadow-lg backdrop-blur-sm transition-colors ${
               isWishlisted
                 ? "bg-red-500 text-white"
-                : "bg-raised/80 text-ink2 hover:bg-red-500 hover:text-white"
+                : "bg-page/80 text-ink3 hover:bg-red-500 hover:text-white"
             }`}
             aria-label={isWishlisted ? "Remove from wishlist" : "Save to wishlist"}
           >
@@ -109,8 +109,8 @@ export function ProductCard({ product }: { product: Product }) {
               type="button"
               onClick={handleAddToCart}
               disabled={addToCart.isPending}
-              whileTap={{ scale: 0.85 }}
-              className="flex size-8 items-center justify-center rounded-full bg-raised/80 text-ink2 shadow-lg backdrop-blur-sm transition-colors hover:bg-emerald-600 hover:text-white disabled:opacity-50"
+              whileTap={{ scale: 0.82 }}
+              className="flex size-8 items-center justify-center rounded-full bg-page/80 text-ink3 shadow-lg backdrop-blur-sm transition-colors hover:bg-emerald-600 hover:text-white disabled:opacity-50"
               aria-label="Add to cart"
             >
               <CartIcon className="size-3.5" />
@@ -118,9 +118,11 @@ export function ProductCard({ product }: { product: Product }) {
           )}
         </div>
 
-        {/* Bottom "View product" — slides up on hover */}
+        {/* "View product" bar — slides up on hover (desktop), hidden on mobile */}
         {product.availability && (
-          <div className="absolute bottom-3 left-3 right-3 translate-y-2 opacity-0 transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100">
+          <div className="absolute bottom-2.5 left-2.5 right-2.5 hidden
+            sm:block sm:translate-y-2 sm:opacity-0 sm:transition-all sm:duration-200
+            sm:group-hover:translate-y-0 sm:group-hover:opacity-100">
             <span className="flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-xs font-semibold text-zinc-900 shadow-lg">
               View product
             </span>
@@ -129,7 +131,7 @@ export function ProductCard({ product }: { product: Product }) {
       </Link>
 
       {/* Content */}
-      <div className="flex flex-1 flex-col gap-1.5 p-4">
+      <div className="flex flex-1 flex-col gap-1.5 p-3 sm:p-4">
         {categoryName ? (
           <p className="text-[10px] font-semibold uppercase tracking-widest text-ink4">
             {categoryName}
@@ -138,32 +140,32 @@ export function ProductCard({ product }: { product: Product }) {
 
         <Link
           to={`/products/${product.product_id}`}
-          className="line-clamp-2 font-display text-[15px] font-semibold leading-snug text-ink transition-colors hover:text-emerald-400"
+          className="line-clamp-2 font-display text-[13px] font-semibold leading-snug text-ink transition-colors hover:text-emerald-400 sm:text-[15px]"
         >
           {product.name}
         </Link>
 
         {product.brand ? (
-          <p className="text-xs text-ink4">{product.brand}</p>
+          <p className="text-[11px] text-ink4 sm:text-xs">{product.brand}</p>
         ) : null}
 
         <div className="mt-auto flex items-center justify-between gap-2 border-t border-stroke pt-3">
           <div>
-            <p className="text-[15px] font-bold tabular-nums text-ink">
+            <p className="text-sm font-bold tabular-nums text-ink sm:text-[15px]">
               ${price.toFixed(2)}
               {product.unit ? (
                 <span className="text-xs font-normal text-ink4"> /{product.unit}</span>
               ) : null}
             </p>
             {product.discount && product.discount > 0 ? (
-              <p className="text-xs text-ink4 line-through">${product.price.toFixed(2)}</p>
+              <p className="text-[11px] text-ink4 line-through">${product.price.toFixed(2)}</p>
             ) : null}
           </div>
 
           {product.rating != null ? (
             <div className="flex items-center gap-1">
               <StarIcon className="size-3.5 text-amber-400" filled />
-              <span className="text-xs font-semibold text-ink3">
+              <span className="text-[11px] font-semibold text-ink3 sm:text-xs">
                 {product.rating.toFixed(1)}
               </span>
             </div>

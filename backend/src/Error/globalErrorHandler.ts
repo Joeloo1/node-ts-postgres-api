@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from "express";
+import { ZodError } from "zod";
 import AppError from "../utils/AppError";
 import logger from "../config/logger";
 
@@ -122,6 +123,12 @@ export const globalErrorHandler = (
 
   // Production
   let error: AppError;
+
+  // Zod validation errors
+  if (err instanceof ZodError) {
+    const message = err.issues.map((i: { message: string }) => i.message).join(". ");
+    return sendErrorProd(new AppError(message, 400), res);
+  }
 
   // Prisma errors
   if (err.name === "PrismaClientValidationError") {

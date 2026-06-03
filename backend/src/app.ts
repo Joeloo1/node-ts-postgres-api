@@ -42,12 +42,11 @@ app.use(
   }),
 );
 
-const makeRedisStore = (prefix: string) => {
+const makeRedisStore = (prefix: string) =>
   new RedisStore({
     prefix,
     sendCommand: (...args: string[]) => (redis as any).sendCommand(args),
   });
-};
 
 // set seurity HTTP Header
 app.use(helmet());
@@ -73,7 +72,7 @@ app.use(requestIdMiddleware);
 app.use(
   compression({
     threshold: 1024,
-    filter: (req, res) => {
+    filter: (req: Request, res: Response) => {
       if (req.headers["x-no-compression"]) return false;
       return compression.filter(req, res);
     },
@@ -99,7 +98,7 @@ const Limiter = rateLimit({
 const authLimiter = rateLimit({
   max: 10,
   windowMs: 15 * 60 * 1000,
-  // store: makeRedisStore("rl:auth:"),
+  store: makeRedisStore("rl:auth:"),
   standardHeaders: true,
   legacyHeaders: false,
   handler: (_req, res) => {
@@ -113,7 +112,7 @@ const authLimiter = rateLimit({
 const passwordResetLimiter = rateLimit({
   max: 5,
   windowMs: 60 * 60 * 1000,
-  // store: makeRedisStore('rl:reset:'),
+  store: makeRedisStore("rl:reset:"),
   handler: (_req, res) => {
     res.status(429).json({
       status: "fail",

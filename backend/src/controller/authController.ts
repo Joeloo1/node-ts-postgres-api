@@ -292,7 +292,7 @@ export const Protect = catchAsync(
       token = req.headers.authorization.split(" ")[1];
     }
     if (!token) {
-      token = getTokenFromCookieHeader(req.headers.cookie);
+      token = req.cookies?.jwt;
     }
 
     if (!token) {

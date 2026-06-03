@@ -3,6 +3,7 @@ import morgan from "morgan";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import path from "path";
 import RedisStore from "rate-limit-redis";
 import compression from "compression";
@@ -61,6 +62,7 @@ app.post(
 
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+app.use(cookieParser());
 app.use("/public", express.static(path.join(__dirname, "../public")));
 
 if (process.env.NODE_ENV === "development") {

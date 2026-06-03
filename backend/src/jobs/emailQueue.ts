@@ -1,7 +1,6 @@
 import { Queue, Worker, Job } from "bullmq";
 import sendMail from "../utils/email";
 import logger from "../config/logger";
-import { concurrency } from "sharp";
 
 const parseRedisUrl = (url: string) => {
   const parsed = new URL(url);

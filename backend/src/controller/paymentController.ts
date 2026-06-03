@@ -5,12 +5,18 @@ import catchAsync from "../utils/catchAsync";
 import AppError from "../utils/AppError";
 import logger from "../config/logger";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+type StripeClient = InstanceType<typeof Stripe>;
+let _stripe: StripeClient | null = null;
+const getStripe = (): StripeClient => {
+  if (!_stripe) {
+    const key = process.env.STRIPE_SECRET_KEY;
+    if (!key)
+      throw new Error("STRIPE_SECRET_KEY environment variable is not set");
+    _stripe = new Stripe(key);
+  }
+  return _stripe;
+};
 
-/* ─────────────────────────────────────────────────
-   Step 1 — Create a Stripe Checkout Session.
-   Returns a hosted Stripe URL; frontend just redirects.
-───────────────────────────────────────────────── */
 export const createCheckoutSession = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
     const userId = req.user!.id;
@@ -37,21 +43,19 @@ export const createCheckoutSession = catchAsync(
     }
 
     // Build Stripe line items from the cart
-    const lineItems = cart.items.map(
-      (item) => ({
-        price_data: {
-          currency: "usd",
-          product_data: {
-            name: item.product.name,
-            ...(item.product.image && { images: [item.product.image] }),
-          },
-          unit_amount: Math.round(item.product.price * 100),
+    const lineItems = cart.items.map((item) => ({
+      price_data: {
+        currency: "usd",
+        product_data: {
+          name: item.product.name,
+          ...(item.product.image && { images: [item.product.image] }),
         },
-        quantity: item.quantity,
-      }),
-    );
+        unit_amount: Math.round(item.product.price * 100),
+      },
+      quantity: item.quantity,
+    }));
 
-    const session = await stripe.checkout.sessions.create({
+    const session = await getStripe().checkout.sessions.create({
       mode: "payment",
       line_items: lineItems,
       metadata: { userId },
@@ -73,11 +77,6 @@ export const createCheckoutSession = catchAsync(
   },
 );
 
-/* ─────────────────────────────────────────────────
-   Step 2 — Stripe calls this after payment succeeds.
-   Must receive raw body for signature verification.
-───────────────────────────────────────────────── */
-
 const fulfillCartOrder = async (userId: string, sessionId: string) => {
   return prisma.$transaction(async (tx) => {
     const cart = await tx.cart.findUnique({
@@ -88,11 +87,17 @@ const fulfillCartOrder = async (userId: string, sessionId: string) => {
     if (!cart || cart.items.length === 0) return null;
 
     let calculatedTotal = 0;
-    const orderItemsData: { product_id: string; quantity: number; price: number }[] = [];
+    const orderItemsData: {
+      product_id: string;
+      quantity: number;
+      price: number;
+    }[] = [];
 
     for (const item of cart.items) {
       if (item.product.stock < item.quantity) {
-        throw new Error(`Insufficient stock for "${item.product.name}" at fulfilment time`);
+        throw new Error(
+          `Insufficient stock for "${item.product.name}" at fulfilment time`,
+        );
       }
 
       await tx.products.update({
@@ -129,10 +134,10 @@ export const stripeWebhook = async (req: Request, res: Response) => {
 
   if (!sig) return res.status(400).send("Missing Stripe signature header");
 
-  let event: ReturnType<typeof stripe.webhooks.constructEvent>;
+  let event: ReturnType<StripeClient["webhooks"]["constructEvent"]>;
 
   try {
-    event = stripe.webhooks.constructEvent(
+    event = getStripe().webhooks.constructEvent(
       req.body, // raw Buffer — express.raw() must wrap this route
       sig,
       process.env.STRIPE_WEBHOOK_SECRET!,
@@ -173,7 +178,10 @@ export const stripeWebhook = async (req: Request, res: Response) => {
           total: order.total,
         });
       } else {
-        logger.warn("Cart was empty at fulfilment time", { userId, sessionId: session.id });
+        logger.warn("Cart was empty at fulfilment time", {
+          userId,
+          sessionId: session.id,
+        });
       }
     } catch (err) {
       // Return 200 — non-2xx causes Stripe to retry, risking double-fulfil
@@ -188,20 +196,18 @@ export const stripeWebhook = async (req: Request, res: Response) => {
   res.status(200).json({ received: true });
 };
 
-/* ─────────────────────────────────────────────────
-   Step 3 — Confirmation page calls this after redirect.
-   Verifies the session is paid and returns the order.
-   Acts as a webhook fallback for local dev / slow webhooks.
-───────────────────────────────────────────────── */
 export const verifyCheckoutSession = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
     const { sessionId } = req.params;
     const userId = req.user!.id;
 
     // Retrieve the session from Stripe to confirm payment
-    let session: { payment_status: string; metadata?: Record<string, string> | null };
+    let session: {
+      payment_status: string;
+      metadata?: Record<string, string> | null;
+    };
     try {
-      session = await stripe.checkout.sessions.retrieve(sessionId);
+      session = await getStripe().checkout.sessions.retrieve(sessionId);
     } catch {
       return next(new AppError("Checkout session not found", 404));
     }
@@ -212,7 +218,9 @@ export const verifyCheckoutSession = catchAsync(
     }
 
     if (session.payment_status !== "paid") {
-      return next(new AppError("Payment has not been completed for this session", 402));
+      return next(
+        new AppError("Payment has not been completed for this session", 402),
+      );
     }
 
     // Try to fulfill the cart — idempotent.
@@ -222,11 +230,14 @@ export const verifyCheckoutSession = catchAsync(
     try {
       order = await fulfillCartOrder(userId, sessionId);
     } catch (err) {
-      logger.warn("verifyCheckoutSession fulfillment failed — looking for existing order", {
-        userId,
-        sessionId,
-        error: err,
-      });
+      logger.warn(
+        "verifyCheckoutSession fulfillment failed — looking for existing order",
+        {
+          userId,
+          sessionId,
+          error: err,
+        },
+      );
     }
 
     // If cart was already cleared by the webhook, find the most recent PAID order
@@ -239,7 +250,9 @@ export const verifyCheckoutSession = catchAsync(
     }
 
     if (!order) {
-      return next(new AppError("Order not found — please contact support", 404));
+      return next(
+        new AppError("Order not found — please contact support", 404),
+      );
     }
 
     logger.info("Checkout session verified", { userId, orderId: order.id });

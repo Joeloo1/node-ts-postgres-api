@@ -12,8 +12,22 @@ function baseUrl(): string {
   return typeof env === "string" && env.length > 0 ? env.replace(/\/$/, "") : "";
 }
 
+// ── Bearer token storage ──────────────────────────────────────────────────────
+// Cookies don't reliably cross origins (Vercel → Render), so we store the JWT
+// in localStorage and send it as an Authorization header on every request.
+const TOKEN_KEY = "auth_token";
+
+export function setAuthToken(token: string | null): void {
+  if (token) localStorage.setItem(TOKEN_KEY, token);
+  else localStorage.removeItem(TOKEN_KEY);
+}
+
+export function getAuthToken(): string | null {
+  return localStorage.getItem(TOKEN_KEY);
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 // ── Silent token refresh ──────────────────────────────────────────────────────
-// Shared promise so concurrent 401s only trigger one refresh call (thundering-herd guard).
 let refreshing: Promise<boolean> | null = null;
 
 async function tryRefreshToken(): Promise<boolean> {
@@ -23,7 +37,13 @@ async function tryRefreshToken(): Promise<boolean> {
     method: "GET",
     credentials: "include",
   })
-    .then((r) => r.ok)
+    .then(async (r) => {
+      if (!r.ok) return false;
+      const data = await r.json().catch(() => null);
+      const token = data?.token ?? data?.accessToken;
+      if (typeof token === "string") setAuthToken(token);
+      return true;
+    })
     .catch(() => false)
     .finally(() => {
       refreshing = null;
@@ -44,6 +64,12 @@ export async function apiFetch<T>(
     headers.set("Content-Type", "application/json");
   }
 
+  // Attach stored token as Bearer header if present
+  const token = getAuthToken();
+  if (token && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+
   const url = `${baseUrl()}${path.startsWith("/") ? path : `/${path}`}`;
   let res: Response;
 
@@ -54,18 +80,18 @@ export async function apiFetch<T>(
   }
 
   // ── Auto-refresh on 401 ──────────────────────────────────────────────────
-  // Don't try to refresh if this IS the refresh endpoint (avoids infinite loop).
   if (res.status === 401 && !path.includes("/refresh")) {
     const refreshed = await tryRefreshToken();
     if (refreshed) {
-      // Retry the original request once with the new access-token cookie
+      // Re-attach the new token and retry
+      const newToken = getAuthToken();
+      if (newToken) headers.set("Authorization", `Bearer ${newToken}`);
       try {
         res = await fetch(url, { ...rest, headers, credentials: "include" });
       } catch {
         throw new ApiError(0, "Network error. Please check your connection and try again.");
       }
     }
-    // If refresh failed or the retry is still 401, fall through to error handling below.
   }
   // ────────────────────────────────────────────────────────────────────────
 

@@ -6,11 +6,12 @@ import {
   type ReactNode,
 } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ApiError, apiFetch } from "../lib/api";
+import { ApiError, apiFetch, setAuthToken } from "../lib/api";
 import type { User } from "../lib/types";
 
 type AuthResponse = {
   status: string;
+  accessToken?: string;
   data: { user: User };
 };
 
@@ -71,11 +72,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(
     async (email: string, password: string) => {
-      await apiFetch<AuthResponse>("/api/v1/users/Login", {
+      const res = await apiFetch<AuthResponse>("/api/v1/users/Login", {
         method: "POST",
         body: JSON.stringify({ email, password }),
       });
-      // Cookie is set by the server — just refresh the /me query
+      if (res.accessToken) setAuthToken(res.accessToken);
       await queryClient.invalidateQueries({ queryKey: ["me"] });
     },
     [queryClient],
@@ -89,10 +90,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       passwordConfirm: string;
       phoneNumber?: string;
     }) => {
-      await apiFetch<AuthResponse>("/api/v1/users/Signup", {
+      const res = await apiFetch<AuthResponse>("/api/v1/users/Signup", {
         method: "POST",
         body: JSON.stringify(payload),
       });
+      if (res.accessToken) setAuthToken(res.accessToken);
       await queryClient.invalidateQueries({ queryKey: ["me"] });
     },
     [queryClient],
@@ -104,6 +106,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       // best-effort: always clear local state
     }
+    setAuthToken(null);
     queryClient.setQueryData(["me"], null);
     queryClient.removeQueries({ queryKey: ["cart"] });
   }, [queryClient]);

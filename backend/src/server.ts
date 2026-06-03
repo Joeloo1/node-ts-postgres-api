@@ -4,6 +4,7 @@ import { connectRedis } from "./config/redis";
 import logger from "./config/logger";
 import app from "./app";
 import { Server } from "http";
+import "./jobs/emailQueue";
 
 const port = process.env.PORT || 3000;
 let server: Server;
@@ -25,7 +26,9 @@ const startServer = async () => {
     });
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);
-    logger.error(`Startup failed: ${errorMessage}`, { stack: err instanceof Error ? err.stack : undefined });
+    logger.error(`Startup failed: ${errorMessage}`, {
+      stack: err instanceof Error ? err.stack : undefined,
+    });
     process.exit(1);
   }
 };

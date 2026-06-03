@@ -4,6 +4,8 @@ import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import cors from "cors";
 import path from "path";
+import RedisStore from "rate-limit-redis";
+import compression from "compression";
 
 import productRoutes from "./Routes/User/productRoutes";
 import categoryRoutes from "./Routes/User/categoriesRoutes";
@@ -13,15 +15,21 @@ import addressRoutes from "./Routes/User/addressRoutes";
 import reviewsRoutes from "./Routes/User/reviewsRoutes";
 import orderRoutes from "./Routes/User/orderRoutes";
 import cartRoutes from "./Routes/User/cartRoutes";
+import paymentRoutes from "./Routes/User/paymentRoutes";
+import { stripeWebhook } from "./controller/paymentController";
 
 import logger from "./config/logger";
 import AppError from "./utils/AppError";
 import { globalErrorHandler } from "./Error/globalErrorHandler";
+import { client as redis } from "./config/redis";
+import { requestIdMiddleware } from "./middleware/requestId";
 
 const app = express();
 app.set("trust proxy", 1);
 
-const corsOrigins = process.env.CORS_ORIGIN?.split(",").map((o) => o.trim()).filter(Boolean);
+const corsOrigins = process.env.CORS_ORIGIN?.split(",")
+  .map((o) => o.trim())
+  .filter(Boolean);
 app.use(
   cors({
     origin:
@@ -34,8 +42,23 @@ app.use(
   }),
 );
 
+const makeRedisStore = (prefix: string) => {
+  new RedisStore({
+    prefix,
+    sendCommand: (...args: string[]) => (redis as any).sendCommand(args),
+  });
+};
+
 // set seurity HTTP Header
 app.use(helmet());
+
+// Stripe webhook MUST be registered before express.json() so it receives the raw body
+// Stripe verifies the signature against the raw request buffer
+app.post(
+  "/api/v1/webhooks/stripe",
+  express.raw({ type: "application/json" }),
+  stripeWebhook,
+);
 
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
@@ -45,6 +68,17 @@ if (process.env.NODE_ENV === "development") {
   app.use(morgan("dev"));
 }
 
+app.use(requestIdMiddleware);
+
+app.use(
+  compression({
+    threshold: 1024,
+    filter: (req, res) => {
+      if (req.headers["x-no-compression"]) return false;
+      return compression.filter(req, res);
+    },
+  }),
+);
 // Request Limiting from the same IP
 const Limiter = rateLimit({
   max: 300,
@@ -62,10 +96,41 @@ const Limiter = rateLimit({
   },
 });
 
+const authLimiter = rateLimit({
+  max: 10,
+  windowMs: 15 * 60 * 1000,
+  // store: makeRedisStore("rl:auth:"),
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (_req, res) => {
+    res.status(429).json({
+      status: "fail",
+      message: "To many attempts from this IP, Please try again in 15 minutes.",
+    });
+  },
+});
+
+const passwordResetLimiter = rateLimit({
+  max: 5,
+  windowMs: 60 * 60 * 1000,
+  // store: makeRedisStore('rl:reset:'),
+  handler: (_req, res) => {
+    res.status(429).json({
+      status: "fail",
+      message: "Too many password reset requests. Please try again in an hour.",
+    });
+  },
+});
+
+app.use("/api/v1/users/login", authLimiter);
+app.use("/api/v1/users/signup", authLimiter);
+app.use("/api/v1/users/forgotPassword", passwordResetLimiter);
+app.use("/api/v1/users/resetPassword", passwordResetLimiter);
+
 app.use("/api", Limiter as any);
 
 // Log all Request
-app.use((req: Request, res: Response, next: NextFunction) => {
+app.use((req: Request, _res: Response, next: NextFunction) => {
   logger.http("Incoming request...", {
     method: req.method,
     path: req.path,
@@ -94,9 +159,11 @@ app.use("/api/v1/reviews", reviewsRoutes);
 app.use("/api/v1/cart", cartRoutes);
 // order Routes
 app.use("/api/v1/order", orderRoutes);
+// payment Routes
+app.use("/api/v1/payments", paymentRoutes);
 
 // HANDLING  unhandled Routes
-app.use((req: Request, res: Response, next: NextFunction) => {
+app.use((req: Request, _res: Response, next: NextFunction) => {
   return next(
     new AppError(`Can't find ${req.originalUrl} on this server`, 404),
   );

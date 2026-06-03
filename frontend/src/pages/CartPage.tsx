@@ -1,10 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { CartSkeleton } from "../components/ProductSkeleton";
 import { usePageTitle } from "../hooks/usePageTitle";
-import { ApiError, apiFetch } from "../lib/api";
+import { apiFetch } from "../lib/api";
 import { productImageUrl } from "../lib/productImage";
 import type { Cart, CartItem } from "../lib/types";
 import { MinusIcon, PackageIcon, PlusIcon, ShieldIcon, TrashIcon, TruckIcon } from "../components/Icons";
@@ -21,7 +21,6 @@ const rowFade: Variants = {
 export function CartPage() {
   usePageTitle("Cart");
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
 
   const cartQuery = useQuery({
     queryKey: ["cart"],
@@ -87,28 +86,13 @@ export function CartPage() {
     onSettled: () => queryClient.invalidateQueries({ queryKey: ["cart"] }),
   });
 
-  const placeOrder = useMutation({
-    mutationFn: async () => {
-      const res = await apiFetch<{ data: { order: { id: string } } }>("/api/v1/order/checkout", {
-        method: "POST",
-        auth: true,
-      });
-      return res.data.order.id;
-    },
-    onSuccess: (orderId) => {
-      queryClient.invalidateQueries({ queryKey: ["cart"] });
-      queryClient.invalidateQueries({ queryKey: ["orders"] });
-      toast.success("Order placed successfully!");
-      navigate(`/orders/${orderId}`);
-    },
-    onError: (e) => toast.error(e instanceof ApiError ? e.message : "Could not place order. Please try again."),
-  });
+  /* No placeOrder mutation here — users go to /checkout for the full flow */
 
   if (cartQuery.isPending) return <CartSkeleton />;
 
   if (cartQuery.isError) {
     return (
-      <div className="rounded-2xl border border-red-900/40 bg-red-950/20 p-6 text-center">
+      <div className="rounded-xl border border-red-900/40 bg-red-950/20 p-6 text-center">
         <p className="text-sm text-red-300">{(cartQuery.error as Error).message}</p>
       </div>
     );
@@ -128,7 +112,7 @@ export function CartPage() {
 
   if (items.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-3xl border border-stroke bg-card py-20 text-center">
+      <div className="flex flex-col items-center justify-center rounded-2xl border border-stroke bg-card py-20 text-center">
         <PackageIcon className="size-14 text-ink4" />
         <h1 className="mt-5 font-display text-2xl font-bold text-ink">
           Your cart is empty
@@ -136,7 +120,7 @@ export function CartPage() {
         <p className="mt-2 text-ink4">Add something from the shop to get started.</p>
         <Link
           to="/products"
-          className="mt-8 inline-flex rounded-xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-500"
+          className="mt-8 inline-flex rounded-xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
         >
           Browse products
         </Link>
@@ -172,7 +156,7 @@ export function CartPage() {
               variants={rowFade}
               exit="exit"
               layout
-              className="flex gap-4 rounded-2xl border border-stroke bg-card p-4 transition-colors hover:border-edge"
+              className="flex gap-4 rounded-xl border border-stroke bg-card p-4 transition-colors hover:border-edge"
             >
               <Link
                 to={`/products/${line.product.product_id}`}
@@ -264,7 +248,7 @@ export function CartPage() {
 
         {/* Order summary */}
         <motion.aside
-          className="h-fit space-y-5 rounded-2xl border border-stroke bg-card p-6"
+          className="h-fit space-y-5 rounded-xl border border-stroke bg-card p-6"
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.4, delay: 0.15, ease: [0.25, 0.1, 0.25, 1] }}
@@ -314,22 +298,12 @@ export function CartPage() {
             )}
           </div>
 
-          {placeOrder.isError && (
-            <p className="rounded-xl border border-red-900/40 bg-red-950/30 px-3 py-2 text-sm text-red-300">
-              {placeOrder.error instanceof ApiError
-                ? placeOrder.error.message
-                : "Order failed — try again"}
-            </p>
-          )}
-
-          <button
-            type="button"
-            disabled={placeOrder.isPending}
-            onClick={() => placeOrder.mutate()}
-            className="w-full rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-500 disabled:opacity-50"
+          <Link
+            to="/checkout"
+            className="block w-full rounded-xl bg-emerald-600 py-3 text-center text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
           >
-            {placeOrder.isPending ? "Placing order…" : "Place order"}
-          </button>
+            Proceed to checkout
+          </Link>
 
           <Link
             to="/products"

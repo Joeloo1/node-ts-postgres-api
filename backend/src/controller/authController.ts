@@ -11,7 +11,7 @@ import {
   createPasswordResetToken,
 } from "../utils/password";
 import AppError from "../utils/AppError";
-import { signToken } from "../utils/jwt";
+import { signAccessToken, signRefreshToken } from "../utils/jwt";
 import { prisma } from "../config/database";
 import sendMail from "../utils/email";
 import logger from "../config/logger";
@@ -20,6 +20,9 @@ import { JwtPayload } from "../types/auth.types";
 import { UserRole } from "@prisma/client";
 import { client as redis, scanDel } from "../config/redis";
 import type { CookieOptions } from "express";
+import { emailQueue } from "../jobs/emailQueue";
+
+const isProd = process.env.NODE_ENV === "production";
 
 const clearUsersListCache = async () => {
   await scanDel("users:list:*");
@@ -29,7 +32,6 @@ const AUTH_USER_TTL = 300; // 5 minutes
 const getAuthUserKey = (id: string) => `auth:user:${id}`;
 
 const buildAuthCookieOptions = (): CookieOptions => {
-  const isProd = process.env.NODE_ENV === "production";
   const maxAgeMs =
     Number(process.env.JWT_COOKIE_EXPIRES_DAYS ?? "7") * 24 * 60 * 60 * 1000;
   return {
@@ -88,7 +90,6 @@ export const signup = catchAsync(
         email: user.email,
         password: user.password,
         phoneNumber: user.phoneNumber,
-        // Never trust role from client on signup.
         roles: UserRole.USER,
         profileImage: user.profileImage,
       },
@@ -99,7 +100,10 @@ export const signup = catchAsync(
 
     // Send email verification
     const rawVerifyToken = crypto.randomBytes(32).toString("hex");
-    const hashedVerifyToken = crypto.createHash("sha256").update(rawVerifyToken).digest("hex");
+    const hashedVerifyToken = crypto
+      .createHash("sha256")
+      .update(rawVerifyToken)
+      .digest("hex");
     const verifyTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
     await prisma.user.update({
@@ -109,17 +113,42 @@ export const signup = catchAsync(
 
     const verifyURL = `${req.protocol}://${req.get("host")}/api/v1/users/verifyEmail/${rawVerifyToken}`;
     try {
-      await sendMail({
+      // await sendMail({
+      //   email: newUser.email,
+      //   subject: "Verify your email address (valid for 24 hours)",
+      //   message: `Welcome to Northline! Please verify your email by visiting: ${verifyURL}`,
+      // });
+      await emailQueue.add("send-email", {
         email: newUser.email,
-        subject: "Verify your email address (valid for 24 hours)",
-        message: `Welcome to Northline! Please verify your email by visiting: ${verifyURL}`,
+        subject: "Verify your email address",
+        template: "verifyEmail",
+        templateData: { name: newUser.name, verifyURL },
       });
     } catch {
-      logger.warn("Failed to send verification email", { email: newUser.email });
+      logger.warn("Failed to send verification email", {
+        email: newUser.email,
+      });
     }
 
-    const token = signToken({ id: newUser.id });
-    setAuthCookie(res, token);
+    const accessToken = signAccessToken({ id: newUser.id });
+    const refreshToken = signRefreshToken({ id: newUser.id });
+    setAuthCookie(res, accessToken);
+
+    res.cookie("jwt", accessToken, {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: isProd ? "none" : "lax",
+      maxAge: 15 * 60 * 1000,
+      path: "/",
+    });
+
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: isProd ? "none" : "lax",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      path: "/",
+    });
 
     const sanitizedUser = {
       id: newUser.id,
@@ -135,7 +164,7 @@ export const signup = catchAsync(
     logger.info("User created successfully", { email: newUser.email });
     res.status(201).json({
       status: "success",
-      token,
+      accessToken,
       data: {
         user: sanitizedUser,
       },
@@ -162,8 +191,25 @@ export const login = catchAsync(
       return next(new AppError("Incorrect email and password", 401));
     }
 
-    const token = signToken({ id: user.id });
-    setAuthCookie(res, token);
+    const accessToken = signAccessToken({ id: user.id });
+    const refreshToken = signRefreshToken({ id: user.id });
+    setAuthCookie(res, accessToken);
+
+    res.cookie("jwt", accessToken, {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: isProd ? "none" : "lax",
+      maxAge: 15 * 60 * 1000,
+      path: "/",
+    });
+
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: isProd ? "none" : "lax",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      path: "/",
+    });
 
     const sanitizedUser = {
       id: user.id,
@@ -181,7 +227,7 @@ export const login = catchAsync(
     logger.info("User logged in successfully", { email: user.email });
     res.status(200).json({
       status: "success",
-      token,
+      accessToken,
       data: {
         user: sanitizedUser,
       },
@@ -189,6 +235,52 @@ export const login = catchAsync(
   },
 );
 
+// Access Token
+export const refreshAccessToken = catchAsync(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const incomingRefreshToken = req.cookies.refreshToken;
+    if (!incomingRefreshToken) {
+      return next(new AppError("no Refresh Token provided", 401));
+    }
+
+    const decoded = JWT.verify(
+      incomingRefreshToken,
+      process.env.JWT_REFRESH_SECRET as string,
+    ) as JwtPayload;
+
+    const storedToken = await redis.get(`refresh:${decoded.id}`);
+    if (!storedToken || storedToken !== incomingRefreshToken) {
+      return next(
+        new AppError("Refresh token is invalid or has been revoked", 401),
+      );
+    }
+
+    await redis.del(`refresh:${decoded.id}`);
+    const newAccessToken = signAccessToken({ id: decoded.id });
+    const newRefreshToken = signRefreshToken({ id: decoded.id });
+
+    res.cookie("jwt", newAccessToken, {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: isProd ? "none" : "lax",
+      maxAge: 15 * 60 * 1000,
+      path: "/",
+    });
+
+    res.cookie("refreshToken", newRefreshToken, {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: isProd ? "none" : "lax",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      path: "/api/v1/users/refresh",
+    });
+
+    res.status(200).json({
+      status: "success",
+      token: newAccessToken,
+    });
+  },
+);
 // Protect routes
 export const Protect = catchAsync(
   async (req: Request, _res: Response, next: NextFunction) => {
@@ -209,6 +301,17 @@ export const Protect = catchAsync(
         new AppError("You are no longer logged in, Please log in again", 401),
       );
     }
+
+    const isBlacklisted = await redis.get(`blacklist:${token}`);
+    if (isBlacklisted) {
+      return next(
+        new AppError(
+          "Your session has been invalidated. Please log n again",
+          401,
+        ),
+      );
+    }
+
     // verify token
     const decoded = JWT.verify(
       token,
@@ -256,19 +359,43 @@ export const Protect = catchAsync(
   },
 );
 
-export const logout = catchAsync(
-  async (req: Request, res: Response, next: NextFunction) => {
-    clearAuthCookie(res);
-    res.status(200).json({
-      status: "success",
-      message: "Logged out successfully",
-    });
-  },
-);
+export const logout = catchAsync(async (req: Request, res: Response) => {
+  const token =
+    req.cookies.jwt ||
+    (req.headers.authorization?.startsWith("Bearer")
+      ? req.headers.authorization.split(" ")[1]
+      : undefined);
+
+  if (token) {
+    const decoded = JWT.decode(token) as JwtPayload;
+    if (decoded?.exp) {
+      const remainingSeconds = decoded.exp - Math.floor(Date.now() / 1000);
+      if (remainingSeconds > 0) {
+        await redis.setEx(`blacklist:${token}`, remainingSeconds, "1");
+      }
+    }
+  }
+
+  // Revoke refresh token
+  if (req.user) await redis.del(`refresh:${req.user.id}`);
+
+  clearAuthCookie(res);
+  res.clearCookie("refreshToken", {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: isProd ? "none" : "lax",
+    path: "/api/v1/users/refresh",
+  });
+
+  res.status(200).json({
+    status: "success",
+    message: "Logged out successfully",
+  });
+});
 
 // restrict to only admin
 export const restrictTo = (...roles: Role[]) => {
-  return (req: Request, res: Response, next: NextFunction) => {
+  return (req: Request, _res: Response, next: NextFunction) => {
     if (!req.user) {
       logger.warn("Unauthorized role access attempt");
       return next(
@@ -322,14 +449,21 @@ export const forgetPassword = catchAsync(
     });
 
     const resetURL = `${req.protocol}://${req.get("host")}/api/v1/users/resetPassword/${passwordResetToken}`;
-    const message = `Forgot your password? Submit a PATCH request with your new password and passwordConfirm to: ${resetURL}\nIf you didn't forget your password, please ignore this email!`;
+    // const message = `Forgot your password? Submit a PATCH request with your new password and passwordConfirm to: ${resetURL}\nIf you didn't forget your password, please ignore this email!`;
 
     try {
-      await sendMail({
+      await emailQueue.add("send-email", {
         email: user.email,
         subject: "Your password reset token (valid for 10 min)",
-        message,
+        // message,
+        template: "resetPassword",
+        templateData: { resetURL },
       });
+      // await sendMail({
+      //   email: user.email,
+      //   subject: "Your password reset token (valid for 10 min)",
+      //   message,
+      // });
 
       logger.info("Password reset token sent via email", { email });
       res.status(200).json({
@@ -490,7 +624,9 @@ export const verifyEmail = catchAsync(
 
     if (!user) {
       logger.warn("Email verification attempt with invalid or expired token");
-      return next(new AppError("Verification link is invalid or has expired", 400));
+      return next(
+        new AppError("Verification link is invalid or has expired", 400),
+      );
     }
 
     await prisma.user.update({
@@ -509,5 +645,54 @@ export const verifyEmail = catchAsync(
       status: "success",
       message: "Email verified successfully.",
     });
+  },
+);
+
+// Resend verification email (protected — user must be logged in)
+export const resendVerificationEmail = catchAsync(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const authReq = req as Request & { user?: { id: string } };
+    if (!authReq.user) return next(new AppError("Not authenticated", 401));
+
+    const dbUser = await prisma.user.findUnique({ where: { id: authReq.user.id } });
+    if (!dbUser) return next(new AppError("User not found", 404));
+
+    if (dbUser.isVerified) {
+      return res.status(400).json({ status: "fail", message: "Your email is already verified." });
+    }
+
+    // Cooldown: if a token exists and was issued less than 2 minutes ago, reject
+    if (dbUser.verifyTokenExpiry) {
+      const timeUntilExpiry = dbUser.verifyTokenExpiry.getTime() - Date.now();
+      const TWENTY_THREE_HOURS_58_MIN = (24 * 60 - 2) * 60 * 1000;
+      if (timeUntilExpiry > TWENTY_THREE_HOURS_58_MIN) {
+        return next(new AppError("Please wait a moment before requesting another verification email.", 429));
+      }
+    }
+
+    const rawVerifyToken = crypto.randomBytes(32).toString("hex");
+    const hashedVerifyToken = crypto.createHash("sha256").update(rawVerifyToken).digest("hex");
+    const verifyTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    await prisma.user.update({
+      where: { id: dbUser.id },
+      data: { verifyToken: hashedVerifyToken, verifyTokenExpiry },
+    });
+
+    const verifyURL = `${req.protocol}://${req.get("host")}/api/v1/users/verifyEmail/${rawVerifyToken}`;
+    try {
+      await emailQueue.add("send-email", {
+        email: dbUser.email,
+        subject: "Verify your email address",
+        template: "verifyEmail",
+        templateData: { name: dbUser.name, verifyURL },
+      });
+    } catch {
+      logger.warn("Failed to resend verification email", { email: dbUser.email });
+      return next(new AppError("Could not send verification email. Please try again.", 500));
+    }
+
+    logger.info("Verification email resent", { email: dbUser.email });
+    res.status(200).json({ status: "success", message: "Verification email sent." });
   },
 );

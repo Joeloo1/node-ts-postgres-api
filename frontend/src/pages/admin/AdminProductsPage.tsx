@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { ApiError, apiFetch } from "../../lib/api";
 import type { Product } from "../../lib/types";
 import { PackageIcon } from "../../components/Icons";
+import { ConfirmButton } from "../../components/ConfirmButton";
 
 const inputClass =
   "w-full rounded-xl border border-stroke bg-input px-3 py-2.5 text-sm text-ink placeholder:text-ink4 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500/60 transition-colors";
@@ -104,7 +105,6 @@ export function AdminProductsPage() {
 
   function onDelete() {
     if (!selected) return;
-    if (!window.confirm(`Delete "${selected.name}"? This cannot be undone.`)) return;
     deleteProduct.mutate();
   }
 
@@ -215,14 +215,15 @@ export function AdminProductsPage() {
                 >
                   {updateProduct.isPending ? "Saving…" : "Save changes"}
                 </button>
-                <button
-                  type="button"
-                  onClick={onDelete}
+                <ConfirmButton
+                  onConfirm={onDelete}
+                  message="Delete this product?"
+                  confirmLabel="Yes, delete"
                   disabled={deleteProduct.isPending}
                   className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-600 dark:text-red-400 hover:bg-red-500/20 disabled:opacity-50 transition-colors"
                 >
                   {deleteProduct.isPending ? "Deleting…" : "Delete product"}
-                </button>
+                </ConfirmButton>
               </div>
 
               {/* Image upload */}

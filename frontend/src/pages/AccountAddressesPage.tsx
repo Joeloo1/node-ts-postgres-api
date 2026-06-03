@@ -7,12 +7,13 @@ import { ApiError, apiFetch } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import { AccountAddressesSkeleton } from "../components/ProductSkeleton";
 import { MapPinIcon, PlusIcon, TrashIcon } from "../components/Icons";
+import { ConfirmButton } from "../components/ConfirmButton";
 import type { Address } from "../lib/types";
 
 const inputClass =
   "w-full rounded-xl border border-stroke bg-input px-4 py-2.5 text-sm text-ink placeholder:text-ink4 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-600/80 transition-colors";
 
-const labelClass = "mb-1.5 block text-xs font-medium text-ink3";
+const labelClass = "mb-1.5 block text-xs font-semibold uppercase tracking-wide text-ink4";
 
 type AddressesRes = { status: string; data: { address: Address[] } };
 type CreateAddressRes = { status: string; data: { Address: Address } };
@@ -93,7 +94,6 @@ export function AccountAddressesPage() {
   }
 
   function onDelete(id: string) {
-    if (!window.confirm("Remove this address?")) return;
     deleteAddress.mutate(id);
   }
 
@@ -120,18 +120,13 @@ export function AccountAddressesPage() {
         animate="show"
         className="overflow-hidden rounded-2xl border border-stroke bg-card"
       >
-        <div className="flex items-center gap-3 border-b border-stroke px-6 py-4">
-          <div className="flex size-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-400">
-            <MapPinIcon className="size-4" />
-          </div>
-          <div>
-            <h2 className="font-display text-sm font-semibold text-ink">Saved Addresses</h2>
-            <p className="text-xs text-ink4">
-              {addressesQuery.data?.length === 0
-                ? "No addresses saved yet"
-                : `${addressesQuery.data?.length} address${(addressesQuery.data?.length ?? 0) > 1 ? "es" : ""} saved`}
-            </p>
-          </div>
+        <div className="border-b border-stroke px-6 py-5">
+          <h2 className="font-display text-sm font-semibold text-ink">Saved addresses</h2>
+          <p className="mt-0.5 text-xs text-ink4">
+            {addressesQuery.data?.length === 0
+              ? "No addresses saved yet."
+              : `${addressesQuery.data?.length} address${(addressesQuery.data?.length ?? 0) > 1 ? "es" : ""} on file.`}
+          </p>
         </div>
 
         <div className="p-4">
@@ -167,15 +162,16 @@ export function AccountAddressesPage() {
                         {a.country && <p className="text-ink4">{a.country}</p>}
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => onDelete(a.id)}
+                    <ConfirmButton
+                      onConfirm={() => onDelete(a.id)}
+                      message="Remove this address?"
+                      confirmLabel="Remove"
                       disabled={deleteAddress.isPending}
                       className="flex items-center gap-1.5 rounded-lg border border-red-800/40 bg-red-950/20 px-2.5 py-1.5 text-xs font-medium text-red-400 transition-colors hover:bg-red-950/50 disabled:opacity-50"
                     >
                       <TrashIcon className="size-3.5" />
                       Remove
-                    </button>
+                    </ConfirmButton>
                   </motion.li>
                 ))}
               </ul>
@@ -192,14 +188,9 @@ export function AccountAddressesPage() {
         animate="show"
         className="overflow-hidden rounded-2xl border border-stroke bg-card"
       >
-        <div className="flex items-center gap-3 border-b border-stroke px-6 py-4">
-          <div className="flex size-8 items-center justify-center rounded-lg bg-well text-ink3">
-            <PlusIcon className="size-4" />
-          </div>
-          <div>
-            <h2 className="font-display text-sm font-semibold text-ink">Add Address</h2>
-            <p className="text-xs text-ink4">Save a new delivery address</p>
-          </div>
+        <div className="border-b border-stroke px-6 py-5">
+          <h2 className="font-display text-sm font-semibold text-ink">Add address</h2>
+          <p className="mt-0.5 text-xs text-ink4">Save a new delivery address to your account.</p>
         </div>
 
         <form onSubmit={onAddAddress} className="space-y-4 p-6">
@@ -261,7 +252,7 @@ export function AccountAddressesPage() {
             <button
               type="submit"
               disabled={createAddress.isPending}
-              className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white transition-all hover:bg-emerald-500 disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
             >
               {createAddress.isPending ? (
                 <>

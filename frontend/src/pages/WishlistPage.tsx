@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import type { Variants } from "framer-motion";
 import { useWishlist } from "../context/WishlistContext";
+import { ConfirmButton } from "../components/ConfirmButton";
 import { usePageTitle } from "../hooks/usePageTitle";
 import { apiFetch } from "../lib/api";
 import { ProductCard } from "../components/ProductCard";
@@ -55,7 +56,7 @@ export function WishlistPage() {
         </div>
         <Link
           to="/products"
-          className="rounded-xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-500"
+          className="rounded-xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
         >
           Browse products
         </Link>
@@ -70,17 +71,14 @@ export function WishlistPage() {
           <h1 className="font-display text-3xl font-bold text-ink">Wishlist</h1>
           <p className="mt-1 text-ink4">{ids.length} saved {ids.length === 1 ? "item" : "items"}</p>
         </div>
-        <button
-          type="button"
-          onClick={() => {
-            if (window.confirm("Clear your entire wishlist?")) {
-              ids.forEach((id) => toggle(id));
-            }
-          }}
+        <ConfirmButton
+          onConfirm={() => ids.forEach((id) => toggle(id))}
+          message="Clear all saved items?"
+          confirmLabel="Yes, clear"
           className="rounded-lg border border-edge px-3 py-2 text-sm text-ink3 hover:border-edge hover:text-ink2 transition-colors"
         >
           Clear all
-        </button>
+        </ConfirmButton>
       </div>
 
       {isLoading ? (

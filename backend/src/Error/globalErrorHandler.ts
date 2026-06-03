@@ -130,6 +130,26 @@ export const globalErrorHandler = (
     return sendErrorProd(new AppError(message, 400), res);
   }
 
+  // JWT errors — must return 401 so the frontend can attempt a token refresh
+  if (err.name === "TokenExpiredError") {
+    return sendErrorProd(
+      new AppError("Your session has expired. Please log in again.", 401),
+      res,
+    );
+  }
+  if (err.name === "JsonWebTokenError") {
+    return sendErrorProd(
+      new AppError("Invalid token. Please log in again.", 401),
+      res,
+    );
+  }
+  if (err.name === "NotBeforeError") {
+    return sendErrorProd(
+      new AppError("Token not yet active. Please log in again.", 401),
+      res,
+    );
+  }
+
   // Prisma errors
   if (err.name === "PrismaClientValidationError") {
     error = handlePrismaValidationError(err);

@@ -87,7 +87,7 @@ export function ForgotPasswordPage() {
               <button
                 type="submit"
                 disabled={pending}
-                className="w-full rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-500 disabled:opacity-70"
+                className="w-full rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-70"
               >
                 {pending ? (
                   <span className="flex items-center justify-center gap-2">

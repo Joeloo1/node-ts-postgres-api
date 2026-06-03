@@ -6,6 +6,7 @@ import { ApiError, apiFetch } from "../../lib/api";
 import { AdminTableSkeleton } from "../../components/ProductSkeleton";
 import type { Order, OrderStatus } from "../../lib/types";
 import { ChevronRightIcon } from "../../components/Icons";
+import { ConfirmButton } from "../../components/ConfirmButton";
 
 type AdminOrdersRes = {
   status: string;
@@ -78,7 +79,6 @@ export function AdminOrdersPage() {
   });
 
   function onCancel(id: string) {
-    if (!window.confirm("Cancel this order? The customer will lose their order.")) return;
     cancelOrder.mutate(id);
   }
 
@@ -232,14 +232,15 @@ export function AdminOrdersPage() {
                               {updateStatus.isPending ? "Updating…" : "Update status"}
                             </button>
                             {order.status !== "CANCELLED" && order.status !== "DELIVERED" && (
-                              <button
-                                type="button"
+                              <ConfirmButton
+                                onConfirm={() => onCancel(order.id)}
+                                message="Cancel this order?"
+                                confirmLabel="Yes, cancel"
                                 disabled={cancelOrder.isPending}
-                                onClick={() => onCancel(order.id)}
                                 className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-600 dark:text-red-400 hover:bg-red-500/20 disabled:opacity-50 transition-colors"
                               >
                                 Cancel order
-                              </button>
+                              </ConfirmButton>
                             )}
                           </div>
                         </div>

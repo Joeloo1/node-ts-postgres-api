@@ -1,7 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { motion } from "framer-motion";
 import { productImageUrl } from "../lib/productImage";
 import type { Product } from "../lib/types";
 import { CartIcon, HeartIcon, StarIcon } from "./Icons";
@@ -18,10 +17,14 @@ export function ProductCard({ product }: { product: Product }) {
 
   const categoryName =
     product.category && "name" in product.category ? product.category.name : null;
-  const price =
+
+  const discountedPrice =
     product.discount && product.discount > 0
       ? product.price * (1 - product.discount / 100)
-      : product.price;
+      : null;
+
+  const displayPrice = discountedPrice ?? product.price;
+  const hasDiscount = discountedPrice !== null;
 
   const addToCart = useMutation({
     mutationFn: async () => {
@@ -33,7 +36,9 @@ export function ProductCard({ product }: { product: Product }) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["cart"] });
-      toast.success("Added to cart");
+      toast.success(`${product.name.slice(0, 30)}${product.name.length > 30 ? "…" : ""} added to cart`, {
+        action: { label: "View cart", onClick: () => navigate("/cart") },
+      });
     },
     onError: () => toast.error("Could not add to cart"),
   });
@@ -53,123 +58,109 @@ export function ProductCard({ product }: { product: Product }) {
   }
 
   return (
-    <article className="group flex flex-col overflow-hidden rounded-2xl border border-stroke bg-card transition-all duration-300 hover:border-edge hover:bg-raised hover:shadow-xl hover:shadow-black/30">
+    <article className="group flex flex-col overflow-hidden rounded-2xl border border-stroke bg-card transition-all duration-300 hover:border-edge hover:shadow-xl hover:shadow-black/10 dark:hover:shadow-black/35">
 
-      {/* Image */}
+      {/* ── Image ── */}
       <Link
         to={`/products/${product.product_id}`}
-        className="relative aspect-square overflow-hidden bg-raised sm:aspect-[4/3]"
+        className="relative aspect-[3/4] overflow-hidden bg-raised"
       >
         <img
           src={productImageUrl(product)}
           alt={product.name}
-          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.07]"
+          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.05]"
           loading="lazy"
         />
 
-        {/* Hover overlay */}
-        <div className="absolute inset-0 bg-black/0 transition-colors duration-300 group-hover:bg-black/15" />
+        {/* Subtle scrim for button visibility */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/10 via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
 
-        {/* Out of stock */}
+        {/* Out of stock overlay */}
         {!product.availability && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-[2px]">
-            <span className="rounded-full border border-zinc-500/40 bg-raised/80 px-3 py-1 text-xs font-semibold text-ink2">
+          <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-[3px]">
+            <span className="rounded-full border border-white/20 bg-black/60 px-3.5 py-1.5 text-[11px] font-semibold tracking-wide text-white/90">
               Out of stock
             </span>
           </div>
         )}
 
         {/* Discount badge */}
-        {product.discount && product.discount > 0 ? (
-          <span className="absolute left-3 top-3 rounded-full bg-emerald-500 px-2.5 py-1 text-[11px] font-bold text-white shadow-md">
-            −{Math.round(product.discount)}%
+        {hasDiscount && (
+          <span className="absolute left-3 top-3 rounded-full bg-emerald-500 px-2.5 py-1 text-[10px] font-bold tracking-wider text-white shadow-md">
+            −{Math.round(product.discount!)}%
           </span>
-        ) : null}
+        )}
 
-        {/* Action buttons — always visible on mobile, hover-only on sm+ */}
-        <div className="absolute right-2.5 top-2.5 flex flex-col gap-1.5
-          sm:translate-x-2 sm:opacity-0 sm:transition-all sm:duration-200
-          sm:group-hover:translate-x-0 sm:group-hover:opacity-100">
-          <motion.button
-            type="button"
-            onClick={handleWishlist}
-            whileTap={{ scale: 0.82 }}
-            className={`flex size-8 items-center justify-center rounded-full shadow-lg backdrop-blur-sm transition-colors ${
-              isWishlisted
-                ? "bg-red-500 text-white"
-                : "bg-page/80 text-ink3 hover:bg-red-500 hover:text-white"
-            }`}
-            aria-label={isWishlisted ? "Remove from wishlist" : "Save to wishlist"}
-          >
-            <HeartIcon className="size-3.5" filled={isWishlisted} />
-          </motion.button>
+        {/* Wishlist button */}
+        <button
+          type="button"
+          onClick={handleWishlist}
+          className={`absolute right-3 top-3 flex size-8 items-center justify-center rounded-full shadow-md backdrop-blur-sm transition-all duration-200 sm:translate-y-1 sm:opacity-0 sm:group-hover:translate-y-0 sm:group-hover:opacity-100 ${
+            isWishlisted
+              ? "bg-red-500 text-white"
+              : "bg-card/90 text-ink3 hover:bg-red-500 hover:text-white"
+          }`}
+          aria-label={isWishlisted ? "Remove from wishlist" : "Save to wishlist"}
+        >
+          <HeartIcon className="size-3.5" filled={isWishlisted} />
+        </button>
+      </Link>
 
-          {product.availability && (
-            <motion.button
-              type="button"
-              onClick={handleAddToCart}
-              disabled={addToCart.isPending}
-              whileTap={{ scale: 0.82 }}
-              className="flex size-8 items-center justify-center rounded-full bg-page/80 text-ink3 shadow-lg backdrop-blur-sm transition-colors hover:bg-emerald-600 hover:text-white disabled:opacity-50"
-              aria-label="Add to cart"
-            >
-              <CartIcon className="size-3.5" />
-            </motion.button>
+      {/* ── Info ── */}
+      <div className="flex flex-1 flex-col p-3.5">
+
+        {/* Category + rating row */}
+        <div className="flex items-center justify-between gap-1 mb-1.5">
+          <p className="truncate text-[11px] font-medium uppercase tracking-wide text-ink4">
+            {categoryName ?? product.brand ?? ""}
+          </p>
+          {product.rating != null && (
+            <div className="flex shrink-0 items-center gap-0.5">
+              <StarIcon className="size-3 text-amber-400" filled />
+              <span className="text-[11px] font-medium tabular-nums text-ink4">
+                {product.rating.toFixed(1)}
+              </span>
+            </div>
           )}
         </div>
 
-        {/* "View product" bar — slides up on hover (desktop), hidden on mobile */}
-        {product.availability && (
-          <div className="absolute bottom-2.5 left-2.5 right-2.5 hidden
-            sm:block sm:translate-y-2 sm:opacity-0 sm:transition-all sm:duration-200
-            sm:group-hover:translate-y-0 sm:group-hover:opacity-100">
-            <span className="flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-xs font-semibold text-zinc-900 shadow-lg">
-              View product
-            </span>
-          </div>
-        )}
-      </Link>
-
-      {/* Content */}
-      <div className="flex flex-1 flex-col gap-1.5 p-3 sm:p-4">
-        {categoryName ? (
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-ink4">
-            {categoryName}
-          </p>
-        ) : null}
-
+        {/* Name */}
         <Link
           to={`/products/${product.product_id}`}
-          className="line-clamp-2 font-display text-[13px] font-semibold leading-snug text-ink transition-colors hover:text-emerald-400 sm:text-[15px]"
+          className="line-clamp-2 text-[13px] font-semibold leading-snug text-ink transition-colors hover:text-emerald-600 dark:hover:text-emerald-400"
         >
           {product.name}
         </Link>
 
-        {product.brand ? (
-          <p className="text-[11px] text-ink4 sm:text-xs">{product.brand}</p>
-        ) : null}
-
-        <div className="mt-auto flex items-center justify-between gap-2 border-t border-stroke pt-3">
+        {/* Price row */}
+        <div className="mt-auto flex items-end justify-between gap-2 pt-3">
           <div>
-            <p className="text-sm font-bold tabular-nums text-ink sm:text-[15px]">
-              ${price.toFixed(2)}
-              {product.unit ? (
-                <span className="text-xs font-normal text-ink4"> /{product.unit}</span>
-              ) : null}
+            <p className="text-sm font-bold tabular-nums text-ink leading-none">
+              ${displayPrice.toFixed(2)}
+              {product.unit && (
+                <span className="text-[11px] font-normal text-ink4"> /{product.unit}</span>
+              )}
             </p>
-            {product.discount && product.discount > 0 ? (
-              <p className="text-[11px] text-ink4 line-through">${product.price.toFixed(2)}</p>
-            ) : null}
+            {hasDiscount && (
+              <p className="mt-0.5 text-[11px] tabular-nums text-ink4 line-through">
+                ${product.price.toFixed(2)}
+              </p>
+            )}
           </div>
 
-          {product.rating != null ? (
-            <div className="flex items-center gap-1">
-              <StarIcon className="size-3.5 text-amber-400" filled />
-              <span className="text-[11px] font-semibold text-ink3 sm:text-xs">
-                {product.rating.toFixed(1)}
-              </span>
-            </div>
-          ) : null}
+          {/* Add to cart — always visible */}
+          {product.availability && (
+            <button
+              type="button"
+              onClick={handleAddToCart}
+              disabled={addToCart.isPending}
+              className="flex shrink-0 items-center gap-1.5 rounded-lg border border-stroke bg-raised px-2.5 py-1.5 text-[11px] font-semibold text-ink transition-colors hover:border-emerald-500/40 hover:bg-emerald-600 hover:text-white disabled:opacity-50"
+              aria-label="Add to cart"
+            >
+              <CartIcon className="size-3.5" />
+              {addToCart.isPending ? "…" : "Add"}
+            </button>
+          )}
         </div>
       </div>
     </article>

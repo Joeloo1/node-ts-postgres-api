@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { ApiError } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
+import { Logo } from "../components/Logo";
 import { EyeIcon, EyeOffIcon, ShieldIcon, TruckIcon, PackageIcon } from "../components/Icons";
 
 const features = [
@@ -73,50 +74,53 @@ export function RegisterPage() {
   }
 
   const inputClass =
-    "w-full rounded-xl border border-stroke bg-input px-4 py-3 text-sm text-ink placeholder:text-ink4 transition focus:border-emerald-500/60 focus:outline-none focus:ring-2 focus:ring-emerald-500/20";
+    "w-full rounded-lg border border-stroke bg-input px-3.5 py-2.5 text-sm text-ink placeholder:text-ink4 transition-colors focus:border-emerald-500/50 focus:outline-none focus:ring-2 focus:ring-emerald-500/15";
 
   return (
     <div className="flex min-h-[82vh] items-center justify-center py-10">
-      <div className="grid w-full max-w-4xl overflow-hidden rounded-3xl border border-stroke bg-card lg:grid-cols-[1fr_1.2fr]">
+      <div className="grid w-full max-w-4xl overflow-hidden rounded-2xl border border-stroke bg-card lg:grid-cols-[1fr_1.2fr]">
 
         {/* Left panel — brand */}
-        <div className="relative hidden flex-col justify-between overflow-hidden bg-emerald-950/60 p-10 lg:flex">
-          <div className="absolute inset-0 bg-gradient-to-br from-emerald-900/40 via-transparent to-zinc-900/60" />
+        <div className="relative hidden flex-col justify-between overflow-hidden lg:flex" style={{ background: "linear-gradient(135deg, #064e3b 0%, #065f46 40%, #0f172a 100%)" }}>
+          <div
+            className="absolute inset-0 opacity-[0.07]"
+            style={{
+              backgroundImage: "radial-gradient(circle, white 1px, transparent 1px)",
+              backgroundSize: "24px 24px",
+            }}
+          />
+          <div className="absolute -left-20 -top-20 size-80 rounded-full bg-emerald-500/20 blur-3xl" />
+          <div className="absolute -bottom-20 -right-20 size-64 rounded-full bg-teal-400/10 blur-3xl" />
 
-          <div className="relative">
-            <Link to="/" className="flex items-center gap-2.5">
-              <div className="flex size-9 items-center justify-center rounded-xl bg-emerald-500 font-display text-lg font-bold text-white shadow-lg">
-                N
-              </div>
-              <span className="font-display text-lg font-semibold text-white">Northline</span>
-            </Link>
+          <div className="relative px-10 pt-10">
+            <Logo light />
           </div>
 
-          <div className="relative space-y-6">
+          <div className="relative space-y-8 px-10 pb-10">
             <div>
-              <h2 className="font-display text-3xl font-bold leading-tight text-white">
+              <h2 className="font-display text-[1.85rem] font-bold leading-[1.2] text-white">
                 Join thousands of<br />happy shoppers.
               </h2>
-              <p className="mt-3 text-sm leading-relaxed text-emerald-200/70">
+              <p className="mt-3 text-[13.5px] leading-relaxed text-emerald-100/60">
                 Create your free account and start discovering quality products curated for modern living.
               </p>
             </div>
 
             <ul className="space-y-3">
               {features.map(({ icon: Icon, text }) => (
-                <li key={text} className="flex items-center gap-3 text-sm text-emerald-100/80">
-                  <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-emerald-500/20">
-                    <Icon className="size-4 text-emerald-400" />
+                <li key={text} className="flex items-center gap-3 text-[13px] text-emerald-50/75">
+                  <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-emerald-400/15 ring-1 ring-emerald-400/20">
+                    <Icon className="size-3.5 text-emerald-300" />
                   </span>
                   {text}
                 </li>
               ))}
             </ul>
-          </div>
 
-          <p className="relative text-xs text-emerald-200/40">
-            © {new Date().getFullYear()} Northline
-          </p>
+            <p className="text-[11px] text-emerald-200/30">
+              © {new Date().getFullYear()} Northline. All rights reserved.
+            </p>
+          </div>
         </div>
 
         {/* Right panel — form */}
@@ -127,9 +131,8 @@ export function RegisterPage() {
           className="flex flex-col justify-center p-8 sm:p-12"
         >
           {/* Mobile brand */}
-          <div className="mb-8 flex items-center gap-2.5 lg:hidden">
-            <div className="flex size-8 items-center justify-center rounded-xl bg-emerald-600 font-display font-bold text-white">N</div>
-            <span className="font-display text-base font-semibold text-ink">Northline</span>
+          <div className="mb-8 lg:hidden">
+            <Logo />
           </div>
 
           <div className="mb-7">
@@ -264,7 +267,7 @@ export function RegisterPage() {
             <button
               type="submit"
               disabled={pending || passwordsMismatch}
-              className="w-full rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-500 disabled:opacity-70"
+              className="w-full rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-70"
             >
               {pending ? (
                 <span className="flex items-center justify-center gap-2">

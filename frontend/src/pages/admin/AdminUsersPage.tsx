@@ -4,6 +4,7 @@ import { ApiError, apiFetch } from "../../lib/api";
 import { AdminTableSkeleton } from "../../components/ProductSkeleton";
 import type { User } from "../../lib/types";
 import { UserIcon, TrashIcon, ShieldIcon } from "../../components/Icons";
+import { ConfirmButton } from "../../components/ConfirmButton";
 
 type UsersRes = { status: string; data: { users: User[] } };
 
@@ -44,8 +45,7 @@ export function AdminUsersPage() {
     onError: (e) => toast.error(e instanceof ApiError ? e.message : "Delete failed"),
   });
 
-  function onDeleteUser(id: string, name: string) {
-    if (!window.confirm(`Delete user "${name}"? This cannot be undone.`)) return;
+  function onDeleteUser(id: string, _name: string) {
     deleteUser.mutate(id);
   }
 
@@ -117,14 +117,15 @@ export function AdminUsersPage() {
                         </select>
                       </td>
                       <td className="py-3">
-                        <button
-                          type="button"
-                          onClick={() => onDeleteUser(u.id, u.name)}
+                        <ConfirmButton
+                          onConfirm={() => onDeleteUser(u.id, u.name)}
+                          message="Delete this user?"
+                          confirmLabel="Delete"
                           className="flex items-center gap-1.5 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-500/20 transition-colors"
                         >
                           <TrashIcon className="size-3.5" />
                           Delete
-                        </button>
+                        </ConfirmButton>
                       </td>
                     </tr>
                   );

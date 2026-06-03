@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ApiError, apiFetch } from "../../lib/api";
 import type { Category } from "../../lib/types";
 import { PlusIcon, TrashIcon } from "../../components/Icons";
+import { ConfirmButton } from "../../components/ConfirmButton";
 
 type CategoriesRes = { status: string; data: { categories: Category[] } };
 
@@ -62,8 +63,7 @@ export function AdminCategoriesPage() {
     createCategory.mutate();
   }
 
-  function onDelete(id: number, categoryName: string) {
-    if (!window.confirm(`Delete category "${categoryName}"? Products in this category will be uncategorized.`)) return;
+  function onDelete(id: number, _categoryName: string) {
     deleteCategory.mutate(id);
   }
 
@@ -135,14 +135,15 @@ export function AdminCategoriesPage() {
                     </span>
                     <span className="text-sm font-medium text-ink">{c.name}</span>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => onDelete(c.category_id, c.name)}
+                  <ConfirmButton
+                    onConfirm={() => onDelete(c.category_id, c.name)}
+                    message={`Delete "${c.name}"?`}
+                    confirmLabel="Delete"
                     className="flex items-center gap-1.5 rounded-lg border border-red-500/30 bg-red-500/10 px-2.5 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-500/20 transition-colors"
                   >
                     <TrashIcon className="size-3.5" />
                     Delete
-                  </button>
+                  </ConfirmButton>
                 </motion.li>
               ))}
             </ul>

@@ -7,10 +7,8 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
   const { token, isLoading } = useAuth();
   const location = useLocation();
 
-  if (!token) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
-  }
-
+  // Wait for the /me query to finish before making any auth decision.
+  // Without this, token is null during loading and we redirect too early.
   if (isLoading) {
     return (
       <div className="flex min-h-[40vh] flex-col items-center justify-center gap-4 text-zinc-400">
@@ -18,6 +16,10 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
         <p className="text-sm">Checking your session…</p>
       </div>
     );
+  }
+
+  if (!token) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   return <>{children}</>;

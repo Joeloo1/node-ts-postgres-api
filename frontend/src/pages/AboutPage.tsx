@@ -105,7 +105,7 @@ export function AboutPage() {
           <motion.div variants={fadeUp} className="flex flex-wrap gap-3 pt-2">
             <Link
               to="/products"
-              className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white transition-all hover:bg-emerald-500 hover:shadow-lg hover:shadow-emerald-500/20"
+              className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white transition-all hover:bg-emerald-700 hover:shadow-lg hover:shadow-emerald-500/20"
             >
               Browse catalog
             </Link>
@@ -161,7 +161,7 @@ export function AboutPage() {
               variants={fadeUp}
               className="group flex gap-4 rounded-2xl border border-stroke bg-card p-5 transition-all hover:border-edge hover:bg-raised"
             >
-              <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400 transition-colors group-hover:bg-emerald-500/20">
+              <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400 transition-colors group-hover:bg-emerald-700/20">
                 <Icon className="size-4" />
               </div>
               <div>

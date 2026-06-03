@@ -12,6 +12,27 @@ function baseUrl(): string {
   return typeof env === "string" && env.length > 0 ? env.replace(/\/$/, "") : "";
 }
 
+// ── Silent token refresh ──────────────────────────────────────────────────────
+// Shared promise so concurrent 401s only trigger one refresh call (thundering-herd guard).
+let refreshing: Promise<boolean> | null = null;
+
+async function tryRefreshToken(): Promise<boolean> {
+  if (refreshing) return refreshing;
+
+  refreshing = fetch(`${baseUrl()}/api/v1/users/refresh`, {
+    method: "GET",
+    credentials: "include",
+  })
+    .then((r) => r.ok)
+    .catch(() => false)
+    .finally(() => {
+      refreshing = null;
+    });
+
+  return refreshing;
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 export async function apiFetch<T>(
   path: string,
   init: RequestInit & { auth?: boolean } = {},
@@ -25,12 +46,28 @@ export async function apiFetch<T>(
 
   const url = `${baseUrl()}${path.startsWith("/") ? path : `/${path}`}`;
   let res: Response;
+
   try {
-    // credentials: "include" sends the httpOnly JWT cookie automatically
     res = await fetch(url, { ...rest, headers, credentials: "include" });
   } catch {
     throw new ApiError(0, "Network error. Please check your connection and try again.");
   }
+
+  // ── Auto-refresh on 401 ──────────────────────────────────────────────────
+  // Don't try to refresh if this IS the refresh endpoint (avoids infinite loop).
+  if (res.status === 401 && !path.includes("/refresh")) {
+    const refreshed = await tryRefreshToken();
+    if (refreshed) {
+      // Retry the original request once with the new access-token cookie
+      try {
+        res = await fetch(url, { ...rest, headers, credentials: "include" });
+      } catch {
+        throw new ApiError(0, "Network error. Please check your connection and try again.");
+      }
+    }
+    // If refresh failed or the retry is still 401, fall through to error handling below.
+  }
+  // ────────────────────────────────────────────────────────────────────────
 
   if (res.status === 204) return undefined as T;
 

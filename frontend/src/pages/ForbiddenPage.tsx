@@ -37,7 +37,7 @@ export function ForbiddenPage() {
         </button>
         <Link
           to="/"
-          className="rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-500"
+          className="rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
         >
           Back to home
         </Link>

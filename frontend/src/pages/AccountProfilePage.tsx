@@ -1,17 +1,19 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { usePageTitle } from "../hooks/usePageTitle";
 import { ApiError, apiFetch } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import { AccountProfileSkeleton } from "../components/ProductSkeleton";
-import { EyeIcon, EyeOffIcon, LockClosedIcon, PencilIcon, UserIcon } from "../components/Icons";
+import { CameraIcon, ShieldIcon } from "../components/Icons";
+import { ConfirmButton } from "../components/ConfirmButton";
 import type { User } from "../lib/types";
 
 const inputClass =
-  "w-full rounded-xl border border-stroke bg-input px-4 py-2.5 text-sm text-ink placeholder:text-ink4 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500/60 transition-colors";
-const labelClass = "mb-1.5 block text-xs font-medium text-ink3";
+  "w-full rounded-lg border border-stroke bg-input px-3.5 py-2.5 text-sm text-ink placeholder:text-ink4 transition-colors focus:border-emerald-500/50 focus:outline-none focus:ring-2 focus:ring-emerald-500/15";
+const labelClass =
+  "mb-1.5 block text-[11px] font-semibold uppercase tracking-widest text-ink4";
 
 function getProfileImageUrl(image?: string): string | null {
   if (!image) return null;
@@ -29,44 +31,20 @@ function safeUserFields(user: User) {
     roles: u.roles != null ? String(u.roles as string | object) : "—",
     phoneNumber: u.phoneNumber != null ? String(u.phoneNumber) : null,
     profileImage: u.profileImage != null ? String(u.profileImage) : undefined,
+    isVerified: Boolean(u.isVerified),
   };
 }
 
-function PasswordField({
-  label, value, onChange, placeholder, required, minLength,
-}: {
-  label: string; value: string; onChange: (v: string) => void;
-  placeholder?: string; required?: boolean; minLength?: number;
-}) {
-  const [show, setShow] = useState(false);
+function CardFooter({ children }: { children: React.ReactNode }) {
   return (
-    <div>
-      <label className={labelClass}>{label}</label>
-      <div className="relative">
-        <input
-          required={required}
-          minLength={minLength}
-          type={show ? "text" : "password"}
-          placeholder={placeholder}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className={`${inputClass} pr-10`}
-        />
-        <button
-          type="button"
-          onClick={() => setShow((s) => !s)}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-ink4 hover:text-ink3 transition-colors"
-          tabIndex={-1}
-        >
-          {show ? <EyeOffIcon className="size-4" /> : <EyeIcon className="size-4" />}
-        </button>
-      </div>
+    <div className="flex items-center justify-between gap-4 border-t border-stroke bg-well/40 px-6 py-4">
+      {children}
     </div>
   );
 }
 
-const card = {
-  hidden: { opacity: 0, y: 20 },
+const section = {
+  hidden: { opacity: 0, y: 16 },
   show: (i: number) => ({
     opacity: 1, y: 0,
     transition: { duration: 0.38, delay: i * 0.09, ease: [0.25, 0.1, 0.25, 1] as [number, number, number, number] },
@@ -81,22 +59,18 @@ export function AccountProfilePage() {
 
   const safe = useMemo(() => (user ? safeUserFields(user as User) : null), [user]);
 
-  const [profileName, setProfileName] = useState("");
+  const [profileName, setProfileName]   = useState("");
   const [profileEmail, setProfileEmail] = useState("");
   const [profilePhone, setProfilePhone] = useState("");
   const [profileImageFile, setProfileImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [passwordConfirm, setPasswordConfirm] = useState("");
+  const [imagePreview, setImagePreview]          = useState<string | null>(null);
 
   useEffect(() => {
     if (!safe) return;
     setProfileName(safe.name ?? "");
     setProfileEmail(safe.email ?? "");
     setProfilePhone(safe.phoneNumber ?? "");
-  }, [safe?.id, safe?.name, safe?.email, safe?.phoneNumber]);
+  }, [safe?.id]);
 
   function handleImageFile(file: File | null) {
     setProfileImageFile(file);
@@ -106,13 +80,13 @@ export function AccountProfilePage() {
   const updateProfile = useMutation({
     mutationFn: async () => {
       const payload: Record<string, string> = {};
-      if (profileName.trim()) payload.name = profileName.trim();
+      if (profileName.trim())  payload.name = profileName.trim();
       if (profileEmail.trim()) payload.email = profileEmail.trim();
       if (profilePhone.trim()) payload.phoneNumber = profilePhone.trim();
       if (profileImageFile) {
         const body = new FormData();
-        if (payload.name) body.append("name", payload.name);
-        if (payload.email) body.append("email", payload.email);
+        if (payload.name)        body.append("name", payload.name);
+        if (payload.email)       body.append("email", payload.email);
         if (payload.phoneNumber) body.append("phoneNumber", payload.phoneNumber);
         body.append("profileImage", profileImageFile);
         await apiFetch("/api/v1/users/updateMe", { method: "PATCH", auth: true, body });
@@ -123,213 +97,227 @@ export function AccountProfilePage() {
     onSuccess: async () => {
       setProfileImageFile(null);
       setImagePreview(null);
-      toast.success("Profile updated.");
+      toast.success("Profile updated successfully.");
       await queryClient.invalidateQueries({ queryKey: ["me"] });
     },
     onError: (e) => toast.error(e instanceof ApiError ? e.message : "Could not update profile"),
   });
 
-  const changePassword = useMutation({
-    mutationFn: async () => {
-      await apiFetch("/api/v1/users/updateMyPassword", {
-        method: "PATCH", auth: true,
-        body: JSON.stringify({ currentPassword, newPassword, passwordConfirm }),
-      });
-    },
-    onSuccess: () => {
-      setCurrentPassword(""); setNewPassword(""); setPasswordConfirm("");
-      toast.success("Password changed. Please log in again.");
-    },
-    onError: (e) => toast.error(e instanceof ApiError ? e.message : "Could not change password"),
-  });
-
   function onUpdateProfile(e: FormEvent) { e.preventDefault(); updateProfile.mutate(); }
-  function onChangePassword(e: FormEvent) {
-    e.preventDefault();
-    if (newPassword !== passwordConfirm) { toast.error("New passwords do not match"); return; }
-    changePassword.mutate();
-  }
 
   if (profileError) return (
-    <section className="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-6">
+    <section className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-6">
       <p className="text-sm text-amber-700 dark:text-amber-200">{profileError}</p>
-      <p className="mt-2 text-sm text-ink3">Try signing out and back in.</p>
     </section>
   );
-
   if (profileLoading) return <AccountProfileSkeleton />;
-
   if (!safe) return (
-    <section className="rounded-2xl border border-stroke bg-card p-6">
+    <section className="rounded-xl border border-stroke bg-card p-6">
       <p className="text-sm text-ink3">No profile data. Try refreshing or signing back in.</p>
     </section>
   );
 
   const displayImage = imagePreview ?? getProfileImageUrl(safe.profileImage);
+  const initials     = safe.name.charAt(0).toUpperCase();
+  const isAdmin      = safe.roles === "ADMIN";
 
   return (
     <div className="space-y-5">
-      {/* ── Edit Profile ─────────────────────────── */}
-      <motion.section custom={0} variants={card} initial="hidden" animate="show"
+
+      {/* ── Personal information ─────────────────── */}
+      <motion.section
+        custom={0} variants={section} initial="hidden" animate="show"
         className="overflow-hidden rounded-2xl border border-stroke bg-card"
       >
-        <div className="flex items-center gap-3 border-b border-stroke px-6 py-4">
-          <div className="flex size-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600">
-            <UserIcon className="size-4" />
-          </div>
+        <div className="flex items-start justify-between px-6 py-5">
           <div>
-            <h2 className="font-display text-sm font-semibold text-ink">Edit Profile</h2>
-            <p className="text-xs text-ink3">Update your personal information</p>
+            <h2 className="text-sm font-semibold text-ink">Personal information</h2>
+            <p className="mt-0.5 text-xs text-ink4">Update your display name, email, and profile photo.</p>
+          </div>
+          {isAdmin && (
+            <div className="flex items-center gap-1.5 rounded-md border border-emerald-500/20 bg-emerald-500/8 px-2.5 py-1">
+              <ShieldIcon className="size-3 text-emerald-500" />
+              <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">Admin</span>
+            </div>
+          )}
+        </div>
+
+        {/* Avatar row */}
+        <div className="border-y border-stroke bg-well/20 px-6 py-5">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => handleImageFile(e.target.files?.[0] ?? null)}
+            />
+            <motion.button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+              className="group relative shrink-0 self-start sm:self-center"
+              aria-label="Change profile photo"
+            >
+              {displayImage ? (
+                <img src={displayImage} alt={safe.name} className="size-20 rounded-2xl object-cover ring-1 ring-stroke/80 shadow-sm" />
+              ) : (
+                <div className="flex size-20 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-700 text-2xl font-bold text-white ring-1 ring-stroke/80 shadow-sm">
+                  {initials}
+                </div>
+              )}
+              <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-black/50 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+                <CameraIcon className="size-5 text-white drop-shadow" />
+              </div>
+            </motion.button>
+
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-ink">{safe.name}</p>
+              <p className="mt-0.5 text-xs text-ink4 truncate">{safe.email}</p>
+              <div className="mt-2">
+                {safe.isVerified ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/8 px-2.5 py-0.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+                    <span className="size-1.5 rounded-full bg-emerald-500" />
+                    Verified account
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/20 bg-amber-500/8 px-2.5 py-0.5 text-[11px] font-medium text-amber-600 dark:text-amber-400">
+                    <span className="size-1.5 rounded-full bg-amber-500" />
+                    Email not verified
+                  </span>
+                )}
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="rounded-md border border-stroke bg-raised px-3 py-1.5 text-xs font-medium text-ink2 transition-colors hover:bg-well hover:text-ink"
+                >
+                  {profileImageFile ? "Change photo" : "Upload photo"}
+                </button>
+                {profileImageFile && (
+                  <button
+                    type="button"
+                    onClick={() => handleImageFile(null)}
+                    className="text-xs text-ink4 transition-colors hover:text-red-400"
+                  >
+                    Remove
+                  </button>
+                )}
+                <span className="text-[11px] text-ink4">JPG or PNG · max 2 MB</span>
+              </div>
+              <AnimatePresence>
+                {profileImageFile && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 4 }}
+                    className="mt-2.5 inline-flex items-center gap-2 rounded-md border border-stroke bg-raised px-3 py-1.5 text-xs text-ink2"
+                  >
+                    <CameraIcon className="size-3.5 shrink-0 text-ink3" />
+                    <span className="max-w-[200px] truncate">{profileImageFile.name}</span>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
         </div>
 
-        <form onSubmit={onUpdateProfile} className="p-6 space-y-5">
-          {/* Avatar with persistent edit badge */}
-          <div className="flex items-center gap-4">
-            <div className="relative shrink-0">
-              <motion.button
-                type="button"
-                whileHover={{ scale: 1.04 }}
-                whileTap={{ scale: 0.97 }}
-                onClick={() => fileInputRef.current?.click()}
-                className="relative block"
-                aria-label="Change profile photo"
-              >
-                {displayImage ? (
-                  <img src={displayImage} alt="Profile"
-                    className="size-20 rounded-full border-2 border-stroke object-cover"
-                  />
-                ) : (
-                  <div className="flex size-20 items-center justify-center rounded-full border-2 border-stroke bg-gradient-to-br from-emerald-500 to-teal-600 text-xl font-bold text-white">
-                    {safe.name.charAt(0).toUpperCase()}
-                  </div>
-                )}
-              </motion.button>
-
-              {/* Always-visible edit badge */}
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="absolute -bottom-1 -right-1 flex size-7 items-center justify-center rounded-full border-2 border-page bg-emerald-600 text-white shadow-md transition-colors hover:bg-emerald-500"
-                aria-label="Edit photo"
-              >
-                <PencilIcon className="size-3" />
-              </button>
-            </div>
-
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-ink">Profile photo</p>
-              <p className="text-xs text-ink3">JPG or PNG, resized to 500 × 500</p>
-              {profileImageFile ? (
-                <div className="mt-1.5 flex items-center gap-2">
-                  <span className="text-xs text-emerald-600 font-medium truncate max-w-[140px]">{profileImageFile.name}</span>
-                  <button type="button" onClick={() => handleImageFile(null)}
-                    className="text-xs text-ink3 hover:text-ink transition-colors"
-                  >Remove</button>
-                </div>
-              ) : (
-                <button type="button" onClick={() => fileInputRef.current?.click()}
-                  className="mt-1.5 text-xs font-medium text-emerald-600 hover:text-emerald-500 transition-colors"
-                >
-                  Choose photo
-                </button>
-              )}
-            </div>
-
-            <input ref={fileInputRef} type="file" accept="image/*" className="hidden"
-              onChange={(e) => handleImageFile(e.target.files?.[0] ?? null)}
-            />
-          </div>
-
+        {/* Form */}
+        <form id="profile-form" onSubmit={onUpdateProfile} className="px-6 py-5 space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className={labelClass}>Full name</label>
-              <input required minLength={2} placeholder="Your name" value={profileName}
-                onChange={(e) => setProfileName(e.target.value)} className={inputClass}
+              <input
+                required minLength={2}
+                placeholder="Your full name"
+                value={profileName}
+                onChange={(e) => setProfileName(e.target.value)}
+                className={inputClass}
+                autoComplete="name"
               />
             </div>
             <div>
               <label className={labelClass}>Email address</label>
-              <input required type="email" placeholder="you@example.com" value={profileEmail}
-                onChange={(e) => setProfileEmail(e.target.value)} className={inputClass}
+              <input
+                required type="email"
+                placeholder="you@example.com"
+                value={profileEmail}
+                onChange={(e) => setProfileEmail(e.target.value)}
+                className={inputClass}
+                autoComplete="email"
               />
             </div>
           </div>
-
-          <div className="sm:w-1/2">
-            <label className={labelClass}>Phone <span className="text-ink4">(optional)</span></label>
-            <input placeholder="+1 555 000 0000" value={profilePhone}
-              onChange={(e) => setProfilePhone(e.target.value)} className={inputClass}
+          <div className="max-w-xs">
+            <label className={labelClass}>
+              Phone <span className="font-normal normal-case tracking-normal text-ink4">— optional</span>
+            </label>
+            <input
+              placeholder="+1 555 000 0000"
+              value={profilePhone}
+              onChange={(e) => setProfilePhone(e.target.value)}
+              className={inputClass}
+              autoComplete="tel"
             />
           </div>
-
-          <div className="pt-1">
-            <button type="submit" disabled={updateProfile.isPending}
-              className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white transition-all hover:bg-emerald-500 disabled:opacity-50"
-            >
-              {updateProfile.isPending && (
-                <svg className="size-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-                </svg>
-              )}
-              {updateProfile.isPending ? "Saving…" : "Save changes"}
-            </button>
-          </div>
         </form>
+
+        <CardFooter>
+          <p className="text-xs text-ink4">Changes take effect immediately.</p>
+          <button
+            type="submit"
+            form="profile-form"
+            disabled={updateProfile.isPending}
+            className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
+          >
+            {updateProfile.isPending && (
+              <svg className="size-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+              </svg>
+            )}
+            {updateProfile.isPending ? "Saving…" : "Save changes"}
+          </button>
+        </CardFooter>
       </motion.section>
 
-      {/* ── Security ─────────────────────────────── */}
-      <motion.section custom={1} variants={card} initial="hidden" animate="show"
-        className="overflow-hidden rounded-2xl border border-stroke bg-card"
+      {/* ── Danger zone ──────────────────────────── */}
+      <motion.section
+        custom={1} variants={section} initial="hidden" animate="show"
+        className="overflow-hidden rounded-2xl border border-red-500/15 bg-card"
       >
-        <div className="flex items-center gap-3 border-b border-stroke px-6 py-4">
-          <div className="flex size-8 items-center justify-center rounded-lg bg-raised text-ink3">
-            <LockClosedIcon className="size-4" />
-          </div>
-          <div>
-            <h2 className="font-display text-sm font-semibold text-ink">Security</h2>
-            <p className="text-xs text-ink3">Change your account password</p>
-          </div>
+        <div className="px-6 py-5">
+          <h2 className="text-sm font-semibold text-red-500 dark:text-red-400">Danger zone</h2>
+          <p className="mt-0.5 text-xs text-ink4">Actions here are permanent and cannot be undone.</p>
         </div>
-
-        <form onSubmit={onChangePassword} className="p-6 space-y-4">
-          <PasswordField label="Current password" value={currentPassword} onChange={setCurrentPassword}
-            placeholder="Enter current password" required
-          />
-          <div className="grid gap-4 sm:grid-cols-2">
-            <PasswordField label="New password" value={newPassword} onChange={setNewPassword}
-              placeholder="Min 8 characters" required minLength={8}
-            />
-            <PasswordField label="Confirm new password" value={passwordConfirm} onChange={setPasswordConfirm}
-              placeholder="Repeat new password" required
-            />
+        <div className="flex flex-wrap items-center justify-between gap-4 border-t border-red-500/10 bg-red-500/4 px-6 py-5">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-ink">Delete account</p>
+            <p className="mt-0.5 text-xs text-ink4">
+              Permanently removes your profile, orders, addresses, and all data.
+            </p>
           </div>
-
-          {newPassword && passwordConfirm && (
-            <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
-              className={`text-xs font-medium ${newPassword === passwordConfirm ? "text-emerald-600" : "text-red-500"}`}
-            >
-              {newPassword === passwordConfirm ? "✓ Passwords match" : "✗ Passwords do not match"}
-            </motion.p>
-          )}
-
-          <div className="pt-1">
-            <button type="submit"
-              disabled={changePassword.isPending || (!!passwordConfirm && newPassword !== passwordConfirm)}
-              className="inline-flex items-center gap-2 rounded-xl border border-stroke bg-raised px-5 py-2.5 text-sm font-semibold text-ink transition-all hover:bg-well disabled:opacity-50"
-            >
-              {changePassword.isPending && (
-                <svg className="size-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-                </svg>
-              )}
-              {changePassword.isPending ? "Changing…" : "Change password"}
-            </button>
-          </div>
-        </form>
+          <ConfirmButton
+            onConfirm={async () => {
+              try {
+                await apiFetch("/api/v1/users/deleteMe", { method: "DELETE", auth: true });
+                toast.success("Account deleted.");
+                window.location.href = "/";
+              } catch {
+                toast.error("Could not delete account. Please contact support.");
+              }
+            }}
+            message="Permanently delete your account?"
+            confirmLabel="Yes, delete"
+            className="shrink-0 rounded-lg border border-red-500/25 bg-transparent px-4 py-2 text-sm font-medium text-red-500 dark:text-red-400 transition-colors hover:bg-red-500/10 hover:border-red-500/40"
+          >
+            Delete account
+          </ConfirmButton>
+        </div>
       </motion.section>
+
     </div>
   );
 }

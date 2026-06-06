@@ -1,19 +1,38 @@
 import { NavLink, Navigate, Outlet, useLocation, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
+
+function SidebarAvatar({ src, name, initials }: { src: string | null; name: string; initials: string }) {
+  const [failed, setFailed] = useState(false);
+  if (src && !failed) {
+    return (
+      <img
+        src={src}
+        alt={name}
+        className="size-11 rounded-full object-cover ring-2 ring-stroke"
+        onError={() => setFailed(true)}
+      />
+    );
+  }
+  return (
+    <div className="flex size-11 items-center justify-center rounded-full bg-gradient-to-br from-emerald-600 to-teal-700 text-sm font-bold text-white">
+      {initials}
+    </div>
+  );
+}
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useAuth } from "../context/AuthContext";
 import { useWishlist } from "../context/WishlistContext";
 import { useTheme } from "../context/ThemeContext";
 import { ApiError, apiFetch } from "../lib/api";
+import { queryKeys } from "../lib/queryKeys";
+import * as orderService from "../services/orders";
 import {
   UserIcon, MapPinIcon, ShieldIcon, XIcon,
   LockClosedIcon, PackageIcon, HeartIcon,
   SunIcon, MoonIcon,
 } from "../components/Icons";
-
-type OrdersRes = { status: string; results: number; data: { orders: unknown[] } };
 
 function getProfileImageUrl(image?: string): string | null {
   if (!image) return null;
@@ -107,12 +126,10 @@ export function AccountPage() {
     return <Navigate to="/account/profile" replace />;
   }
 
+  /* Fix #2 — use shared queryKeys.orders() so counts stay in sync */
   const ordersQuery = useQuery({
-    queryKey: ["orders", "count"],
-    queryFn: async () => {
-      const res = await apiFetch<OrdersRes>("/api/v1/order", { auth: true });
-      return res.results;
-    },
+    queryKey: queryKeys.orders(),
+    queryFn: orderService.getOrders,
     staleTime: 60_000,
   });
 
@@ -132,8 +149,13 @@ export function AccountPage() {
   const isVerified = Boolean(u?.isVerified);
   const profileImage = u?.profileImage ? String(u.profileImage) : undefined;
   const displayImage = getProfileImageUrl(profileImage);
-  const initials = name.charAt(0).toUpperCase();
-  const orderCount = ordersQuery.isPending ? null : (ordersQuery.data ?? 0);
+  const initials = name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+  const orderCount = ordersQuery.isPending ? null : (ordersQuery.data?.length ?? 0);
+
+  /* Fix #12 — member since */
+  const memberSince = u?.createdAt
+    ? new Date(String(u.createdAt)).toLocaleDateString("en-US", { month: "short", year: "numeric" })
+    : null;
 
   return (
     <div>
@@ -209,13 +231,7 @@ export function AccountPage() {
             <div className="flex items-center gap-3 p-4">
               {/* Avatar */}
               <div className="relative shrink-0">
-                {displayImage ? (
-                  <img src={displayImage} alt={name} className="size-11 rounded-full object-cover ring-2 ring-stroke" />
-                ) : (
-                  <div className="flex size-11 items-center justify-center rounded-full bg-gradient-to-br from-emerald-600 to-teal-700 text-sm font-bold text-white">
-                    {initials}
-                  </div>
-                )}
+                <SidebarAvatar src={displayImage} name={name} initials={initials} />
                 {isAdmin && (
                   <span className="absolute -bottom-0.5 -right-0.5 flex size-4 items-center justify-center rounded-full bg-emerald-500 ring-2 ring-card">
                     <ShieldIcon className="size-2.5 text-white" />
@@ -234,6 +250,10 @@ export function AccountPage() {
                     {isVerified ? "Verified" : "Not verified"}
                   </span>
                 </div>
+                {/* Fix #12 — member since */}
+                {memberSince && (
+                  <p className="mt-0.5 text-[10px] text-ink4">Member since {memberSince}</p>
+                )}
               </div>
             </div>
 
@@ -300,17 +320,19 @@ export function AccountPage() {
             </div>
           </nav>
 
-          {/* Mobile tab nav */}
+          {/* Mobile tab nav — Fix #13: includes Orders + Wishlist */}
           <nav className="flex gap-1.5 overflow-x-auto lg:hidden pb-1">
             {[
-              { to: "/account/profile", icon: UserIcon, label: "Profile" },
-              { to: "/account/security", icon: LockClosedIcon, label: "Security" },
-              { to: "/account/addresses", icon: MapPinIcon, label: "Addresses" },
-            ].map(({ to, icon: Icon, label }) => (
+              { to: "/account/profile",   icon: UserIcon,       label: "Profile",    end: true },
+              { to: "/account/security",  icon: LockClosedIcon, label: "Security",   end: true },
+              { to: "/account/addresses", icon: MapPinIcon,     label: "Addresses",  end: true },
+              { to: "/orders",            icon: PackageIcon,    label: "Orders",     end: false },
+              { to: "/wishlist",          icon: HeartIcon,      label: "Wishlist",   end: false },
+            ].map(({ to, icon: Icon, label, end }) => (
               <NavLink
                 key={to}
                 to={to}
-                end
+                end={end}
                 className={({ isActive }) =>
                   `flex shrink-0 items-center gap-2 rounded-lg border px-3.5 py-2 text-sm font-medium transition-colors ${
                     isActive

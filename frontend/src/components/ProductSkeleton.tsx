@@ -1,5 +1,5 @@
 function SkeletonBox({ className = "" }: { className?: string }) {
-  return <div className={`animate-shimmer rounded ${className}`} />;
+  return <div aria-hidden="true" className={`animate-shimmer rounded ${className}`} />;
 }
 
 export function CartSkeleton() {

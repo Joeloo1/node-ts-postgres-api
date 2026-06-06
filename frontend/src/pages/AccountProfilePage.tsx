@@ -56,6 +56,7 @@ export function AccountProfilePage() {
   const { user, isLoading: profileLoading, profileError } = useAuth();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [avatarError, setAvatarError] = useState(false);
 
   const safe = useMemo(() => (user ? safeUserFields(user as User) : null), [user]);
 
@@ -75,6 +76,7 @@ export function AccountProfilePage() {
   function handleImageFile(file: File | null) {
     setProfileImageFile(file);
     setImagePreview(file ? URL.createObjectURL(file) : null);
+    if (file) setAvatarError(false);
   }
 
   const updateProfile = useMutation({
@@ -160,8 +162,8 @@ export function AccountProfilePage() {
               className="group relative shrink-0 self-start sm:self-center"
               aria-label="Change profile photo"
             >
-              {displayImage ? (
-                <img src={displayImage} alt={safe.name} className="size-20 rounded-2xl object-cover ring-1 ring-stroke/80 shadow-sm" />
+              {displayImage && !avatarError ? (
+                <img src={displayImage} alt={safe.name} onError={() => setAvatarError(true)} className="size-20 rounded-2xl object-cover ring-1 ring-stroke/80 shadow-sm" />
               ) : (
                 <div className="flex size-20 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-700 text-2xl font-bold text-white ring-1 ring-stroke/80 shadow-sm">
                   {initials}

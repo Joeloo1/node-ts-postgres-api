@@ -3,17 +3,12 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { OrdersSkeleton } from "../components/ProductSkeleton";
-import { apiFetch } from "../lib/api";
+import { queryKeys } from "../lib/queryKeys";
+import * as orderService from "../services/orders";
 import { usePageTitle } from "../hooks/usePageTitle";
 import { productImageUrl } from "../lib/productImage";
-import type { Order, OrderStatus } from "../lib/types";
-import { ChevronRightIcon, PackageIcon } from "../components/Icons";
-
-type OrdersRes = {
-  status: string;
-  results: number;
-  data: { orders: Order[] };
-};
+import type { OrderStatus } from "../lib/types";
+import { ChevronRightIcon, PackageIcon, SearchIcon, XIcon } from "../components/Icons";
 
 const statusConfig: Record<string, { label: string; dot: string; badge: string }> = {
   PENDING:    { label: "Pending",    dot: "bg-amber-400",   badge: "border-amber-500/20 bg-amber-500/8 text-amber-600 dark:text-amber-400" },
@@ -43,13 +38,11 @@ const rowFade: Variants = {
 export function OrdersPage() {
   usePageTitle("Orders");
   const [filter, setFilter] = useState<OrderStatus | "ALL">("ALL");
+  const [searchText, setSearchText] = useState("");
 
   const { data, isPending, isError, error } = useQuery({
-    queryKey: ["orders"],
-    queryFn: async () => {
-      const res = await apiFetch<OrdersRes>("/api/v1/order", { auth: true });
-      return res.data.orders;
-    },
+    queryKey: queryKeys.orders(),
+    queryFn: orderService.getOrders,
   });
 
   if (isPending) return <OrdersSkeleton />;
@@ -67,9 +60,17 @@ export function OrdersPage() {
   }
 
   const orders = Array.isArray(data) ? data : [];
-  const filtered = filter === "ALL" ? orders : orders.filter((o) => o.status === filter);
+  const filtered = orders
+    .filter((o) => filter === "ALL" || o.status === filter)
+    .filter((o) => {
+      if (!searchText.trim()) return true;
+      const q = searchText.toLowerCase();
+      return (
+        o.id.slice(0, 8).toUpperCase().includes(q.toUpperCase()) ||
+        o.items.some((i) => i.product?.name?.toLowerCase().includes(q))
+      );
+    });
 
-  /* ── Empty state ── */
   if (orders.length === 0) {
     return (
       <div>
@@ -96,20 +97,33 @@ export function OrdersPage() {
 
   return (
     <div className="space-y-6">
-
-      {/* ── Header ── */}
       <div>
         <p className="text-[11px] font-semibold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">History</p>
         <h1 className="mt-1.5 font-display text-2xl font-bold text-ink sm:text-3xl">Your orders</h1>
       </div>
 
-      {/* ── Filter tabs ── */}
+      {/* Fix #27 — search within orders */}
+      {orders.length > 0 && (
+        <div className="relative">
+          <SearchIcon className="absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-ink4" />
+          <input
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            placeholder="Search by order ID or product name…"
+            className="w-full rounded-lg border border-stroke bg-card py-2.5 pl-9 pr-9 text-sm text-ink placeholder:text-ink4 focus:border-emerald-500/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/25"
+          />
+          {searchText && (
+            <button type="button" onClick={() => setSearchText("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-ink4 hover:text-ink transition-colors">
+              <XIcon className="size-3.5" />
+            </button>
+          )}
+        </div>
+      )}
+
       <div className="-mx-4 sm:mx-0">
         <div className="flex overflow-x-auto border-b border-stroke scrollbar-none">
           {FILTER_TABS.map(({ value, label }) => {
-            const count = value === "ALL"
-              ? orders.length
-              : orders.filter((o) => o.status === value).length;
+            const count = value === "ALL" ? orders.length : orders.filter((o) => o.status === value).length;
             if (count === 0 && value !== "ALL") return null;
             const active = filter === value;
             return (
@@ -117,21 +131,14 @@ export function OrdersPage() {
                 key={value}
                 type="button"
                 onClick={() => setFilter(value)}
-                className={`relative shrink-0 px-4 py-3 text-[13px] font-medium transition-colors ${
-                  active ? "text-ink" : "text-ink4 hover:text-ink3"
-                }`}
+                className={`relative shrink-0 px-4 py-3 text-[13px] font-medium transition-colors ${active ? "text-ink" : "text-ink4 hover:text-ink3"}`}
               >
                 <span className="flex items-center gap-2">
                   {label}
-                  <span className={`rounded-full px-1.5 py-0.5 text-[10px] tabular-nums font-semibold ${
-                    active
-                      ? "bg-raised text-ink3"
-                      : "text-ink4/60"
-                  }`}>
+                  <span className={`rounded-full px-1.5 py-0.5 text-[10px] tabular-nums font-semibold ${active ? "bg-raised text-ink3" : "text-ink4/60"}`}>
                     {count}
                   </span>
                 </span>
-                {/* Bottom border indicator */}
                 {active && (
                   <motion.div
                     layoutId="order-tab-indicator"
@@ -145,7 +152,6 @@ export function OrdersPage() {
         </div>
       </div>
 
-      {/* ── No results for filter ── */}
       <AnimatePresence mode="wait">
         {filtered.length === 0 ? (
           <motion.div
@@ -165,20 +171,12 @@ export function OrdersPage() {
             </button>
           </motion.div>
         ) : (
-          <motion.ul
-            key={filter}
-            className="space-y-3"
-            variants={stagger}
-            initial="hidden"
-            animate="show"
-          >
+          <motion.ul key={filter} className="space-y-3" variants={stagger} initial="hidden" animate="show">
             {filtered.map((o) => {
               const status = statusConfig[o.status] ?? { label: o.status, dot: "bg-ink4", badge: "border-edge bg-well text-ink3" };
               const thumbs = (o.items ?? [])
                 .slice(0, 4)
-                .map((item) => item.product
-                  ? productImageUrl(item.product as { name: string; image: string | null; images?: string[] | null })
-                  : null)
+                .map((item) => item.product ? productImageUrl(item.product as { name: string; image: string | null; images?: string[] | null }) : null)
                 .filter(Boolean) as string[];
               const extraCount = (o.items?.length ?? 0) - thumbs.length;
               const itemCount = o.items?.length ?? 0;
@@ -189,61 +187,38 @@ export function OrdersPage() {
                     to={`/orders/${o.id}`}
                     className="group block overflow-hidden rounded-2xl border border-stroke bg-card transition-all duration-200 hover:border-edge hover:shadow-lg hover:shadow-black/8"
                   >
-                    {/* Card top strip: status + date */}
                     <div className="flex items-center justify-between border-b border-stroke bg-raised/30 px-5 py-2.5">
                       <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${status.badge}`}>
                         <span className={`size-1.5 shrink-0 rounded-full ${status.dot}`} />
                         {status.label}
                       </span>
                       <p className="text-[12px] text-ink4">
-                        {new Date(o.createdAt).toLocaleDateString("en-US", {
-                          month: "short", day: "numeric", year: "numeric",
-                        })}
+                        {new Date(o.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                       </p>
                     </div>
-
-                    {/* Card body */}
                     <div className="flex items-center gap-4 px-5 py-4">
-                      {/* Product thumbnails */}
                       {thumbs.length > 0 && (
                         <div className="flex shrink-0 -space-x-2.5">
                           {thumbs.map((src, i) => (
-                            <div
-                              key={i}
-                              className="size-12 overflow-hidden rounded-xl border-2 border-card bg-raised shadow-sm"
-                              style={{ zIndex: thumbs.length - i }}
-                            >
-                              <img src={src} alt="" className="h-full w-full object-cover" loading="lazy" />
+                            <div key={i} className="size-12 overflow-hidden rounded-xl border-2 border-card bg-raised shadow-sm" style={{ zIndex: thumbs.length - i }}>
+                              <img src={src} alt="" className="h-full w-full object-cover" loading="lazy" decoding="async" />
                             </div>
                           ))}
                           {extraCount > 0 && (
-                            <div
-                              className="flex size-12 items-center justify-center rounded-xl border-2 border-card bg-raised text-[11px] font-semibold text-ink3 shadow-sm"
-                            >
+                            <div className="flex size-12 items-center justify-center rounded-xl border-2 border-card bg-raised text-[11px] font-semibold text-ink3 shadow-sm">
                               +{extraCount}
                             </div>
                           )}
                         </div>
                       )}
-
-                      {/* Order info */}
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-semibold text-ink">
-                          Order{" "}
-                          <span className="font-mono text-[13px] text-ink2">
-                            #{o.id.slice(0, 8).toUpperCase()}
-                          </span>
+                          Order <span className="font-mono text-[13px] text-ink2">#{o.id.slice(0, 8).toUpperCase()}</span>
                         </p>
-                        <p className="mt-0.5 text-xs text-ink4">
-                          {itemCount} item{itemCount !== 1 ? "s" : ""}
-                        </p>
+                        <p className="mt-0.5 text-xs text-ink4">{itemCount} item{itemCount !== 1 ? "s" : ""}</p>
                       </div>
-
-                      {/* Total + arrow */}
                       <div className="flex shrink-0 items-center gap-3">
-                        <p className="text-base font-bold tabular-nums text-ink">
-                          ${o.total.toFixed(2)}
-                        </p>
+                        <p className="text-base font-bold tabular-nums text-ink">${o.total.toFixed(2)}</p>
                         <div className="flex size-8 items-center justify-center rounded-full bg-raised text-ink3 transition-all group-hover:bg-emerald-500 group-hover:text-white">
                           <ChevronRightIcon className="size-3.5" />
                         </div>

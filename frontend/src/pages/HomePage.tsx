@@ -1,18 +1,17 @@
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion, type Variants } from "framer-motion";
 import { ProductCard } from "../components/ProductCard";
 import { ProductSkeletonGrid } from "../components/ProductSkeleton";
 import { usePageTitle } from "../hooks/usePageTitle";
 import { useAuth } from "../context/AuthContext";
-import { apiFetch } from "../lib/api";
+import { queryKeys } from "../lib/queryKeys";
+import * as productService from "../services/products";
+import * as categoryService from "../services/categories";
 import { productImageUrl } from "../lib/productImage";
-import type { Category, Product } from "../lib/types";
 import { ArrowRightIcon, TruckIcon, ShieldIcon, PackageIcon, StarIcon } from "../components/Icons";
-
-type ProductsRes = { status: string; data: { products: Product[] } };
-type CategoriesRes = { status: string; data: { categories: Category[] } };
+import { useCountUp } from "../hooks/useCountUp";
 
 /* ── Animation presets ─────────────────────────── */
 const fadeUp: Variants = {
@@ -27,6 +26,30 @@ const cardFade: Variants = {
   hidden: { opacity: 0, y: 18 },
   show:   { opacity: 1, y: 0, transition: { duration: 0.32, ease: [0.25, 0.1, 0.25, 1] } },
 };
+
+/* ── Hero mosaic image with error fallback ───────── */
+function HeroMosaicImg({ src, alt }: { src: string; alt: string }) {
+  const [err, setErr] = useState(false);
+  if (err) {
+    return (
+      <div className="aspect-[3/4] w-full bg-gradient-to-br from-zinc-800 to-zinc-900 flex items-center justify-center">
+        <svg className="size-8 text-zinc-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M9 9.75h.008v.008H9V9.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+        </svg>
+      </div>
+    );
+  }
+  return (
+    <img
+      src={src}
+      alt={alt}
+      onError={() => setErr(true)}
+      className="aspect-[3/4] w-full object-cover transition-transform duration-500 group-hover:scale-[1.05]"
+      loading="eager"
+      fetchPriority="high"
+    />
+  );
+}
 
 /* ── Category icon map ─────────────────────────── */
 function CategoryIcon({ name }: { name: string }) {
@@ -55,20 +78,18 @@ function CategoryIcon({ name }: { name: string }) {
   );
 }
 
-/* ── Trust strip items ─────────────────────────── */
 const trustItems = [
-  { Icon: TruckIcon,   title: "Free shipping",     desc: "On all orders over $50" },
-  { Icon: PackageIcon, title: "Easy returns",       desc: "30-day hassle-free policy" },
-  { Icon: ShieldIcon,  title: "Secure checkout",   desc: "256-bit SSL encryption" },
-  { Icon: StarIcon,    title: "Top-rated",          desc: "4.9 from 2,400+ reviews" },
+  { Icon: TruckIcon,   title: "Free shipping",   desc: "On all orders over $50" },
+  { Icon: PackageIcon, title: "Easy returns",     desc: "30-day hassle-free policy" },
+  { Icon: ShieldIcon,  title: "Secure checkout", desc: "256-bit SSL encryption" },
+  { Icon: StarIcon,    title: "Top-rated",        desc: "4.9 from 2,400+ reviews" },
 ];
 
-/* ── Stats ─────────────────────────────────────── */
-const stats = [
-  { value: "10K+",  label: "Products" },
-  { value: "50+",   label: "Brands" },
-  { value: "2.4K+", label: "5-star reviews" },
-  { value: "99%",   label: "Satisfaction rate" },
+const statsConfig = [
+  { target: 10000, suffix: "+",  label: "Products",        display: (n: number) => n >= 1000 ? `${(n / 1000).toFixed(0)}K+` : String(n) },
+  { target: 50,    suffix: "+",  label: "Brands",          display: (n: number) => `${n}+` },
+  { target: 2400,  suffix: "+",  label: "5-star reviews",  display: (n: number) => n >= 1000 ? `${(n / 1000).toFixed(1)}K+` : String(n) },
+  { target: 99,    suffix: "%",  label: "Satisfaction rate", display: (n: number) => `${n}%` },
 ];
 
 /* ═══════════════════════════════════════════════ */
@@ -77,43 +98,35 @@ export function HomePage() {
   const { token } = useAuth();
   const isSignedIn = Boolean(token);
 
-  const { data: products, isPending } = useQuery({
-    queryKey: ["products", "featured"],
-    queryFn: async () => {
-      const res = await apiFetch<ProductsRes>("/api/v1/products?limit=8&sortBy=createdAt&order=desc");
-      return res.data.products;
-    },
+  const { data: productsData, isPending } = useQuery({
+    queryKey: queryKeys.products("featured"),
+    queryFn: () => productService.getProducts({ limit: 8, sortBy: "createdAt", order: "desc" }),
   });
+  const products = productsData?.products;
 
   const { data: categories } = useQuery({
-    queryKey: ["categories"],
-    queryFn: async () => {
-      const res = await apiFetch<CategoriesRes>("/api/v1/categories");
-      return res.data.categories;
-    },
+    queryKey: queryKeys.categories(),
+    queryFn: categoryService.getCategories,
+  });
+
+  const { data: deals } = useQuery({
+    queryKey: queryKeys.deals(),
+    queryFn: () => productService.getDeals(8),
   });
 
   return (
     <div className="space-y-24 sm:space-y-28">
 
-      {/* ════════════════════════════════════════════
-          HERO
-      ════════════════════════════════════════════ */}
-      <section className="relative grid items-center gap-12 py-8 sm:py-12 lg:grid-cols-[1fr_460px] lg:gap-16 lg:py-16 xl:grid-cols-[1fr_500px]">
+      {/* ═══ HERO ═══ */}
+      <section className="relative grid items-start gap-10 pb-4 pt-2 sm:pb-8 sm:pt-4 lg:grid-cols-[1fr_460px] lg:gap-14 lg:pb-10 lg:pt-6 xl:grid-cols-[1fr_500px]">
 
-        {/* Text column */}
         <motion.div
           className="space-y-7"
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: [0.25, 0.1, 0.25, 1] }}
         >
-          {/* Announcement pill */}
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1, duration: 0.4 }}
-          >
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1, duration: 0.4 }}>
             <Link
               to="/products"
               className="group inline-flex items-center gap-2 rounded-full border border-emerald-500/25 bg-emerald-500/8 px-4 py-1.5 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-500/12 dark:text-emerald-400"
@@ -124,7 +137,6 @@ export function HomePage() {
             </Link>
           </motion.div>
 
-          {/* Headline */}
           <div className="space-y-3">
             <h1 className="font-display text-[3.2rem] font-bold leading-[1.04] tracking-[-0.03em] text-ink sm:text-6xl lg:text-[4rem] xl:text-[4.5rem]">
               Quality goods,
@@ -138,7 +150,6 @@ export function HomePage() {
             </p>
           </div>
 
-          {/* CTA buttons */}
           <div className="flex flex-wrap items-center gap-3">
             <Link
               to="/products"
@@ -157,14 +168,12 @@ export function HomePage() {
             )}
           </div>
 
-          {/* Social proof */}
           <div className="flex items-center gap-4 pt-1">
-            {/* Stacked avatar circles */}
             <div className="flex -space-x-2.5">
               {["E", "M", "S", "A"].map((letter, i) => (
                 <div
                   key={i}
-                  className={`flex size-8 items-center justify-center rounded-full border-2 border-page text-[11px] font-bold text-white ring-0 ${
+                  className={`flex size-8 items-center justify-center rounded-full border-2 border-page text-[11px] font-bold text-white ${
                     ["bg-emerald-500", "bg-teal-500", "bg-cyan-500", "bg-emerald-700"][i]
                   }`}
                 >
@@ -174,9 +183,7 @@ export function HomePage() {
             </div>
             <div>
               <div className="flex items-center gap-1">
-                {[1,2,3,4,5].map((s) => (
-                  <StarIcon key={s} className="size-3 text-amber-400" filled />
-                ))}
+                {[1,2,3,4,5].map((s) => <StarIcon key={s} className="size-3 text-amber-400" filled />)}
                 <span className="ml-1 text-sm font-semibold text-ink">4.9</span>
               </div>
               <p className="text-[12px] text-ink4">from 2,400+ verified reviews</p>
@@ -201,20 +208,13 @@ export function HomePage() {
                   to={`/products/${p.product_id}`}
                   className={`group relative block overflow-hidden rounded-2xl bg-raised ${i % 2 === 1 ? "mt-10" : ""}`}
                 >
-                  <img
-                    src={productImageUrl(p)}
-                    alt={p.name}
-                    className="aspect-[3/4] w-full object-cover transition-transform duration-500 group-hover:scale-[1.05]"
-                    loading="eager"
-                  />
-                  {/* Price card — slides up on hover */}
+                  <HeroMosaicImg src={productImageUrl(p)} alt={p.name} />
                   <div className="absolute inset-x-2 bottom-2 translate-y-1 rounded-xl border border-white/10 bg-black/60 px-3 py-2.5 opacity-0 backdrop-blur-md transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100">
                     <p className="truncate text-[11px] font-medium text-white/80">{p.name}</p>
                     <p className="mt-0.5 text-sm font-bold text-white">
                       ${(p.discount ? p.price * (1 - p.discount / 100) : p.price).toFixed(2)}
                     </p>
                   </div>
-                  {/* New badge */}
                   {i === 0 && (
                     <span className="absolute left-2.5 top-2.5 rounded-full bg-white/90 px-2.5 py-1 text-[10px] font-bold text-ink backdrop-blur-sm">
                       NEW
@@ -223,16 +223,32 @@ export function HomePage() {
                 </Link>
               ))}
         </motion.div>
+
+        {/* Mobile hero — horizontal scroll strip */}
+        {!isPending && products && products.length > 0 && (
+          <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1 scrollbar-none lg:hidden">
+            {products.slice(0, 6).map((p) => (
+              <Link
+                key={p.product_id}
+                to={`/products/${p.product_id}`}
+                className="group relative shrink-0 w-40 overflow-hidden rounded-2xl bg-raised"
+              >
+                <HeroMosaicImg src={productImageUrl(p)} alt={p.name} />
+                <div className="absolute inset-x-2 bottom-2 rounded-xl border border-white/10 bg-black/60 px-2.5 py-2 backdrop-blur-md">
+                  <p className="truncate text-[10px] font-medium text-white/80">{p.name}</p>
+                  <p className="text-xs font-bold text-white">
+                    ${(p.discount ? p.price * (1 - p.discount / 100) : p.price).toFixed(2)}
+                  </p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
       </section>
 
-      {/* ════════════════════════════════════════════
-          TRUST STRIP
-      ════════════════════════════════════════════ */}
+      {/* ═══ TRUST STRIP ═══ */}
       <motion.div
-        variants={fadeUp}
-        initial="hidden"
-        whileInView="show"
-        viewport={{ once: true, margin: "-40px" }}
+        variants={fadeUp} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-40px" }}
         className="grid grid-cols-2 gap-3 border-y border-stroke py-8 sm:py-10 lg:grid-cols-4"
       >
         {trustItems.map(({ Icon, title, desc }) => (
@@ -248,22 +264,13 @@ export function HomePage() {
         ))}
       </motion.div>
 
-      {/* ════════════════════════════════════════════
-          CATEGORIES
-      ════════════════════════════════════════════ */}
+      {/* ═══ CATEGORIES ═══ */}
       {categories && categories.length > 0 && (
-        <motion.section
-          variants={fadeUp}
-          initial="hidden"
-          whileInView="show"
-          viewport={{ once: true, margin: "-40px" }}
-        >
+        <motion.section variants={fadeUp} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-40px" }}>
           <div className="mb-8 flex items-end justify-between gap-4">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Browse</p>
-              <h2 className="mt-1.5 font-display text-2xl font-bold text-ink sm:text-3xl">
-                Shop by category
-              </h2>
+              <h2 className="mt-1.5 font-display text-2xl font-bold text-ink sm:text-3xl">Shop by category</h2>
             </div>
             <Link
               to="/products"
@@ -274,7 +281,21 @@ export function HomePage() {
             </Link>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+          {/* Mobile: scrollable pills */}
+          <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-2 scrollbar-none sm:hidden">
+            {categories.map((cat) => (
+              <Link
+                key={cat.category_id}
+                to={`/products?category_id=${cat.category_id}`}
+                className="shrink-0 rounded-full border border-stroke bg-card px-4 py-2 text-[12px] font-medium text-ink2 transition-all hover:border-emerald-500/30 hover:text-emerald-600 dark:hover:text-emerald-400"
+              >
+                {cat.name}
+              </Link>
+            ))}
+          </div>
+
+          {/* Desktop: card grid */}
+          <div className="hidden grid-cols-3 gap-3 sm:grid md:grid-cols-4 lg:grid-cols-5">
             {categories.map((cat, idx) => (
               <motion.div
                 key={cat.category_id}
@@ -291,9 +312,7 @@ export function HomePage() {
                     <CategoryIcon name={cat.name} />
                   </div>
                   <div className="flex items-center justify-between gap-1">
-                    <span className="text-[13px] font-medium text-ink2 transition-colors group-hover:text-ink">
-                      {cat.name}
-                    </span>
+                    <span className="text-[13px] font-medium text-ink2 transition-colors group-hover:text-ink">{cat.name}</span>
                     <ArrowRightIcon className="size-3 shrink-0 translate-x-[-2px] text-ink4 opacity-0 transition-all group-hover:translate-x-0 group-hover:opacity-100" />
                   </div>
                 </Link>
@@ -303,15 +322,68 @@ export function HomePage() {
         </motion.section>
       )}
 
-      {/* ════════════════════════════════════════════
-          NEW ARRIVALS
-      ════════════════════════════════════════════ */}
-      <motion.section
-        variants={fadeUp}
-        initial="hidden"
-        whileInView="show"
-        viewport={{ once: true, margin: "-40px" }}
-      >
+      {/* ═══ DEALS ═══ */}
+      {deals && deals.length > 0 && (
+        <motion.section variants={fadeUp} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-40px" }}>
+          <div className="mb-8 flex items-end justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2.5">
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-red-500">Limited time</p>
+                <span className="rounded-full bg-red-500/12 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-red-600 dark:text-red-400">Sale</span>
+              </div>
+              <h2 className="mt-1.5 font-display text-2xl font-bold text-ink sm:text-3xl">Today's deals</h2>
+            </div>
+            <Link
+              to="/products"
+              className="group mb-1 inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-stroke bg-card px-3.5 py-2 text-[13px] font-medium text-ink3 transition-all hover:border-edge hover:text-ink"
+            >
+              View all
+              <ArrowRightIcon className="size-3.5 transition-transform group-hover:translate-x-0.5" />
+            </Link>
+          </div>
+
+          <motion.div
+            className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4"
+            variants={stagger} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-40px" }}
+          >
+            {deals.map((p) => (
+              <motion.div key={p.product_id} variants={cardFade}>
+                <Link
+                  to={`/products/${p.product_id}`}
+                  className="group relative flex flex-col overflow-hidden rounded-2xl border border-red-500/15 bg-card transition-all duration-300 hover:border-red-500/30 hover:shadow-xl hover:shadow-black/10"
+                >
+                  <div className="relative aspect-square overflow-hidden bg-raised">
+                    <img
+                      src={productImageUrl(p)}
+                      alt={p.name}
+                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.05]"
+                      loading="lazy"
+                    />
+                    <span className="absolute left-2.5 top-2.5 rounded-full bg-red-500 px-2.5 py-1 text-[10px] font-bold tracking-wide text-white shadow">
+                      −{Math.round(p.discount!)}%
+                    </span>
+                  </div>
+                  <div className="p-3.5">
+                    <p className="line-clamp-2 text-[13px] font-semibold leading-snug text-ink">{p.name}</p>
+                    <div className="mt-2 flex items-baseline gap-2">
+                      <span className="text-sm font-bold tabular-nums text-ink">
+                        ${(p.price * (1 - p.discount! / 100)).toFixed(2)}
+                      </span>
+                      <span className="text-[11px] tabular-nums text-ink4 line-through">${p.price.toFixed(2)}</span>
+                      <span className="ml-auto text-[11px] font-semibold text-red-500">
+                        Save ${(p.price * p.discount! / 100).toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                </Link>
+              </motion.div>
+            ))}
+          </motion.div>
+        </motion.section>
+      )}
+
+      {/* ═══ NEW ARRIVALS ═══ */}
+      <motion.section variants={fadeUp} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-40px" }}>
         <div className="mb-8 flex items-end justify-between gap-4">
           <div>
             <div className="flex items-center gap-2.5">
@@ -334,10 +406,7 @@ export function HomePage() {
         ) : (
           <motion.div
             className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4"
-            variants={stagger}
-            initial="hidden"
-            whileInView="show"
-            viewport={{ once: true, margin: "-40px" }}
+            variants={stagger} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-40px" }}
           >
             {products?.map((p) => (
               <motion.div key={p.product_id} variants={cardFade}>
@@ -348,51 +417,21 @@ export function HomePage() {
         )}
       </motion.section>
 
-      {/* ════════════════════════════════════════════
-          STATS
-      ════════════════════════════════════════════ */}
-      <motion.section
-        variants={fadeUp}
-        initial="hidden"
-        whileInView="show"
-        viewport={{ once: true, margin: "-40px" }}
-        className="overflow-hidden rounded-3xl border border-stroke bg-card"
-      >
-        <div className="grid grid-cols-2 divide-x divide-y divide-stroke lg:grid-cols-4 lg:divide-y-0">
-          {stats.map(({ value, label }) => (
-            <div key={label} className="flex flex-col items-center justify-center gap-1 px-6 py-10">
-              <span className="font-display text-3xl font-bold text-ink sm:text-4xl">{value}</span>
-              <span className="text-[13px] text-ink4">{label}</span>
-            </div>
-          ))}
-        </div>
-      </motion.section>
+      {/* ═══ STATS ═══ */}
+      <StatsSection />
 
-      {/* ════════════════════════════════════════════
-          CTA BANNER
-      ════════════════════════════════════════════ */}
+      {/* ═══ CTA BANNER ═══ */}
       <motion.section
-        variants={fadeUp}
-        initial="hidden"
-        whileInView="show"
-        viewport={{ once: true, margin: "-40px" }}
+        variants={fadeUp} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-40px" }}
         className="relative overflow-hidden rounded-3xl"
         style={{ background: "linear-gradient(135deg, #064e3b 0%, #065f46 45%, #0f172a 100%)" }}
       >
-        {/* Dot grid */}
-        <div
-          className="absolute inset-0 opacity-[0.055]"
-          style={{ backgroundImage: "radial-gradient(circle, white 1px, transparent 1px)", backgroundSize: "26px 26px" }}
-        />
-        {/* Glows */}
+        <div className="absolute inset-0 opacity-[0.055]" style={{ backgroundImage: "radial-gradient(circle, white 1px, transparent 1px)", backgroundSize: "26px 26px" }} />
         <div className="absolute -left-24 -top-24 size-[400px] rounded-full bg-emerald-500/25 blur-3xl" />
         <div className="absolute -bottom-20 -right-20 size-72 rounded-full bg-teal-400/12 blur-3xl" />
-        <div className="absolute left-1/2 top-0 h-px w-1/2 bg-gradient-to-r from-transparent via-emerald-400/30 to-transparent" />
 
         <div className="relative px-8 py-16 text-center sm:px-16 sm:py-20">
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-emerald-400/70">
-            Join the community
-          </p>
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-emerald-400/70">Join the community</p>
           <h2 className="mx-auto mt-3 max-w-lg font-display text-3xl font-bold leading-tight text-white sm:text-4xl lg:text-[2.6rem]">
             Ready to discover something you'll love?
           </h2>
@@ -416,7 +455,6 @@ export function HomePage() {
               </Link>
             )}
           </div>
-          {/* Trust line */}
           <div className="mt-8 flex flex-wrap items-center justify-center gap-x-5 gap-y-1.5">
             {["Free shipping over $50", "30-day returns", "Secure checkout"].map((t) => (
               <span key={t} className="flex items-center gap-1.5 text-[12px] text-emerald-200/50">
@@ -428,32 +466,71 @@ export function HomePage() {
         </div>
       </motion.section>
 
-      {/* ════════════════════════════════════════════
-          NEWSLETTER
-      ════════════════════════════════════════════ */}
+      {/* ═══ NEWSLETTER ═══ */}
       <NewsletterSection />
-
     </div>
   );
 }
 
-/* ── Newsletter ────────────────────────────────── */
+function StatCounter({ target, display, label }: { target: number; display: (n: number) => string; label: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [active, setActive] = useState(false);
+  const count = useCountUp(target, 1400, active);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) { setActive(true); observer.disconnect(); } },
+      { threshold: 0.3 },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div ref={ref} className="flex flex-col items-center justify-center gap-1 px-6 py-10">
+      <span className="font-display text-3xl font-bold tabular-nums text-ink sm:text-4xl">
+        {active ? display(count) : display(0)}
+      </span>
+      <span className="text-[13px] text-ink4">{label}</span>
+    </div>
+  );
+}
+
+function StatsSection() {
+  return (
+    <motion.section
+      variants={fadeUp} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-40px" }}
+      className="overflow-hidden rounded-3xl border border-stroke bg-card"
+    >
+      <div className="grid grid-cols-2 divide-x divide-y divide-stroke lg:grid-cols-4 lg:divide-y-0">
+        {statsConfig.map((s) => (
+          <StatCounter key={s.label} target={s.target} display={s.display} label={s.label} />
+        ))}
+      </div>
+    </motion.section>
+  );
+}
+
 function NewsletterSection() {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!email) return;
-    setSubmitted(true);
+    if (!email || loading) return;
+    setLoading(true);
+    setTimeout(() => {
+      setLoading(false);
+      setSubmitted(true);
+    }, 900);
   }
 
   return (
     <motion.section
-      variants={fadeUp}
-      initial="hidden"
-      whileInView="show"
-      viewport={{ once: true, margin: "-40px" }}
+      variants={fadeUp} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-40px" }}
       className="overflow-hidden rounded-3xl border border-stroke bg-card"
     >
       {submitted ? (
@@ -468,14 +545,9 @@ function NewsletterSection() {
         </div>
       ) : (
         <div className="grid lg:grid-cols-[1fr_1px_1fr]">
-          {/* Left — text */}
           <div className="px-8 py-10 sm:px-12 lg:py-12">
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
-              Newsletter
-            </p>
-            <h2 className="mt-2 font-display text-2xl font-bold text-ink sm:text-3xl">
-              Stay in the loop
-            </h2>
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Newsletter</p>
+            <h2 className="mt-2 font-display text-2xl font-bold text-ink sm:text-3xl">Stay in the loop</h2>
             <p className="mt-3 max-w-xs text-[15px] leading-relaxed text-ink3">
               New arrivals, exclusive deals, and curated picks — straight to your inbox.
             </p>
@@ -492,11 +564,7 @@ function NewsletterSection() {
               ))}
             </ul>
           </div>
-
-          {/* Vertical divider */}
           <div className="hidden w-px bg-stroke lg:block" />
-
-          {/* Right — form */}
           <div className="flex flex-col justify-center border-t border-stroke px-8 py-10 sm:px-12 lg:border-t-0 lg:py-12">
             <h3 className="text-sm font-semibold text-ink">Subscribe for free</h3>
             <p className="mt-1 text-xs text-ink4">Join 3,000+ subscribers. Unsubscribe any time.</p>
@@ -511,9 +579,16 @@ function NewsletterSection() {
               />
               <button
                 type="submit"
-                className="w-full rounded-lg bg-emerald-600 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 active:scale-[0.99]"
+                disabled={loading}
+                className="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 active:scale-[0.99] disabled:opacity-70"
               >
-                Subscribe
+                {loading && (
+                  <svg className="size-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                  </svg>
+                )}
+                {loading ? "Subscribing…" : "Subscribe"}
               </button>
             </form>
             <p className="mt-3 text-[11px] text-ink4">

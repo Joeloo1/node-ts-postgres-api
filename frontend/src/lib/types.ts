@@ -28,6 +28,7 @@ export type User = {
   phoneNumber?: string | null;
   profileImage?: string;
   isVerified?: boolean;
+  createdAt?: string;
 };
 
 export type CartItem = {

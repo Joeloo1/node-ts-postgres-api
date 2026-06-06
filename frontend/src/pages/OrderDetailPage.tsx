@@ -2,12 +2,15 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
+import { useState } from "react";
 import { OrderDetailSkeleton } from "../components/ProductSkeleton";
 import { ApiError, apiFetch } from "../lib/api";
 import { usePageTitle } from "../hooks/usePageTitle";
+import { queryKeys } from "../lib/queryKeys";
 import { productImageUrl } from "../lib/productImage";
 import type { Order } from "../lib/types";
 import { ArrowLeftIcon, CheckCircleIcon, PackageIcon } from "../components/Icons";
+import { ConfirmButton } from "../components/ConfirmButton";
 
 type OrderRes = { status: string; data: { order: Order } };
 
@@ -33,13 +36,9 @@ function OrderTimeline({ status }: { status: string }) {
   if (status === "CANCELLED" || status === "REFUNDED") {
     return (
       <div className={`flex items-center gap-3 rounded-2xl border px-5 py-4 ${
-        status === "CANCELLED"
-          ? "border-edge/40 bg-well/50"
-          : "border-blue-500/15 bg-blue-500/5"
+        status === "CANCELLED" ? "border-edge/40 bg-well/50" : "border-blue-500/15 bg-blue-500/5"
       }`}>
-        <div className={`flex size-8 shrink-0 items-center justify-center rounded-full ${
-          status === "CANCELLED" ? "bg-raised" : "bg-blue-500/10"
-        }`}>
+        <div className={`flex size-8 shrink-0 items-center justify-center rounded-full ${status === "CANCELLED" ? "bg-raised" : "bg-blue-500/10"}`}>
           <svg className={`size-4 ${status === "CANCELLED" ? "text-ink4" : "text-blue-400"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d={
               status === "CANCELLED"
@@ -67,29 +66,20 @@ function OrderTimeline({ status }: { status: string }) {
   return (
     <div className="overflow-hidden rounded-2xl border border-stroke bg-card px-5 py-6">
       <p className="mb-5 text-[10px] font-semibold uppercase tracking-widest text-ink4">Order progress</p>
-
       <div className="relative flex items-start justify-between">
-        {/* Background connector */}
         <div className="absolute left-[14px] right-[14px] top-[14px] h-px bg-stroke" />
-        {/* Progress fill */}
         <div
           className="absolute left-[14px] top-[14px] h-px bg-emerald-500 transition-all duration-700"
-          style={{ width: currentIdx <= 0 ? "0%" : `calc(${(currentIdx / (TIMELINE_STEPS.length - 1)) * 100}% - 0px)` }}
+          style={{ width: currentIdx <= 0 ? "0%" : `${(currentIdx / (TIMELINE_STEPS.length - 1)) * 100}%` }}
         />
-
         {TIMELINE_STEPS.map((step, i) => {
           const done   = i < currentIdx;
           const active = i === currentIdx;
-
           return (
             <div key={step.key} className="relative flex flex-1 flex-col items-center gap-2.5">
-              {/* Step circle */}
               <div className={`relative z-10 flex size-7 items-center justify-center rounded-full border-2 transition-all duration-300 ${
-                done
-                  ? "border-emerald-500 bg-emerald-500 shadow-sm shadow-emerald-500/30"
-                  : active
-                  ? "border-emerald-500 bg-page ring-4 ring-emerald-500/15"
-                  : "border-stroke bg-page"
+                done ? "border-emerald-500 bg-emerald-500 shadow-sm shadow-emerald-500/30" :
+                active ? "border-emerald-500 bg-page ring-4 ring-emerald-500/15" : "border-stroke bg-page"
               }`}>
                 {done ? (
                   <svg className="size-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
@@ -101,8 +91,6 @@ function OrderTimeline({ status }: { status: string }) {
                   <span className="size-1.5 rounded-full bg-edge" />
                 )}
               </div>
-
-              {/* Label */}
               <span className={`max-w-[60px] text-center text-[10px] font-medium leading-tight sm:max-w-none sm:text-[11px] ${
                 active ? "text-ink font-semibold" : done ? "text-ink3" : "text-ink4"
               }`}>
@@ -121,9 +109,10 @@ export function OrderDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [reordering, setReordering] = useState(false);
 
   const orderQuery = useQuery({
-    queryKey: ["order", id],
+    queryKey: queryKeys.order(id!),
     queryFn: async () => {
       const res = await apiFetch<OrderRes>(`/api/v1/order/${id}`, { auth: true });
       return res.data.order;
@@ -133,14 +122,11 @@ export function OrderDetailPage() {
 
   const cancelMutation = useMutation({
     mutationFn: async () => {
-      await apiFetch(`/api/v1/order/${id}`, {
-        method: "PATCH", auth: true,
-        body: JSON.stringify({}),
-      });
+      await apiFetch(`/api/v1/order/${id}`, { method: "PATCH", auth: true, body: JSON.stringify({}) });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["order", id] });
-      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.order(id!) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.orders() });
       toast.success("Order cancelled");
     },
     onError: (e) => {
@@ -148,29 +134,32 @@ export function OrderDetailPage() {
     },
   });
 
+  /* Fix #5 — use Promise.all, show loading state */
   async function handleReorder(order: Order) {
     const ids = order.items.map((i) => i.product_id).filter(Boolean);
     if (!ids.length) { toast.error("No products to reorder."); return; }
-    let added = 0;
-    for (const pid of ids) {
-      try {
-        await apiFetch("/api/v1/cart/items", {
-          method: "POST", auth: true,
-          body: JSON.stringify({ product_id: pid, quantity: 1 }),
-        });
-        added++;
-      } catch {}
+    setReordering(true);
+    try {
+      const results = await Promise.allSettled(
+        ids.map((pid) =>
+          apiFetch("/api/v1/cart/items", {
+            method: "POST", auth: true,
+            body: JSON.stringify({ product_id: pid, quantity: 1 }),
+          }),
+        ),
+      );
+      const added = results.filter((r) => r.status === "fulfilled").length;
+      queryClient.invalidateQueries({ queryKey: queryKeys.cart() });
+      toast.success(`${added} item${added !== 1 ? "s" : ""} added to cart`, {
+        action: { label: "View cart", onClick: () => navigate("/cart") },
+      });
+    } finally {
+      setReordering(false);
     }
-    queryClient.invalidateQueries({ queryKey: ["cart"] });
-    toast.success(`${added} item${added !== 1 ? "s" : ""} added to cart`, {
-      action: { label: "View cart", onClick: () => navigate("/cart") },
-    });
   }
 
-  /* ── Loading ── */
   if (orderQuery.isPending) return <OrderDetailSkeleton />;
 
-  /* ── Error ── */
   if (orderQuery.isError || !orderQuery.data) {
     return (
       <div className="flex flex-col items-center justify-center rounded-2xl border border-stroke bg-card py-24 text-center">
@@ -179,10 +168,7 @@ export function OrderDetailPage() {
         </div>
         <p className="mt-5 font-semibold text-ink">Order not found</p>
         <p className="mt-1 text-sm text-ink4">This order doesn't exist or you don't have access to it.</p>
-        <Link
-          to="/orders"
-          className="mt-6 inline-flex items-center gap-2 rounded-lg border border-stroke bg-card px-4 py-2 text-sm font-medium text-ink2 transition-colors hover:bg-raised"
-        >
+        <Link to="/orders" className="mt-6 inline-flex items-center gap-2 rounded-lg border border-stroke bg-card px-4 py-2 text-sm font-medium text-ink2 transition-colors hover:bg-raised">
           <ArrowLeftIcon className="size-3.5" />
           Back to orders
         </Link>
@@ -203,33 +189,25 @@ export function OrderDetailPage() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
     >
-      {/* ── Back + header ── */}
+      {/* Back + header — print:hidden on actions */}
       <div>
-        <Link
-          to="/orders"
-          className="inline-flex items-center gap-1.5 text-sm text-ink4 transition-colors hover:text-ink2"
-        >
+        <Link to="/orders" className="inline-flex items-center gap-1.5 text-sm text-ink4 transition-colors hover:text-ink2 print:hidden">
           <ArrowLeftIcon className="size-3.5" />
           All orders
         </Link>
 
         <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
-              Order details
-            </p>
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Order details</p>
             <h1 className="mt-1 font-display text-2xl font-bold text-ink sm:text-3xl">
               #{order.id.slice(0, 8).toUpperCase()}
             </h1>
             <p className="mt-1 text-sm text-ink4">
-              {new Date(order.createdAt).toLocaleDateString("en-US", {
-                weekday: "long", year: "numeric", month: "long", day: "numeric",
-              })}
+              {new Date(order.createdAt).toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
             </p>
           </div>
 
-          {/* Status + actions */}
-          <div className="flex flex-col items-end gap-3">
+          <div className="flex flex-col items-end gap-3 print:hidden">
             <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-semibold ${status.badge}`}>
               <span className={`size-1.5 shrink-0 rounded-full ${status.dot}`} />
               {status.label}
@@ -239,12 +217,20 @@ export function OrderDetailPage() {
               <button
                 type="button"
                 onClick={() => handleReorder(order)}
-                className="inline-flex items-center gap-2 rounded-lg border border-stroke bg-card px-3.5 py-2 text-[13px] font-medium text-ink2 transition-colors hover:bg-raised hover:text-ink"
+                disabled={reordering}
+                className="inline-flex items-center gap-2 rounded-lg border border-stroke bg-card px-3.5 py-2 text-[13px] font-medium text-ink2 transition-colors hover:bg-raised hover:text-ink disabled:opacity-50"
               >
-                <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
-                </svg>
-                Reorder
+                {reordering ? (
+                  <svg className="size-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                  </svg>
+                ) : (
+                  <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                  </svg>
+                )}
+                {reordering ? "Adding…" : "Reorder"}
               </button>
               <button
                 type="button"
@@ -261,16 +247,11 @@ export function OrderDetailPage() {
         </div>
       </div>
 
-      {/* ── Timeline ── */}
       <OrderTimeline status={order.status} />
 
-      {/* ── Items + summary ── */}
       <div className="grid gap-5 lg:grid-cols-3">
-
-        {/* Items list */}
         <div className="lg:col-span-2">
           <div className="overflow-hidden rounded-2xl border border-stroke bg-card">
-            {/* Section header */}
             <div className="border-b border-stroke px-5 py-4">
               <h2 className="text-sm font-semibold text-ink">
                 Items ordered
@@ -287,52 +268,31 @@ export function OrderDetailPage() {
                   : null;
                 return (
                   <li key={item.id} className="flex items-center gap-4 px-5 py-4">
-                    {/* Thumbnail */}
                     {thumb ? (
-                      <Link
-                        to={`/products/${item.product_id}`}
-                        className="group relative size-[72px] shrink-0 overflow-hidden rounded-xl bg-raised"
-                      >
-                        <img
-                          src={thumb}
-                          alt={item.product?.name ?? ""}
-                          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.06]"
-                          loading="lazy"
-                        />
+                      <Link to={`/products/${item.product_id}`} className="group relative size-[72px] shrink-0 overflow-hidden rounded-xl bg-raised print:no-underline">
+                        <img src={thumb} alt={item.product?.name ?? ""} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.06]" loading="lazy" />
                       </Link>
                     ) : (
                       <div className="flex size-[72px] shrink-0 items-center justify-center rounded-xl bg-raised">
                         <PackageIcon className="size-6 text-ink4" />
                       </div>
                     )}
-
-                    {/* Info */}
                     <div className="min-w-0 flex-1">
                       {item.product?.name ? (
-                        <Link
-                          to={`/products/${item.product_id}`}
-                          className="line-clamp-2 text-sm font-medium text-ink transition-colors hover:text-emerald-600 dark:hover:text-emerald-400"
-                        >
+                        <Link to={`/products/${item.product_id}`} className="line-clamp-2 text-sm font-medium text-ink transition-colors hover:text-emerald-600 dark:hover:text-emerald-400">
                           {item.product.name}
                         </Link>
                       ) : (
                         <p className="font-mono text-xs text-ink3">{item.product_id.slice(0, 16)}…</p>
                       )}
-                      {/* Qty badge */}
                       <div className="mt-1.5 inline-flex items-center gap-1 rounded-md border border-stroke bg-raised px-2 py-0.5 text-[11px] font-medium text-ink3">
                         Qty: {item.quantity}
                       </div>
                     </div>
-
-                    {/* Pricing */}
                     <div className="shrink-0 text-right">
-                      <p className="text-sm font-bold tabular-nums text-ink">
-                        ${(item.price * item.quantity).toFixed(2)}
-                      </p>
+                      <p className="text-sm font-bold tabular-nums text-ink">${(item.price * item.quantity).toFixed(2)}</p>
                       {item.quantity > 1 && (
-                        <p className="mt-0.5 text-[11px] tabular-nums text-ink4">
-                          ${item.price.toFixed(2)} each
-                        </p>
+                        <p className="mt-0.5 text-[11px] tabular-nums text-ink4">${item.price.toFixed(2)} each</p>
                       )}
                     </div>
                   </li>
@@ -342,7 +302,6 @@ export function OrderDetailPage() {
           </div>
         </div>
 
-        {/* Order summary */}
         <div className="h-fit overflow-hidden rounded-2xl border border-stroke bg-card">
           <div className="border-b border-stroke px-5 py-4">
             <h2 className="text-sm font-semibold text-ink">Order summary</h2>
@@ -361,11 +320,6 @@ export function OrderDetailPage() {
                 <span className="tabular-nums font-medium text-ink">${shipping.toFixed(2)}</span>
               )}
             </div>
-            {subtotal < 50 && (
-              <p className="text-[11px] text-ink4">
-                Add ${(50 - subtotal).toFixed(2)} more for free shipping
-              </p>
-            )}
           </div>
 
           <div className="flex items-center justify-between border-t border-stroke bg-raised/40 px-5 py-4">
@@ -373,20 +327,18 @@ export function OrderDetailPage() {
             <span className="text-lg font-bold tabular-nums text-ink">${order.total.toFixed(2)}</span>
           </div>
 
-          {/* Cancel / status notices */}
+          {/* Fix #4 — Cancel with ConfirmButton */}
           {canCancel && (
-            <div className="border-t border-stroke px-5 py-4 space-y-3">
-              <p className="text-xs text-ink4">
-                This order hasn't shipped yet and can still be cancelled.
-              </p>
-              <button
-                type="button"
-                disabled={cancelMutation.isPending}
-                onClick={() => cancelMutation.mutate()}
+            <div className="border-t border-stroke px-5 py-4 space-y-3 print:hidden">
+              <p className="text-xs text-ink4">This order hasn't shipped yet and can still be cancelled.</p>
+              <ConfirmButton
+                onConfirm={() => cancelMutation.mutate()}
+                message="Permanently cancel this order?"
+                confirmLabel="Yes, cancel order"
                 className="w-full rounded-lg border border-red-500/25 bg-transparent px-4 py-2.5 text-sm font-semibold text-red-500 dark:text-red-400 transition-colors hover:bg-red-500/8 hover:border-red-500/40 disabled:opacity-50"
               >
                 {cancelMutation.isPending ? "Cancelling…" : "Cancel order"}
-              </button>
+              </ConfirmButton>
             </div>
           )}
 

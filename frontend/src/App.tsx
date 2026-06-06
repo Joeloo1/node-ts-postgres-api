@@ -8,8 +8,8 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AuthProvider } from "./context/AuthContext";
 import { WishlistProvider } from "./context/WishlistContext";
 import { ThemeProvider, useTheme } from "./context/ThemeContext";
-import { ScrollToTop } from "./components/ScrollToTop";
 import { Spinner } from "./components/Spinner";
+import { RouteProgressBar } from "./components/RouteProgressBar";
 
 /* ── Eagerly-loaded (used on first paint) ─────────── */
 import { HomePage } from "./pages/HomePage";
@@ -82,7 +82,7 @@ export default function App() {
         <AuthProvider>
           <WishlistProvider>
             <BrowserRouter>
-              <ScrollToTop />
+              <RouteProgressBar />
               <ThemedToaster />
               <Suspense fallback={<PageFallback />}>
                 <Routes>

@@ -1,69 +1,33 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import { apiFetch } from "../lib/api";
+import { queryKeys } from "../lib/queryKeys";
+import * as cartService from "../services/cart";
+import { useCartMutations } from "../hooks/useCartMutations";
+import { useWishlist } from "../context/WishlistContext";
 import { productImageUrl } from "../lib/productImage";
-import type { Cart, CartItem } from "../lib/types";
-import { CartIcon, MinusIcon, PlusIcon, TrashIcon, XIcon, TruckIcon, ArrowRightIcon } from "./Icons";
-
-type CartRes = { status: string; data: { cart: Cart } };
+import type { Cart } from "../lib/types";
+import { CartIcon, HeartIcon, MinusIcon, PlusIcon, TrashIcon, XIcon, TruckIcon, ArrowRightIcon } from "./Icons";
+import { Img } from "./Img";
 
 export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
+  const { updateItem, removeItem } = useCartMutations();
+  const { toggle } = useWishlist();
+  const drawerRef = useRef<HTMLDivElement>(null);
+
+  function handleSaveForLater(productId: string, itemId: string) {
+    toggle(productId);
+    removeItem.mutate(itemId);
+    toast.success("Saved to wishlist", { icon: "❤️" });
+  }
 
   const cartQuery = useQuery({
-    queryKey: ["cart"],
-    queryFn: async () => {
-      const res = await apiFetch<CartRes>("/api/v1/cart", { auth: true });
-      return res.data.cart;
-    },
+    queryKey: queryKeys.cart(),
+    queryFn: cartService.getCart,
     enabled: open,
-  });
-
-  const updateQty = useMutation({
-    mutationFn: async ({ itemId, quantity }: { itemId: string; quantity: number }) => {
-      await apiFetch(`/api/v1/cart/items/${itemId}`, {
-        method: "PATCH", auth: true,
-        body: JSON.stringify({ quantity }),
-      });
-    },
-    onMutate: async ({ itemId, quantity }) => {
-      await queryClient.cancelQueries({ queryKey: ["cart"] });
-      const previous = queryClient.getQueryData<Cart>(["cart"]);
-      queryClient.setQueryData<Cart>(["cart"], (old) => {
-        if (!old) return old;
-        return { ...old, items: old.items.map((i: CartItem) => i.id === itemId ? { ...i, quantity } : i) };
-      });
-      return { previous };
-    },
-    onError: (_e, _v, ctx) => {
-      if (ctx?.previous) queryClient.setQueryData(["cart"], ctx.previous);
-      toast.error("Could not update quantity");
-    },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ["cart"] }),
-  });
-
-  const removeItem = useMutation({
-    mutationFn: async (itemId: string) => {
-      await apiFetch(`/api/v1/cart/items/${itemId}`, { method: "DELETE", auth: true });
-    },
-    onMutate: async (itemId) => {
-      await queryClient.cancelQueries({ queryKey: ["cart"] });
-      const previous = queryClient.getQueryData<Cart>(["cart"]);
-      queryClient.setQueryData<Cart>(["cart"], (old) => {
-        if (!old) return old;
-        return { ...old, items: old.items.filter((i: CartItem) => i.id !== itemId) };
-      });
-      return { previous };
-    },
-    onError: (_e, _v, ctx) => {
-      if (ctx?.previous) queryClient.setQueryData(["cart"], ctx.previous);
-      toast.error("Could not remove item");
-    },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ["cart"] }),
   });
 
   useEffect(() => {
@@ -73,12 +37,29 @@ export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => vo
 
   useEffect(() => {
     if (!open) return;
-    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    const el = drawerRef.current;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { onClose(); return; }
+      if (e.key !== "Tab" || !el) return;
+      const focusable = Array.from(
+        el.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])',
+        ),
+      );
+      const first = focusable[0];
+      const last  = focusable[focusable.length - 1];
+      if (e.shiftKey) {
+        if (document.activeElement === first) { e.preventDefault(); last?.focus(); }
+      } else {
+        if (document.activeElement === last) { e.preventDefault(); first?.focus(); }
+      }
+    };
     document.addEventListener("keydown", handler);
+    setTimeout(() => drawerRef.current?.querySelector<HTMLElement>("button")?.focus(), 50);
     return () => document.removeEventListener("keydown", handler);
   }, [open, onClose]);
 
-  const cart     = cartQuery.data;
+  const cart: Cart | undefined = cartQuery.data;
   const items    = cart?.items ?? [];
   const subtotal = items.reduce((sum, i) => {
     const price = i.product.discount && i.product.discount > 0
@@ -86,7 +67,9 @@ export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => vo
       : i.product.price;
     return sum + price * i.quantity;
   }, 0);
-  const THRESHOLD   = 50;
+  const originalTotal = items.reduce((sum, i) => sum + i.product.price * i.quantity, 0);
+  const totalSavings  = originalTotal - subtotal;
+  const THRESHOLD    = 50;
   const shipProgress = Math.min((subtotal / THRESHOLD) * 100, 100);
   const remaining    = THRESHOLD - subtotal;
 
@@ -94,7 +77,6 @@ export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => vo
     <AnimatePresence>
       {open && (
         <>
-          {/* Backdrop */}
           <motion.div
             key="backdrop"
             initial={{ opacity: 0 }}
@@ -105,24 +87,24 @@ export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => vo
             onClick={onClose}
           />
 
-          {/* Drawer */}
           <motion.div
             key="drawer"
+            ref={drawerRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Shopping cart"
             initial={{ x: "100%" }}
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
             transition={{ type: "spring", damping: 32, stiffness: 320 }}
             className="fixed right-0 top-0 bottom-0 z-50 flex w-full max-w-sm flex-col bg-page border-l border-stroke shadow-2xl"
           >
-            {/* Header */}
             <div className="flex items-center justify-between border-b border-stroke px-5 py-4">
               <div className="flex items-center gap-2">
                 <CartIcon className="size-5 text-ink3" />
                 <h2 className="font-display text-lg font-semibold text-ink">
                   Cart
-                  {items.length > 0 && (
-                    <span className="ml-1.5 text-sm font-normal text-ink4">({items.length})</span>
-                  )}
+                  {items.length > 0 && <span className="ml-1.5 text-sm font-normal text-ink4">({items.length})</span>}
                 </h2>
               </div>
               <button
@@ -135,7 +117,6 @@ export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => vo
               </button>
             </div>
 
-            {/* Items */}
             <div className="flex-1 overflow-y-auto">
               {cartQuery.isPending ? (
                 <div className="space-y-0 divide-y divide-stroke">
@@ -181,55 +162,46 @@ export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => vo
                           transition={{ duration: 0.18 }}
                           className="flex gap-3 p-4"
                         >
-                          <Link
-                            to={`/products/${line.product.product_id}`}
-                            onClick={onClose}
-                            className="size-16 shrink-0 overflow-hidden rounded-lg bg-raised"
-                          >
-                            <img
-                              src={productImageUrl(line.product)}
-                              alt={line.product.name}
-                              className="h-full w-full object-cover transition-transform hover:scale-105"
-                              loading="lazy"
-                            />
+                          <Link to={`/products/${line.product.product_id}`} onClick={onClose} className="size-16 shrink-0 rounded-lg bg-raised">
+                            <Img src={productImageUrl(line.product)} alt={line.product.name} className="h-full w-full object-cover transition-transform hover:scale-105" wrapperClassName="size-16 rounded-lg overflow-hidden" loading="lazy" />
                           </Link>
 
                           <div className="min-w-0 flex-1">
-                            <Link
-                              to={`/products/${line.product.product_id}`}
-                              onClick={onClose}
-                              className="line-clamp-2 text-sm font-medium text-ink transition-colors hover:text-emerald-600 dark:hover:text-emerald-400"
-                            >
+                            <Link to={`/products/${line.product.product_id}`} onClick={onClose} className="line-clamp-2 text-sm font-medium text-ink transition-colors hover:text-emerald-600 dark:hover:text-emerald-400">
                               {line.product.name}
                             </Link>
-                            <p className="mt-0.5 text-xs tabular-nums text-ink4">
-                              ${price.toFixed(2)}
-                            </p>
+                            <p className="mt-0.5 text-xs tabular-nums text-ink4">${price.toFixed(2)}</p>
 
                             <div className="mt-2 flex items-center gap-2">
-                              {/* Qty stepper */}
                               <div className="flex items-center overflow-hidden rounded-lg border border-stroke bg-input">
                                 <button
                                   type="button"
-                                  onClick={() => updateQty.mutate({ itemId: line.id, quantity: Math.max(1, line.quantity - 1) })}
-                                  disabled={updateQty.isPending}
+                                  onClick={() => updateItem.mutate({ itemId: line.id, quantity: Math.max(1, line.quantity - 1) })}
+                                  disabled={updateItem.isPending}
                                   className="px-2 py-1 text-ink3 transition-colors hover:text-ink disabled:opacity-40"
                                 >
                                   <MinusIcon className="size-3" />
                                 </button>
-                                <span className="w-7 select-none text-center text-xs font-semibold text-ink">
-                                  {line.quantity}
-                                </span>
+                                <span className="w-7 select-none text-center text-xs font-semibold text-ink">{line.quantity}</span>
                                 <button
                                   type="button"
-                                  onClick={() => updateQty.mutate({ itemId: line.id, quantity: Math.min(99, line.quantity + 1) })}
-                                  disabled={updateQty.isPending}
+                                  onClick={() => updateItem.mutate({ itemId: line.id, quantity: Math.min(99, line.quantity + 1) })}
+                                  disabled={updateItem.isPending}
                                   className="px-2 py-1 text-ink3 transition-colors hover:text-ink disabled:opacity-40"
                                 >
                                   <PlusIcon className="size-3" />
                                 </button>
                               </div>
 
+                              <button
+                                type="button"
+                                onClick={() => handleSaveForLater(line.product.product_id, line.id)}
+                                className="text-ink4 transition-colors hover:text-emerald-500"
+                                aria-label="Save for later"
+                                title="Save for later"
+                              >
+                                <HeartIcon className="size-3.5" />
+                              </button>
                               <button
                                 type="button"
                                 onClick={() => removeItem.mutate(line.id)}
@@ -253,10 +225,8 @@ export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => vo
               )}
             </div>
 
-            {/* Footer */}
             {items.length > 0 && (
               <div className="border-t border-stroke px-5 py-5 space-y-4">
-                {/* Shipping progress */}
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between text-xs">
                     <span className={subtotal >= THRESHOLD ? "font-medium text-emerald-600 dark:text-emerald-400" : "text-ink3"}>
@@ -279,13 +249,17 @@ export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => vo
                   )}
                 </div>
 
-                {/* Subtotal */}
+                {totalSavings > 0.01 && (
+                  <div className="flex items-center justify-between text-[13px] font-semibold text-emerald-600 dark:text-emerald-400">
+                    <span>You're saving</span>
+                    <span className="tabular-nums">−${totalSavings.toFixed(2)}</span>
+                  </div>
+                )}
                 <div className="flex items-center justify-between text-[15px] font-bold text-ink">
                   <span>Subtotal</span>
                   <span className="tabular-nums">${subtotal.toFixed(2)}</span>
                 </div>
 
-                {/* CTAs */}
                 <button
                   type="button"
                   onClick={() => { onClose(); navigate("/checkout"); }}

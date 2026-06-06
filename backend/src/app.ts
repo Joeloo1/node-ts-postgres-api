@@ -24,6 +24,7 @@ import AppError from "./utils/AppError";
 import { globalErrorHandler } from "./Error/globalErrorHandler";
 import { client as redis } from "./config/redis";
 import { requestIdMiddleware } from "./middleware/requestId";
+import { prisma } from "./config/database";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -60,8 +61,8 @@ app.post(
   stripeWebhook,
 );
 
-app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+app.use(express.json({ limit: "1mb" }));
+app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 app.use(cookieParser());
 app.use("/public", express.static(path.join(__dirname, "../public")));
 
@@ -141,8 +142,38 @@ app.use((req: Request, _res: Response, next: NextFunction) => {
 });
 
 // Health check
-app.get("/api/v1/health", (_req, res) => {
-  res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
+app.get("/api/v1/health", async (_req, res) => {
+  const checks = {
+    uptime: Math.floor(process.uptime()),
+    timeStamp: new Date().toISOString(),
+    database: "unknown" as "ok" | "error",
+    redis: "unknown" as "ok" | "error",
+  };
+
+  await Promise.allSettled([
+    prisma.$queryRaw`SELECT 1`
+      .then(() => {
+        checks.database = "ok";
+      })
+      .catch(() => {
+        checks.database = "error";
+      }),
+    redis
+      .ping()
+      .then(() => {
+        checks.redis = "ok";
+      })
+      .catch(() => {
+        checks.redis = "error";
+      }),
+  ]);
+
+  const isHealthy = checks.database === "ok" && checks.redis === "ok";
+
+  res.status(isHealthy ? 200 : 503).json({
+    status: isHealthy ? "healthy" : "degraded",
+    checks,
+  });
 });
 
 // product Routes

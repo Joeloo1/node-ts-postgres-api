@@ -6,9 +6,37 @@ import AppError from "../utils/AppError";
 import { CancelledBy, OrderStatus } from "@prisma/client";
 import logger from "../config/logger";
 import { createOrderSchema } from "../Schema/orderSchema";
+import { emailQueue } from "../jobs/emailQueue";
+import { logAudit } from "../utils/audit";
 
+const ORDER_STATUS_COPY: Partial<
+  Record<OrderStatus, { label: string; message: string }>
+> = {
+  PAID: {
+    label: "Payment Confirmed",
+    message: "We have received your payment and your order is now confirmed.",
+  },
+  PROCESSING: {
+    label: "Processing",
+    message: "Your order is being prepared and will ship soon.",
+  },
+  SHIPPED: {
+    label: "Shipped",
+    message:
+      "Your order is on its way. You will receive it within the estimated delivery window.",
+  },
+  DELIVERED: {
+    label: "Delivered",
+    message: "Your order has been delivered. We hope you enjoy your purchase!",
+  },
+  CANCELLED: {
+    label: "Cancelled",
+    message:
+      "Your order has been cancelled. If you have questions, please contact support.",
+  },
+};
 export const createOrder = catchAsync(
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (req: Request, res: Response, _next: NextFunction) => {
     const userId = req.user!.id;
     const { items } = createOrderSchema.parse(req.body);
 
@@ -71,7 +99,7 @@ export const createOrder = catchAsync(
 
 // Checkout from cart
 export const checkoutFromCart = catchAsync(
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (req: Request, res: Response, _next: NextFunction) => {
     const userId = req.user!.id;
 
     const order = await prisma.$transaction(async (tx) => {
@@ -139,7 +167,7 @@ export const checkoutFromCart = catchAsync(
 
 //  Get My Order
 export const getMyOrder = catchAsync(
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (req: Request, res: Response, _next: NextFunction) => {
     logger.info(`Fetching orders for user ID: ${req.user!.id}`);
     const orders = await prisma.order.findMany({
       where: { userId: req.user!.id },
@@ -209,9 +237,48 @@ export const updateOrder = catchAsync(
     const { status } = req.body;
 
     logger.info("updating order status");
+
+    const before = await prisma.order.findUnique({
+      where: { id: req.params.id },
+      select: { status: true },
+    });
+
     const order = await prisma.order.update({
       where: { id: req.params.id },
       data: { status },
+      include: {
+        user: {
+          select: {
+            email: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    const copy = ORDER_STATUS_COPY[status as OrderStatus];
+
+    if (copy) {
+      await emailQueue.add("send-email", {
+        email: order.user.email,
+        subject: `Your Northline order has been ${copy.label.toLowerCase()}`,
+        template: "orderStatus",
+        templateData: {
+          name: order.user.name,
+          orderId: order.id.slice(0, 8).toUpperCase(),
+          statusLabel: copy.label,
+          statusMessage: copy.message,
+        },
+      });
+    }
+
+    await logAudit({
+      req,
+      action: "UPDATE_ORDER_STATUS",
+      entityType: "Order",
+      entityId: order.id,
+      before: { status: before?.status },
+      after: { status: order.status },
     });
 
     logger.info("Order status successfully updated");

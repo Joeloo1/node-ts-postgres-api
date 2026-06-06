@@ -24,6 +24,8 @@ type AuthContextValue = {
   user: User | null;
   /** Opaque session indicator — truthy when logged in, null when not. Never a raw JWT. */
   token: string | null;
+  /** Prefer this over Boolean(token) for clarity. */
+  isAuthenticated: boolean;
   isLoading: boolean;
   profileError: string | null;
   login: (email: string, password: string) => Promise<void>;
@@ -116,9 +118,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AuthContextValue>(
     () => ({
       user: resolvedUser,
-      // Expose an opaque non-null string when authenticated so existing
-      // Boolean(token) guards continue to work without holding the raw JWT.
       token: resolvedUser ? "session" : null,
+      isAuthenticated: Boolean(resolvedUser),
       isLoading: isPending,
       profileError,
       login,

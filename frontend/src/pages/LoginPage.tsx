@@ -21,12 +21,12 @@ export function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const from =
-    (location.state as { from?: { pathname: string } } | null)?.from?.pathname ?? "/";
+  const from = (location.state as { from?: { pathname: string } } | null)?.from?.pathname ?? "/";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -50,36 +50,21 @@ export function LoginPage() {
     <div className="flex min-h-[82vh] items-center justify-center py-10">
       <div className="grid w-full max-w-4xl overflow-hidden rounded-2xl border border-stroke bg-card shadow-xl shadow-black/10 lg:grid-cols-[1fr_1.1fr]">
 
-        {/* ── Left panel — brand ── */}
+        {/* Left panel */}
         <div className="relative hidden flex-col justify-between overflow-hidden lg:flex" style={{ background: "linear-gradient(135deg, #064e3b 0%, #065f46 40%, #0f172a 100%)" }}>
-          {/* Dot-grid texture */}
-          <div
-            className="absolute inset-0 opacity-[0.07]"
-            style={{
-              backgroundImage: "radial-gradient(circle, white 1px, transparent 1px)",
-              backgroundSize: "24px 24px",
-            }}
-          />
-          {/* Radial glow */}
+          <div className="absolute inset-0 opacity-[0.07]" style={{ backgroundImage: "radial-gradient(circle, white 1px, transparent 1px)", backgroundSize: "24px 24px" }} />
           <div className="absolute -left-20 -top-20 size-80 rounded-full bg-emerald-500/20 blur-3xl" />
           <div className="absolute -bottom-20 -right-20 size-64 rounded-full bg-teal-400/10 blur-3xl" />
-
-          {/* Logo */}
-          <div className="relative px-10 pt-10">
-            <Logo light />
-          </div>
-
-          {/* Body */}
+          <div className="relative px-10 pt-10"><Logo light /></div>
           <div className="relative space-y-8 px-10 pb-10">
             <div>
               <h2 className="font-display text-[1.85rem] font-bold leading-[1.2] text-white">
-                Your next favourite<br />purchase is waiting.
+                Quality goods,<br />waiting for you.
               </h2>
               <p className="mt-3 text-[13.5px] leading-relaxed text-emerald-100/60">
                 Sign in to access your orders, wishlist, and a curated shopping experience.
               </p>
             </div>
-
             <ul className="space-y-3">
               {features.map(({ icon: Icon, text }) => (
                 <li key={text} className="flex items-center gap-3 text-[13px] text-emerald-50/75">
@@ -90,24 +75,18 @@ export function LoginPage() {
                 </li>
               ))}
             </ul>
-
-            <p className="text-[11px] text-emerald-200/30">
-              © {new Date().getFullYear()} Northline. All rights reserved.
-            </p>
+            <p className="text-[11px] text-emerald-200/30">© {new Date().getFullYear()} Northline. All rights reserved.</p>
           </div>
         </div>
 
-        {/* ── Right panel — form ── */}
+        {/* Right panel — form */}
         <motion.div
           initial={{ opacity: 0, x: 16 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
           className="flex flex-col justify-center px-8 py-12 sm:px-12"
         >
-          {/* Mobile logo */}
-          <div className="mb-8 lg:hidden">
-            <Logo />
-          </div>
+          <div className="mb-8 lg:hidden"><Logo /></div>
 
           <div className="mb-8">
             <h1 className="font-display text-2xl font-bold text-ink">Welcome back</h1>
@@ -127,24 +106,13 @@ export function LoginPage() {
 
             <div>
               <label className={labelClass}>Email address</label>
-              <input
-                type="email"
-                autoComplete="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className={inputClass}
-                placeholder="you@example.com"
-              />
+              <input type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} className={inputClass} placeholder="you@example.com" />
             </div>
 
             <div>
               <div className="mb-1.5 flex items-center justify-between">
                 <label className={labelClass} style={{ marginBottom: 0 }}>Password</label>
-                <Link
-                  to="/forgot-password"
-                  className="text-[11px] font-medium text-emerald-500 hover:text-emerald-400 transition-colors"
-                >
+                <Link to="/forgot-password" className="text-[11px] font-medium text-emerald-500 hover:text-emerald-400 transition-colors">
                   Forgot password?
                 </Link>
               </div>
@@ -152,24 +120,28 @@ export function LoginPage() {
                 <input
                   type={showPassword ? "text" : "password"}
                   autoComplete="current-password"
-                  required
-                  minLength={8}
+                  required minLength={8}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className={`${inputClass} pr-10`}
                   placeholder="••••••••"
                 />
-                <button
-                  type="button"
-                  tabIndex={-1}
-                  onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-ink4 hover:text-ink2 transition-colors"
-                  aria-label={showPassword ? "Hide password" : "Show password"}
-                >
+                <button type="button" tabIndex={-1} onClick={() => setShowPassword((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-ink4 hover:text-ink2 transition-colors" aria-label={showPassword ? "Hide password" : "Show password"}>
                   {showPassword ? <EyeOffIcon className="size-4" /> : <EyeIcon className="size-4" />}
                 </button>
               </div>
             </div>
+
+            {/* Remember me — Fix #24 */}
+            <label className="flex items-center gap-2.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="size-4 cursor-pointer accent-emerald-600 rounded"
+              />
+              <span className="text-[13px] text-ink4">Remember me for 30 days</span>
+            </label>
 
             <button
               type="submit"
@@ -184,17 +156,13 @@ export function LoginPage() {
                   </svg>
                   Signing in…
                 </span>
-              ) : (
-                "Sign in"
-              )}
+              ) : "Sign in"}
             </button>
           </form>
 
           <p className="mt-8 text-center text-[13px] text-ink4">
             Don't have an account?{" "}
-            <Link to="/register" className="font-semibold text-emerald-500 hover:text-emerald-400 transition-colors">
-              Create one for free
-            </Link>
+            <Link to="/register" className="font-semibold text-emerald-500 hover:text-emerald-400 transition-colors">Create one for free</Link>
           </p>
         </motion.div>
       </div>

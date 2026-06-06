@@ -13,6 +13,8 @@ import {
 } from "../utils/queryBuilder";
 import logger from "../config/logger";
 import { scanDel } from "../config/redis";
+import { logAudit } from "../utils/audit";
+import { da } from "zod/v4/locales";
 
 const REDIS_TTL = 3600;
 const getProductKey = (id: string) => `product:${id}`;
@@ -21,7 +23,10 @@ const getProductKey = (id: string) => `product:${id}`;
 const getProductsQueryKey = (query: Record<string, unknown>) => {
   const sorted = Object.keys(query)
     .sort()
-    .reduce<Record<string, unknown>>((acc, k) => { acc[k] = query[k]; return acc; }, {});
+    .reduce<Record<string, unknown>>((acc, k) => {
+      acc[k] = query[k];
+      return acc;
+    }, {});
   return `products:list:${JSON.stringify(sorted)}`;
 };
 
@@ -104,7 +109,7 @@ export const createProduct = catchAsync(
 
 // GET ALL PRODUCTS WITH FILTERING, SORTING & PAGINATION
 export const getAllProducts = catchAsync(
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (req: Request, res: Response, _next: NextFunction) => {
     // Validate and parse query parameters
     const filters = productQuerySchema.parse(req.query);
 
@@ -113,7 +118,10 @@ export const getAllProducts = catchAsync(
     const cachedData = await redis.get(cacheKey);
     if (cachedData) {
       logger.info("Serving products from cache");
-      res.setHeader("Cache-Control", "public, max-age=30, stale-while-revalidate=600");
+      res.setHeader(
+        "Cache-Control",
+        "public, max-age=30, stale-while-revalidate=600",
+      );
       return res.status(200).json(JSON.parse(cachedData));
     }
 
@@ -170,7 +178,10 @@ export const getAllProducts = catchAsync(
     };
     await redis.setEx(cacheKey, REDIS_TTL, JSON.stringify(responseData));
 
-    res.setHeader("Cache-Control", "public, max-age=30, stale-while-revalidate=600");
+    res.setHeader(
+      "Cache-Control",
+      "public, max-age=30, stale-while-revalidate=600",
+    );
     res.status(200).json(responseData);
   },
 );
@@ -194,7 +205,10 @@ export const getProduct = catchAsync(
         );
         await redis.del(cacheKey);
       } else {
-        res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=600");
+        res.setHeader(
+          "Cache-Control",
+          "public, max-age=60, stale-while-revalidate=600",
+        );
         return res.status(200).json({
           status: "Success",
           source: "cached",
@@ -217,7 +231,10 @@ export const getProduct = catchAsync(
     await redis.setEx(cacheKey, REDIS_TTL, JSON.stringify(product));
 
     logger.info("Product Fetched by ID successfully");
-    res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=600");
+    res.setHeader(
+      "Cache-Control",
+      "public, max-age=60, stale-while-revalidate=600",
+    );
     res.status(200).json({
       status: "Success",
       data: { product },
@@ -293,6 +310,13 @@ export const deleteProduct = catchAsync(
     await prisma.products.delete({
       where: { product_id: productId },
     });
+    await logAudit({
+      req,
+      action: "DELETE_PRODUCT",
+      entityType: "Product",
+      entityId: productId,
+      before: existingProduct,
+    });
 
     await redis.del(getProductKey(productId));
     await clearProductCache();
@@ -347,6 +371,57 @@ export const addProductImages = catchAsync(
       status: "success",
       data: {
         product: updated,
+      },
+    });
+  },
+);
+
+export const getProductsFeed = catchAsync(
+  async (req: Request, res: Response, _next: NextFunction) => {
+    const cursor =
+      typeof req.query.cursor === "string" ? req.query.cursor : undefined;
+    const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 20));
+
+    const products = await prisma.products.findMany({
+      take: limit + 1,
+      ...(cursor
+        ? {
+            cursor: { product_id: cursor },
+            skip: 1,
+          }
+        : {}),
+      orderBy: { createdAt: "desc" },
+      select: {
+        product_id: true,
+        name: true,
+        price: true,
+        image: true,
+        brand: true,
+        rating: true,
+        availability: true,
+        discount: true,
+        category: {
+          select: {
+            category_id: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    const hasNextPage = products.length > limit;
+
+    if (hasNextPage) products.pop();
+
+    res.status(200).json({
+      stauts: "success",
+      result: products.length,
+      data: { products },
+      pagination: {
+        hasNextPage,
+        nextCursor: hasNextPage
+          ? products[products.length - 1].product_id
+          : null,
       },
     });
   },

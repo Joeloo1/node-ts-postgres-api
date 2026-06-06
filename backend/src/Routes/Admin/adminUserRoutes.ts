@@ -5,13 +5,14 @@ import {
   getUser,
   updateUser,
   deleteUser,
-} from "../../controller/userController";
+  getAuditLogs,
+} from "../../controller/adminController";
 
 const router = express.Router();
 
-// user
-router.route("/").get(getAllUsers).post(createUser);
+router.route("/audit-log").get(getAuditLogs);
 
+router.route("/").get(getAllUsers).post(createUser);
 router.route("/:id").get(getUser).patch(updateUser).delete(deleteUser);
 
 export default router;

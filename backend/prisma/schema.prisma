@@ -30,6 +30,22 @@ enum CancelledBy {
 }
 
 
+model AuditLog {
+  id         String   @id @default(uuid())
+  adminId    String
+  action     String
+  entityType String
+  entityId   String
+  before     Json?
+  after      Json?
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  @@index([adminId])
+  @@index([entityType, entityId])
+  @@index([createdAt(sort: Desc)])
+}
+
 model Category {
   category_id Int        @id @default(autoincrement())   
   name        String     @unique @db.VarChar(100)
@@ -118,6 +134,12 @@ model Order {
 
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt(sort: Desc)])
+  @@index([userId, status])
+  @@index([userId, createdAt(sort: Desc)])
 }
 
 model OrderItem {
@@ -130,6 +152,9 @@ model OrderItem {
   price      Float
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+
+  @@index([orderId])
+  @@index([product_id])
 }
 
 model Cart {

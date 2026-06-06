@@ -46,6 +46,7 @@
     "sharp": "^0.34.5",
     "stripe": "^22.2.0",
     "winston": "^3.19.0",
+    "xss": "^1.0.15",
     "zod": "^4.1.12"
   },
   "devDependencies": {

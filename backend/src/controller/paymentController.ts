@@ -79,6 +79,19 @@ export const createCheckoutSession = catchAsync(
 
 const fulfillCartOrder = async (userId: string, sessionId: string) => {
   return prisma.$transaction(async (tx) => {
+    // Idempotency check — if this session was already fulfilled, return the existing order
+    const existing = await tx.order.findUnique({
+      where: { stripeSessionId: sessionId },
+      include: { items: true },
+    });
+    if (existing) {
+      logger.info("Stripe webhook already fulfilled — returning existing order (idempotent)", {
+        sessionId,
+        orderId: existing.id,
+      });
+      return existing;
+    }
+
     const cart = await tx.cart.findUnique({
       where: { userId },
       include: { items: { include: { product: true } } },
@@ -118,6 +131,7 @@ const fulfillCartOrder = async (userId: string, sessionId: string) => {
         userId,
         total: calculatedTotal,
         status: "PAID",
+        stripeSessionId: sessionId,
         items: { create: orderItemsData },
       },
       include: { items: true },
@@ -240,11 +254,10 @@ export const verifyCheckoutSession = catchAsync(
       );
     }
 
-    // If cart was already cleared by the webhook, find the most recent PAID order
+    // If fulfillment returned null (cart was already empty), look up by session ID
     if (!order) {
-      order = await prisma.order.findFirst({
-        where: { userId, status: "PAID" },
-        orderBy: { createdAt: "desc" },
+      order = await prisma.order.findUnique({
+        where: { stripeSessionId: sessionId },
         include: { items: { include: { product: true } } },
       });
     }

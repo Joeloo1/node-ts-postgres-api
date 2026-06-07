@@ -33,11 +33,7 @@ export const validate = (Schemas: ValidationSchemas) => {
         }catch (error) {
             // handle Zod validation error 
             if (error instanceof ZodError) {
-                const errorMessage = error.issues.map((err) => ({
-                    field: err.path.join("."),
-                    message: err.message,
-                }))
-                return next(new AppError(JSON.stringify(errorMessage, null, 2), 400))
+                return next(new AppError(error.issues[0].message, 400));
             }
 
             // pass other error to error handler 

@@ -14,7 +14,6 @@ import {
 import logger from "../config/logger";
 import { scanDel } from "../config/redis";
 import { logAudit } from "../utils/audit";
-import { da } from "zod/v4/locales";
 
 const REDIS_TTL = 3600;
 const getProductKey = (id: string) => `product:${id}`;
@@ -96,6 +95,14 @@ export const createProduct = catchAsync(
     });
 
     await clearProductCache();
+
+    await logAudit({
+      req,
+      action: "CREATE_PRODUCT",
+      entityType: "Product",
+      entityId: product.product_id,
+      after: product,
+    });
 
     logger.info("Product created successfully");
     res.status(201).json({
@@ -224,8 +231,8 @@ export const getProduct = catchAsync(
     });
 
     if (!product) {
-      logger.warn(`Prouct with ID: ${productId} not found`);
-      return next(new AppError("Product not found", 400));
+      logger.warn(`Product with ID: ${productId} not found`);
+      return next(new AppError("Product not found", 404));
     }
 
     await redis.setEx(cacheKey, REDIS_TTL, JSON.stringify(product));
@@ -282,6 +289,15 @@ export const updateProduct = catchAsync(
     await redis.del(getProductKey(productId));
     await clearProductCache();
 
+    await logAudit({
+      req,
+      action: "UPDATE_PRODUCT",
+      entityType: "Product",
+      entityId: productId,
+      before: existingProduct,
+      after: product,
+    });
+
     logger.info(`Product with ID: ${productId} updated successfully`);
     res.status(200).json({
       status: "Success",
@@ -310,6 +326,7 @@ export const deleteProduct = catchAsync(
     await prisma.products.delete({
       where: { product_id: productId },
     });
+
     await logAudit({
       req,
       action: "DELETE_PRODUCT",
@@ -322,7 +339,7 @@ export const deleteProduct = catchAsync(
     await clearProductCache();
 
     logger.info(`Product with ID: ${productId} deleted successfully`);
-    res.status(200).json({
+    res.status(204).json({
       status: "Success",
       data: null,
     });
@@ -414,7 +431,7 @@ export const getProductsFeed = catchAsync(
     if (hasNextPage) products.pop();
 
     res.status(200).json({
-      stauts: "success",
+      status: "success",
       result: products.length,
       data: { products },
       pagination: {

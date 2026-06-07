@@ -3,6 +3,10 @@ import { OrderStatus } from "@prisma/client";
 import { prisma } from "../config/database";
 import catchAsync from "../utils/catchAsync";
 import logger from "../config/logger";
+import { client as redis } from "../config/redis";
+
+const DASHBOARD_CACHE_KEY = "analytics:dashboard";
+const DASHBOARD_TTL = 300; // 5 minutes
 
 const PAID_STATUSES: OrderStatus[] = [
   "PAID",
@@ -13,6 +17,12 @@ const PAID_STATUSES: OrderStatus[] = [
 
 export const getDashboardStats = catchAsync(
   async (req: Request, res: Response) => {
+    const cached = await redis.get(DASHBOARD_CACHE_KEY);
+    if (cached) {
+      logger.info("Serving dashboard analytics from cache");
+      return res.status(200).json(JSON.parse(cached));
+    }
+
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
     const [
@@ -79,8 +89,7 @@ export const getDashboardStats = catchAsync(
       unitsSold: p._sum.quantity ?? 0,
     }));
 
-    logger.info("Admin fetched dashboard analytics");
-    res.status(200).json({
+    const responseData = {
       status: "success",
       data: {
         totals: {
@@ -93,6 +102,11 @@ export const getDashboardStats = catchAsync(
         revenueByDay,
         topProducts: enrichedTopProducts,
       },
-    });
+    };
+
+    await redis.setEx(DASHBOARD_CACHE_KEY, DASHBOARD_TTL, JSON.stringify(responseData));
+
+    logger.info("Admin fetched dashboard analytics");
+    res.status(200).json(responseData);
   },
 );

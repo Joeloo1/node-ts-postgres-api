@@ -236,8 +236,6 @@ export const updateOrder = catchAsync(
   async (req: Request, res: Response, _next: NextFunction) => {
     const { status } = req.body;
 
-    logger.info("updating order status");
-
     const before = await prisma.order.findUnique({
       where: { id: req.params.id },
       select: { status: true },
@@ -281,7 +279,7 @@ export const updateOrder = catchAsync(
       after: { status: order.status },
     });
 
-    logger.info("Order status successfully updated");
+    logger.info(`Order ${order.id} status updated: ${before?.status} → ${order.status}`);
     res.status(200).json({
       status: "success",
       message: "Order status updated successfully",
@@ -353,6 +351,15 @@ export const cancelOrder = catchAsync(
           cancelledBy: CancelledBy.USER,
         },
       });
+    });
+
+    await logAudit({
+      req,
+      action: "ADMIN_CANCEL_ORDER",
+      entityType: "Order",
+      entityId: orderId,
+      before: { status: order.status },
+      after: { status: OrderStatus.CANCELLED, cancelledBy: CancelledBy.ADMIN },
     });
 
     logger.info(`Order with ID: ${orderId} sucessfully cancelled`);

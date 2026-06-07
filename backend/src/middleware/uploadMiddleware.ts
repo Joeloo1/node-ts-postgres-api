@@ -1,17 +1,13 @@
-import fs from "fs";
-import path from "path";
 import multer, { FileFilterCallback } from "multer";
 import sharp from "sharp";
 import { Request, Response, NextFunction } from "express";
 import AppError from "../utils/AppError";
 import catchAsync from "../utils/catchAsync";
 import logger from "../config/logger";
-
-// Multer memory storage
-const multeStorage = multer.memoryStorage();
+import { uploadToS3 } from "../config/s3";
 
 const multerFilter = (
-  req: Request,
+  _req: Request,
   file: Express.Multer.File,
   cd: FileFilterCallback,
 ) => {
@@ -27,73 +23,57 @@ const multerFilter = (
 };
 
 const upload = multer({
-  storage: multeStorage,
+  storage: multer.memoryStorage(),
   fileFilter: multerFilter,
+  limits: { fileSize: 5 * 1024 * 1024 },
 });
 
-// middleware to upload single file
 export const uploadUserPhoto = upload.single("profileImage");
-
-// middleware to upload multiple product images
 export const uploadProductImages = upload.array("images", 10);
 
-// resize image
 export const resizeUserPhoto = catchAsync(
-  async (req: Request, res: Response, next: NextFunction) => {
-    logger.info("Resizing user photo");
+  async (req: Request, _res: Response, next: NextFunction) => {
     if (!req.file) return next();
 
-    if (!req.user || !req.user.id) {
-      logger.error("User not authenticated for photo upload");
+    if (!req.user?.id) {
       return next(new AppError("User not authenticated", 401));
     }
 
-    // Generate unique filename
-    const filename = `user-${req.user.id}-${Date.now()}.jpeg`;
-    const uploadDir = path.join(__dirname, "../../public/users");
-    const filepath = path.join(uploadDir, filename);
-    fs.mkdirSync(uploadDir, { recursive: true });
-
-    // Resize and save image
-    await sharp(req.file.buffer)
+    logger.info("Processing and uploading user photo");
+    const key = `users/user-${req.user.id}-${Date.now()}.jpeg`;
+    const buffer = await sharp(req.file.buffer)
       .resize(500, 500)
       .toFormat("jpeg")
       .jpeg({ quality: 90 })
-      .toFile(filepath);
+      .toBuffer();
 
-    req.file.filename = filename;
-
+    req.file.filename = await uploadToS3(buffer, key);
     next();
   },
 );
 
 export const resizeProductImages = catchAsync(
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (req: Request, _res: Response, next: NextFunction) => {
     const files = (req.files ?? []) as Express.Multer.File[];
     if (!files.length) return next();
 
     const productId = req.params.id;
     if (!productId) return next(new AppError("Product id is required", 400));
 
-    const uploadDir = path.join(__dirname, "../../public/products");
-    fs.mkdirSync(uploadDir, { recursive: true });
-
-    const savedPaths: string[] = [];
-
-    await Promise.all(
+    logger.info(`Processing and uploading ${files.length} product image(s)`);
+    const urls = await Promise.all(
       files.map(async (file, idx) => {
-        const filename = `product-${productId}-${Date.now()}-${idx + 1}.jpeg`;
-        const filepath = path.join(uploadDir, filename);
-        await sharp(file.buffer)
+        const key = `products/product-${productId}-${Date.now()}-${idx + 1}.jpeg`;
+        const buffer = await sharp(file.buffer)
           .resize(1400, 1400, { fit: "inside", withoutEnlargement: true })
           .toFormat("jpeg")
           .jpeg({ quality: 88 })
-          .toFile(filepath);
-        savedPaths.push(`/public/products/${filename}`);
+          .toBuffer();
+        return uploadToS3(buffer, key);
       }),
     );
 
-    (req as any).uploadedProductImages = savedPaths;
+    (req as any).uploadedProductImages = urls;
     next();
   },
 );

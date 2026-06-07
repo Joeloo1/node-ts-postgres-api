@@ -30,7 +30,7 @@ export const getAllUsers = catchAsync(
     if (cachedUsers) {
       const parsed = JSON.parse(cachedUsers);
       const users = Array.isArray(parsed) ? parsed : [];
-      logger.info(`Serving user from cache`);
+      logger.info(`Serving users from cache`);
       return res.status(200).json({
         status: "success",
         source: "cache",

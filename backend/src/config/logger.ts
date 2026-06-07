@@ -35,20 +35,27 @@ const level = () => {
   return env === "development" ? "debug" : "info";
 };
 
+const withRequestId = winston.format((info) => {
+  info.requestId = requestContext.getStore()?.requestId ?? "-";
+  return info;
+});
+
 const consoleFormat = combine(
   timestamp({ format: "YYYY-MM-DD HH:mm:ss" }),
+  withRequestId(),
   colorize({ all: true }),
   printf((info) => {
-    const { timestamp, level, message, ...meta } = info;
+    const { timestamp, level, message, requestId, ...meta } = info;
     const metaStr = Object.keys(meta).length
       ? JSON.stringify(meta, null, 2)
       : "";
-    return `[${timestamp}] ${level}: ${message} ${metaStr}`;
+    return `[${timestamp}] [${requestId}] ${level}: ${message} ${metaStr}`;
   }),
 );
 
 const fileFormat = combine(
   timestamp({ format: "YYYY-MM-DD HH:mm:ss" }),
+  withRequestId(),
   errors({ stack: true }),
   json(),
 );

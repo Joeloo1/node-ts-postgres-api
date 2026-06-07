@@ -12,7 +12,10 @@ const getReviewKey = (id: string) => `review:${id}`;
 const getReviewQueryKey = (query: Record<string, unknown>) => {
   const sorted = Object.keys(query)
     .sort()
-    .reduce<Record<string, unknown>>((acc, k) => { acc[k] = query[k]; return acc; }, {});
+    .reduce<Record<string, unknown>>((acc, k) => {
+      acc[k] = query[k];
+      return acc;
+    }, {});
   return `reviews:list:${JSON.stringify(sorted)}`;
 };
 
@@ -68,7 +71,7 @@ export const createReview = catchAsync(
     await syncProductRating(product_id);
 
     logger.info("Review created successfully");
-    res.status(200).json({
+    res.status(201).json({
       status: "success",
       data: {
         review,
@@ -86,7 +89,7 @@ export const updateReview = catchAsync(
     });
 
     if (!review || review.userId !== req.user!.id) {
-      logger.info(`Review with ID: ${req.params.id} not found`);
+      logger.warn(`Review with ID: ${req.params.id} not found or user unauthorized`);
       return next(new AppError("Review not found", 404));
     }
 
@@ -104,7 +107,7 @@ export const updateReview = catchAsync(
     await syncProductRating(review.product_id);
 
     logger.info(`Review with ID: ${req.params.id} updated successfully`);
-    res.status(201).json({
+    res.status(200).json({
       status: "success",
       data: {
         updatedReview,
@@ -121,13 +124,7 @@ export const getProductReview = catchAsync(
     const cachedDate = await redis.get(cacheKey);
     if (cachedDate) {
       logger.info("Serving review from cache");
-      return res.status(200).json({
-        status: "success",
-        source: "cached",
-        data: {
-          reviews: JSON.parse(cachedDate),
-        },
-      });
+      return res.status(200).json({ ...JSON.parse(cachedDate), source: "cached" });
     }
 
     const productId =
@@ -138,23 +135,33 @@ export const getProductReview = catchAsync(
       return next(new AppError("Query parameter product_id is required", 400));
     }
 
-    logger.info(`Fetching reviews for product ID: ${productId}`);
-    const reviews = await prisma.review.findMany({
-      where: { product_id: productId },
-      include: {
-        user: { select: { id: true, name: true, email: true } },
-      },
-    });
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 10));
+    const skip = (page - 1) * limit;
 
-    await redis.setEx(cacheKey, REDIS_TTL, JSON.stringify(reviews));
+    logger.info(`Fetching reviews for product ID: ${productId}`);
+    const [reviews, total] = await Promise.all([
+      prisma.review.findMany({
+        where: { product_id: productId },
+        include: { user: { select: { id: true, name: true } } },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+      }),
+      prisma.review.count({ where: { product_id: productId } }),
+    ]);
+
+    const totalPages = Math.ceil(total / limit);
+    const responseData = {
+      status: "success",
+      data: { reviews },
+      pagination: { page, limit, total, totalPages, hasNext: page < totalPages, hasPrev: page > 1 },
+    };
+
+    await redis.setEx(cacheKey, REDIS_TTL, JSON.stringify(responseData));
 
     logger.info(`Reviews for Product ID: ${productId} fetched successfully`);
-    res.status(200).json({
-      status: "success",
-      data: {
-        reviews,
-      },
-    });
+    res.status(200).json(responseData);
   },
 );
 
@@ -166,7 +173,7 @@ export const deleteReview = catchAsync(
     });
 
     if (!review || review.userId !== req.user!.id) {
-      logger.info(`Review with ID: ${req.params.id} not found`);
+      logger.warn(`Review with ID: ${req.params.id} not found or user unauthorized`);
       return next(new AppError("Review not found", 404));
     }
 
@@ -180,7 +187,7 @@ export const deleteReview = catchAsync(
     await syncProductRating(review.product_id);
 
     logger.info(`Review with ID: ${req.params.id} deleted successfully`);
-    res.status(200).json({
+    res.status(204).json({
       status: "success",
       data: null,
     });

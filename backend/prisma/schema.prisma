@@ -129,6 +129,8 @@ model Order {
 
   items        OrderItem[]
 
+  stripeSessionId String?      @unique
+
   cancelledAt  DateTime?
   cancelledBy  CancelledBy?
 

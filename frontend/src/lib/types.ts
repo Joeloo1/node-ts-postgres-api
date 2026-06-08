@@ -18,6 +18,7 @@ export type Product = {
   rating: number | null;
   category_id: number | null;
   category?: { category_id: number; name: string } | { name: string };
+  createdAt?: string;
 };
 
 export type User = {
@@ -90,6 +91,41 @@ export type Review = {
   content: string | null;
   userId: string;
   user?: { id: string; name: string; email: string };
+  votes?: { helpful: boolean }[];
+  createdAt: string;
+};
+
+export type ProductVariant = {
+  id: string;
+  product_id: string;
+  name: string;
+  priceModifier: number;
+  stock: number;
+  availability: boolean;
+  createdAt: string;
+};
+
+export type ProductAnswer = {
+  id: string;
+  questionId: string;
+  userId: string;
+  user?: { id: string; name: string };
+  answer: string;
+  createdAt: string;
+};
+
+export type ProductQuestion = {
+  id: string;
+  product_id: string;
+  userId: string;
+  user?: { id: string; name: string };
+  question: string;
+  answers: ProductAnswer[];
+  createdAt: string;
+};
+
+export type PriceHistoryPoint = {
+  price: number;
   createdAt: string;
 };
 

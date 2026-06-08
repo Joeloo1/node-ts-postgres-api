@@ -7,6 +7,7 @@ import { Navbar } from "./Navbar";
 import { Footer } from "./Footer";
 import { BottomNav } from "./BottomNav";
 import { CartDrawer } from "./CartDrawer";
+import { AnnouncementBar } from "./AnnouncementBar";
 import { ChevronUpIcon } from "./Icons";
 import { useEffect } from "react";
 
@@ -30,6 +31,7 @@ export function Layout() {
   return (
     <div className="flex min-h-screen flex-col bg-page">
       <a href="#main-content" className="skip-link">Skip to content</a>
+      <AnnouncementBar />
       <Navbar onCartOpen={() => setCartOpen(true)} />
 
       {isSignedIn && <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} />}

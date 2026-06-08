@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { toast } from "sonner";
@@ -23,6 +24,21 @@ export function CartPage() {
   usePageTitle("Cart");
   const { updateItem, removeItem } = useCartMutations();
   const { toggle } = useWishlist();
+  const [promoCode, setPromoCode] = useState("");
+  const [promoApplied, _setPromoApplied] = useState(false);
+  const [promoError, setPromoError] = useState<string | null>(null);
+  const [promoLoading, setPromoLoading] = useState(false);
+
+  function handleApplyPromo(e: React.FormEvent) {
+    e.preventDefault();
+    if (!promoCode.trim() || promoLoading) return;
+    setPromoLoading(true);
+    setPromoError(null);
+    setTimeout(() => {
+      setPromoLoading(false);
+      setPromoError("This promo code is invalid or has expired.");
+    }, 700);
+  }
 
   const cartQuery = useQuery({
     queryKey: queryKeys.cart(),
@@ -181,6 +197,34 @@ export function CartPage() {
             <span>Total</span>
             <span className="tabular-nums">${(subtotal + (subtotal >= 50 ? 0 : 4.99)).toFixed(2)}</span>
           </div>
+
+          {/* Promo code */}
+          <form onSubmit={handleApplyPromo} className="space-y-2">
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-ink4">Promo code</p>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={promoCode}
+                onChange={(e) => { setPromoCode(e.target.value.toUpperCase()); setPromoError(null); }}
+                placeholder="Enter code"
+                disabled={promoApplied}
+                className="flex-1 rounded-lg border border-stroke bg-input px-3 py-2 text-sm text-ink placeholder:text-ink4 transition-colors focus:border-emerald-500/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/20 disabled:opacity-60"
+              />
+              <button
+                type="submit"
+                disabled={!promoCode.trim() || promoApplied || promoLoading}
+                className="shrink-0 rounded-lg border border-stroke bg-raised px-3.5 py-2 text-xs font-semibold text-ink2 transition-colors hover:bg-well disabled:opacity-50"
+              >
+                {promoLoading ? "…" : promoApplied ? "Applied" : "Apply"}
+              </button>
+            </div>
+            {promoError && (
+              <p className="text-[11px] text-red-400">{promoError}</p>
+            )}
+            {promoApplied && (
+              <p className="text-[11px] font-medium text-emerald-500">Promo code applied!</p>
+            )}
+          </form>
 
           <div className="space-y-2 rounded-xl border border-stroke bg-card p-3">
             <div className="flex justify-between text-xs">

@@ -19,3 +19,18 @@ export async function createReview(data: {
     body: JSON.stringify(data),
   });
 }
+
+export async function voteReview(reviewId: string, helpful: boolean): Promise<void> {
+  await apiFetch(`/api/v1/reviews/${reviewId}/vote`, {
+    method: "POST",
+    auth: true,
+    body: JSON.stringify({ helpful }),
+  });
+}
+
+export async function unvoteReview(reviewId: string): Promise<void> {
+  await apiFetch(`/api/v1/reviews/${reviewId}/vote`, {
+    method: "DELETE",
+    auth: true,
+  });
+}

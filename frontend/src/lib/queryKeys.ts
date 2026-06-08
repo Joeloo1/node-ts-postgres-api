@@ -11,4 +11,9 @@ export const queryKeys = {
   addresses:   () => ["addresses"] as const,
   suggestions: (q: string) => ["suggestions", q] as const,
   search:      (q: string) => ["search", q] as const,
+  analytics:   () => ["analytics", "dashboard"] as const,
+  bestSellers:   () => ["products", "best-sellers"] as const,
+  variants:      (productId: string) => ["variants", productId] as const,
+  questions:     (productId: string) => ["questions", productId] as const,
+  priceHistory:  (productId: string) => ["priceHistory", productId] as const,
 };

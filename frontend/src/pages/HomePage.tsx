@@ -1,5 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState, useCallback } from "react";
+import { toast } from "sonner";
+import { ApiError, apiFetch } from "../lib/api";
 import { Link, useNavigate } from "react-router-dom";
 import { motion, type Variants } from "framer-motion";
 import { ProductCard } from "../components/ProductCard";
@@ -98,20 +100,14 @@ const trustItems = [
   { Icon: TruckIcon,   title: "Free shipping",   desc: "On all orders over $50" },
   { Icon: PackageIcon, title: "Easy returns",     desc: "30-day hassle-free policy" },
   { Icon: ShieldIcon,  title: "Secure checkout", desc: "256-bit SSL encryption" },
-  { Icon: StarIcon,    title: "Top-rated",        desc: "4.9 from 2,400+ reviews" },
+  { Icon: StarIcon,    title: "Top-rated",        desc: "Quality-curated products" },
 ];
 
-const statsConfig = [
-  { target: 10000, label: "Products",          display: (n: number) => n >= 1000 ? `${(n / 1000).toFixed(0)}K+` : String(n) },
-  { target: 50,    label: "Brands",            display: (n: number) => `${n}+` },
-  { target: 2400,  label: "5-star reviews",    display: (n: number) => n >= 1000 ? `${(n / 1000).toFixed(1)}K+` : String(n) },
-  { target: 99,    label: "Satisfaction rate", display: (n: number) => `${n}%` },
-];
 
 const HOW_IT_WORKS = [
   {
     title: "Browse & discover",
-    desc: "Explore 10,000+ curated products across every category — from electronics to everyday essentials.",
+    desc: "Discover products across every category — from electronics to everyday essentials, each curated for quality.",
     icon: "M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z",
   },
   {
@@ -126,27 +122,24 @@ const HOW_IT_WORKS = [
   },
 ];
 
-const TESTIMONIALS = [
+const WHY_US = [
   {
-    quote: "I've been ordering from Northline for over a year. The quality is genuinely better than what I find in stores, and shipping is always faster than expected.",
-    author: "Sarah M.",
-    role: "Verified buyer",
-    initials: "SM",
-    colorClass: "bg-emerald-500",
+    iconPath: "M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z",
+    title: "Quality, guaranteed",
+    desc: "Every product is hand-picked for quality. Not satisfied? Our 30-day hassle-free return policy has you covered — no questions asked.",
+    accent: "from-emerald-500 to-teal-500",
   },
   {
-    quote: "The return process was completely painless — I emailed support and had a refund within two days. Customer service at this level is rare for an online store.",
-    author: "James T.",
-    role: "Verified buyer",
-    initials: "JT",
-    colorClass: "bg-teal-500",
+    iconPath: "M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12",
+    title: "Fast dispatch",
+    desc: "Orders ship within 24 hours. Real-time order tracking and carrier notifications keep you in the loop from warehouse to doorstep.",
+    accent: "from-sky-500 to-blue-500",
   },
   {
-    quote: "Found exactly what I needed in the Home & Kitchen section. The descriptions are honest — no surprises when it arrived. Will absolutely shop here again.",
-    author: "Priya K.",
-    role: "Verified buyer",
-    initials: "PK",
-    colorClass: "bg-cyan-600",
+    iconPath: "M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z",
+    title: "Secure checkout",
+    desc: "Powered by Stripe with 256-bit SSL encryption. Pay with card, Apple Pay, or Google Pay — your financial data never touches our servers.",
+    accent: "from-violet-500 to-purple-500",
   },
 ];
 
@@ -293,9 +286,8 @@ export function HomePage() {
                 <div>
                   <div className="flex items-center gap-1">
                     {[1,2,3,4,5].map((s) => <StarIcon key={s} className="size-3 text-amber-400" filled />)}
-                    <span className="ml-1.5 text-sm font-bold text-ink">4.9</span>
                   </div>
-                  <p className="text-[11px] text-ink4">from 2,400+ verified reviews</p>
+                  <p className="text-[11px] text-ink4">Trusted by our customers</p>
                 </div>
                 <div className="h-8 w-px bg-stroke" />
                 <div className="flex items-center gap-1.5 text-[11px] text-ink3">
@@ -937,51 +929,28 @@ function HowItWorksSection() {
 function TestimonialsSection() {
   return (
     <motion.section variants={fadeUp} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-40px" }}>
-      <div className="mb-10 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Reviews</p>
-          <h2 className="mt-1.5 font-display text-2xl font-bold text-ink sm:text-3xl">What customers say</h2>
-        </div>
-        <div className="mb-1 flex items-center gap-2 rounded-full border border-stroke bg-card px-4 py-2">
-          <div className="flex items-center gap-0.5">
-            {[1,2,3,4,5].map((s) => <StarIcon key={s} className="size-3 text-amber-400" filled />)}
-          </div>
-          <span className="text-[13px] font-semibold text-ink">4.9</span>
-          <span className="text-[12px] text-ink4">/ 2,400+ reviews</span>
-        </div>
+      <div className="mb-10">
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Our promise</p>
+        <h2 className="mt-1.5 font-display text-2xl font-bold text-ink sm:text-3xl">Why shop with Northline</h2>
       </div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        {TESTIMONIALS.map((t, i) => (
+        {WHY_US.map((item, i) => (
           <motion.div
-            key={t.author}
+            key={item.title}
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.4, delay: i * 0.1 }}
-            className="flex flex-col justify-between rounded-2xl border border-stroke bg-card p-6 gap-5 transition-all duration-300 hover:border-edge hover:shadow-xl hover:shadow-black/6"
+            className="flex flex-col gap-5 rounded-2xl border border-stroke bg-card p-6 transition-all duration-300 hover:border-edge hover:shadow-xl hover:shadow-black/6"
           >
-            <div>
-              <div className="flex items-center gap-0.5 mb-4">
-                {Array.from({ length: 5 }).map((_, s) => <StarIcon key={s} className="size-3.5 text-amber-400" filled />)}
-              </div>
-              <div className="relative">
-                <span className="absolute -left-1 -top-2 font-serif text-5xl leading-none text-emerald-500/20 select-none">"</span>
-                <p className="relative pl-3 text-[13.5px] leading-[1.72] text-ink3">{t.quote}</p>
-              </div>
+            <div className={`flex size-11 items-center justify-center rounded-xl bg-gradient-to-br ${item.accent} shadow-lg`}>
+              <svg className="size-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d={item.iconPath} />
+              </svg>
             </div>
-            <div className="flex items-center gap-3 border-t border-stroke pt-4">
-              <div className={`flex size-9 shrink-0 items-center justify-center rounded-full ${t.colorClass} text-[11px] font-bold text-white`}>
-                {t.initials}
-              </div>
-              <div>
-                <p className="text-[13px] font-semibold text-ink">{t.author}</p>
-                <p className="text-[11px] text-ink4">{t.role}</p>
-              </div>
-              <div className="ml-auto flex size-5 items-center justify-center rounded-full bg-emerald-500/15">
-                <svg className="size-3 text-emerald-600 dark:text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                </svg>
-              </div>
+            <div>
+              <p className="text-[15px] font-semibold text-ink">{item.title}</p>
+              <p className="mt-1.5 text-[13.5px] leading-[1.72] text-ink3">{item.desc}</p>
             </div>
           </motion.div>
         ))}
@@ -1115,6 +1084,27 @@ function StatCounter({ target, display, label }: { target: number; display: (n: 
 }
 
 function StatsSection() {
+  const { data: pd } = useQuery({
+    queryKey: ["stats-product-count"],
+    queryFn: () => productService.getProducts({ limit: 1 }),
+    staleTime: 10 * 60_000,
+  });
+  const { data: cd } = useQuery({
+    queryKey: queryKeys.categories(),
+    queryFn: categoryService.getCategories,
+    staleTime: 10 * 60_000,
+  });
+
+  const productTotal = pd?.pagination?.total ?? 0;
+  const categoryCount = cd?.length ?? 0;
+
+  const liveStats = [
+    { label: "Products",     target: productTotal,  display: (n: number) => n >= 1000 ? `${(n / 1000).toFixed(0)}K+` : n > 0 ? String(n) : "…" },
+    { label: "Categories",   target: categoryCount, display: (n: number) => n > 0 ? String(n) : "…" },
+    { label: "Day returns",  target: 30,            display: (n: number) => `${n}` },
+    { label: "Hour dispatch",target: 24,            display: (n: number) => `${n}h` },
+  ];
+
   return (
     <motion.section
       variants={fadeUp} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-40px" }}
@@ -1129,7 +1119,7 @@ function StatsSection() {
           <h2 className="mt-1.5 font-display text-2xl font-bold text-white sm:text-3xl">Northline at a glance</h2>
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-4">
-          {statsConfig.map((s, i) => (
+          {liveStats.map((s, i) => (
             <div
               key={s.label}
               className={[
@@ -1138,7 +1128,7 @@ function StatsSection() {
                 i % 2 === 0 ? "border-r border-white/[0.06]" : "",
               ].join(" ")}
             >
-              <StatCounter target={s.target} display={s.display} label={s.label} />
+              <StatCounter key={`${s.label}-${s.target}`} target={s.target} display={s.display} label={s.label} />
             </div>
           ))}
         </div>
@@ -1152,11 +1142,21 @@ function NewsletterSection() {
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!email || loading) return;
     setLoading(true);
-    setTimeout(() => { setLoading(false); setSubmitted(true); }, 900);
+    try {
+      await apiFetch("/api/v1/newsletter/subscribe", {
+        method: "POST",
+        body: JSON.stringify({ email }),
+      });
+      setSubmitted(true);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Could not subscribe. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -1198,7 +1198,7 @@ function NewsletterSection() {
           <div className="hidden w-px bg-stroke lg:block" />
           <div className="flex flex-col justify-center border-t border-stroke px-8 py-10 sm:px-12 lg:border-t-0 lg:py-12">
             <h3 className="text-sm font-semibold text-ink">Subscribe for free</h3>
-            <p className="mt-1 text-xs text-ink4">Join 3,000+ subscribers. Unsubscribe any time.</p>
+            <p className="mt-1 text-xs text-ink4">No spam, ever. Unsubscribe any time.</p>
             <form onSubmit={handleSubmit} className="mt-5 space-y-3">
               <input
                 type="email"

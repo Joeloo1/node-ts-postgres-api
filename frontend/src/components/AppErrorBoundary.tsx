@@ -13,7 +13,7 @@ export class AppErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error("[AppErrorBoundary]", error, info.componentStack);
+    if (import.meta.env.DEV) console.error("[AppErrorBoundary]", error, info.componentStack);
   }
 
   render() {

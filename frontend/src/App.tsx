@@ -45,6 +45,8 @@ const AdminProductsPage   = lazy(() => import("./pages/admin/AdminProductsPage")
 const AdminUsersPage      = lazy(() => import("./pages/admin/AdminUsersPage").then((m) => ({ default: m.AdminUsersPage })));
 const AdminCategoriesPage = lazy(() => import("./pages/admin/AdminCategoriesPage").then((m) => ({ default: m.AdminCategoriesPage })));
 const AdminOrdersPage     = lazy(() => import("./pages/admin/AdminOrdersPage").then((m) => ({ default: m.AdminOrdersPage })));
+const DealsPage           = lazy(() => import("./pages/DealsPage").then((m) => ({ default: m.DealsPage })));
+const FAQPage             = lazy(() => import("./pages/FAQPage").then((m) => ({ default: m.FAQPage })));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -100,6 +102,8 @@ export default function App() {
                     <Route path="about" element={<AboutPage />} />
                     <Route path="contact" element={<ContactPage />} />
                     <Route path="search" element={<SearchPage />} />
+                    <Route path="deals" element={<DealsPage />} />
+                    <Route path="faq" element={<FAQPage />} />
                     <Route path="terms" element={<TermsPage />} />
                     <Route path="privacy" element={<PrivacyPage />} />
                     <Route path="wishlist" element={<WishlistPage />} />

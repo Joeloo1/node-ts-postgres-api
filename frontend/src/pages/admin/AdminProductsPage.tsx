@@ -6,6 +6,7 @@ import { ApiError, apiFetch } from "../../lib/api";
 import type { Product } from "../../lib/types";
 import { PackageIcon } from "../../components/Icons";
 import { ConfirmButton } from "../../components/ConfirmButton";
+import { usePageTitle } from "../../hooks/usePageTitle";
 
 const inputClass =
   "w-full rounded-xl border border-stroke bg-input px-3 py-2.5 text-sm text-ink placeholder:text-ink4 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500/60 transition-colors";
@@ -21,6 +22,7 @@ function getImageUrl(image?: string | null): string | null {
 }
 
 export function AdminProductsPage() {
+  usePageTitle("Admin · Products");
   const queryClient = useQueryClient();
   const [selected, setSelected] = useState<Product | null>(null);
   const [name, setName] = useState("");
@@ -217,7 +219,7 @@ export function AdminProductsPage() {
                 </button>
                 <ConfirmButton
                   onConfirm={onDelete}
-                  message="Delete this product?"
+                  message="Delete this product? It may still be in active carts or orders."
                   confirmLabel="Yes, delete"
                   disabled={deleteProduct.isPending}
                   className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-600 dark:text-red-400 hover:bg-red-500/20 disabled:opacity-50 transition-colors"

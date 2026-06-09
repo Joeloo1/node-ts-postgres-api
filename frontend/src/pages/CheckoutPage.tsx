@@ -1,11 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { usePageTitle } from "../hooks/usePageTitle";
 import { ApiError, apiFetch } from "../lib/api";
 import { queryKeys } from "../lib/queryKeys";
+import { FREE_SHIPPING_THRESHOLD, FREE_SHIPPING_FLAT_RATE } from "../lib/constants";
 import * as cartService from "../services/cart";
 import * as addressService from "../services/addresses";
 import { productImageUrl } from "../lib/productImage";
@@ -96,8 +97,6 @@ export function CheckoutPage() {
   const queryClient = useQueryClient();
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
   const [showAddressForm, setShowAddressForm] = useState(false);
-  const [promoCode, setPromoCode] = useState("");
-  const [promoApplied, setPromoApplied] = useState(false);
 
   /* Fix #3 — correct address endpoint */
   const cartQuery = useQuery({
@@ -109,6 +108,12 @@ export function CheckoutPage() {
     queryKey: queryKeys.addresses(),
     queryFn: addressService.getAddresses,
   });
+
+  useEffect(() => {
+    if (!addressQuery.data || selectedAddressId) return;
+    const def = addressQuery.data.find((a) => a.isDefault) ?? addressQuery.data[0];
+    if (def) setSelectedAddressId(def.id);
+  }, [addressQuery.data, selectedAddressId]);
 
   /* Fix #6 — inline add address form */
   const [newStreet, setNewStreet] = useState("");
@@ -122,6 +127,7 @@ export function CheckoutPage() {
       addressService.createAddress({
         street: newStreet, city: newCity,
         state: newState || null, zipCode: newZip || null, country: newCountry || null,
+        isDefault: false,
       }),
     onSuccess: (addr) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.addresses() });
@@ -154,9 +160,8 @@ export function CheckoutPage() {
       : i.product.price;
     return sum + price * i.quantity;
   }, 0);
-  const shipping = subtotal >= 50 ? 0 : 4.99;
-  const promoDiscount = promoApplied ? subtotal * 0.1 : 0;
-  const total = subtotal + shipping - promoDiscount;
+  const shipping = subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : FREE_SHIPPING_FLAT_RATE;
+  const total = subtotal + shipping;
 
   if (cartQuery.isSuccess && items.length === 0) {
     return (
@@ -349,55 +354,11 @@ export function CheckoutPage() {
             {subtotal < 50 && (
               <p className="text-[11px] text-ink4">Add ${(50 - subtotal).toFixed(2)} more for free shipping</p>
             )}
-            {promoApplied && (
-              <div className="flex justify-between text-emerald-600 dark:text-emerald-400">
-                <span>Promo (10% off)</span>
-                <span className="tabular-nums font-semibold">−${promoDiscount.toFixed(2)}</span>
-              </div>
-            )}
           </div>
 
-          {/* Fix #7 — Promo code field */}
-          <div className="border-t border-stroke px-5 py-4">
-            <AnimatePresence mode="wait">
-              {promoApplied ? (
-                <motion.div
-                  key="applied"
-                  initial={{ opacity: 0, y: -4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="flex items-center justify-between rounded-lg border border-emerald-500/20 bg-emerald-500/8 px-3 py-2"
-                >
-                  <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                    ✓ Promo code applied
-                  </span>
-                  <button type="button" onClick={() => { setPromoApplied(false); setPromoCode(""); }} className="text-[11px] text-ink4 hover:text-ink transition-colors">
-                    Remove
-                  </button>
-                </motion.div>
-              ) : (
-                <motion.form
-                  key="form"
-                  initial={{ opacity: 0, y: -4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    if (promoCode.trim()) { setPromoApplied(true); toast.success("Promo code applied!"); }
-                    else toast.error("Enter a promo code");
-                  }}
-                  className="flex gap-2"
-                >
-                  <input
-                    value={promoCode}
-                    onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
-                    placeholder="Promo code"
-                    className="flex-1 rounded-lg border border-stroke bg-input px-3 py-2 text-sm text-ink placeholder:text-ink4 focus:border-emerald-500/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/25"
-                  />
-                  <button type="submit" className="shrink-0 rounded-lg border border-stroke bg-raised px-3 py-2 text-sm font-medium text-ink2 transition-colors hover:bg-well hover:text-ink">
-                    Apply
-                  </button>
-                </motion.form>
-              )}
-            </AnimatePresence>
+          {/* Promo codes — not yet available */}
+          <div className="border-t border-stroke px-5 py-3">
+            <p className="text-[11px] text-ink4">Promo codes coming soon</p>
           </div>
 
           <div className="flex items-center justify-between border-t border-stroke bg-raised/40 px-5 py-4">

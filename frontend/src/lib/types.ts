@@ -30,6 +30,7 @@ export type User = {
   profileImage?: string;
   isVerified?: boolean;
   createdAt?: string;
+  orderCount?: number;
 };
 
 export type CartItem = {
@@ -73,6 +74,19 @@ export type Order = {
   items: OrderItem[];
   createdAt: string;
   cancelledAt?: string | null;
+  shippingAddress?: {
+    street: string;
+    city: string;
+    state?: string | null;
+    zipCode?: string | null;
+    country?: string | null;
+  } | null;
+  paymentMethod?: (
+    | { type: "card"; brand: string; last4: string }
+    | { type: "paypal"; email: string }
+  ) | null;
+  trackingNumber?: string | null;
+  trackingCarrier?: string | null;
 };
 
 export type Address = {
@@ -82,6 +96,7 @@ export type Address = {
   state: string | null;
   zipCode: string | null;
   country: string | null;
+  isDefault: boolean;
 };
 
 export type Review = {

@@ -6,6 +6,7 @@ import { ApiError } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import { Logo } from "../components/Logo";
 import { EyeIcon, EyeOffIcon, ShieldIcon, TruckIcon, PackageIcon } from "../components/Icons";
+import { usePageTitle } from "../hooks/usePageTitle";
 
 const features = [
   { icon: ShieldIcon, text: "Secure, encrypted checkout" },
@@ -34,6 +35,7 @@ const strengthConfig = {
 };
 
 export function RegisterPage() {
+  usePageTitle("Create Account");
   const { register } = useAuth();
   const navigate = useNavigate();
 
@@ -196,7 +198,7 @@ export function RegisterPage() {
             {/* Phone — optional, placed after email/password */}
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-ink3">
-                Phone <span className="font-normal text-ink4">(optional)</span>
+                Phone <span className="font-normal normal-case tracking-normal text-ink4">— optional</span>
               </label>
               <input value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} className={inputClass} placeholder="+1 555 000 0000" autoComplete="tel" />
             </div>

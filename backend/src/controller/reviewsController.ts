@@ -89,7 +89,9 @@ export const updateReview = catchAsync(
     });
 
     if (!review || review.userId !== req.user!.id) {
-      logger.warn(`Review with ID: ${req.params.id} not found or user unauthorized`);
+      logger.warn(
+        `Review with ID: ${req.params.id} not found or user unauthorized`,
+      );
       return next(new AppError("Review not found", 404));
     }
 
@@ -124,7 +126,9 @@ export const getProductReview = catchAsync(
     const cachedDate = await redis.get(cacheKey);
     if (cachedDate) {
       logger.info("Serving review from cache");
-      return res.status(200).json({ ...JSON.parse(cachedDate), source: "cached" });
+      return res
+        .status(200)
+        .json({ ...JSON.parse(cachedDate), source: "cached" });
     }
 
     const productId =
@@ -140,10 +144,14 @@ export const getProductReview = catchAsync(
     const skip = (page - 1) * limit;
 
     logger.info(`Fetching reviews for product ID: ${productId}`);
+
     const [reviews, total] = await Promise.all([
       prisma.review.findMany({
         where: { product_id: productId },
-        include: { user: { select: { id: true, name: true } } },
+        include: {
+          user: { select: { id: true, name: true } },
+          votes: { select: { helpful: true } },
+        },
         orderBy: { createdAt: "desc" },
         skip,
         take: limit,
@@ -155,7 +163,14 @@ export const getProductReview = catchAsync(
     const responseData = {
       status: "success",
       data: { reviews },
-      pagination: { page, limit, total, totalPages, hasNext: page < totalPages, hasPrev: page > 1 },
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1,
+      },
     };
 
     await redis.setEx(cacheKey, REDIS_TTL, JSON.stringify(responseData));
@@ -173,7 +188,9 @@ export const deleteReview = catchAsync(
     });
 
     if (!review || review.userId !== req.user!.id) {
-      logger.warn(`Review with ID: ${req.params.id} not found or user unauthorized`);
+      logger.warn(
+        `Review with ID: ${req.params.id} not found or user unauthorized`,
+      );
       return next(new AppError("Review not found", 404));
     }
 
@@ -191,5 +208,50 @@ export const deleteReview = catchAsync(
       status: "success",
       data: null,
     });
+  },
+);
+
+// Vote on a review (helpful / not helpful)
+export const voteReview = catchAsync(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const userId = req.user!.id;
+    const reviewId = req.params.id;
+    const helpful: boolean = Boolean(req.body.helpful);
+
+    const review = await prisma.review.findUnique({ where: { id: reviewId } });
+
+    if (!review) return next(new AppError("Review not found", 404));
+
+    if (review.userId === userId)
+      return next(new AppError("You cannot vote on your own review", 400));
+
+    await prisma.reviewVote.upsert({
+      where: { userId_reviewId: { userId, reviewId } },
+      create: { userId, reviewId, helpful },
+      update: { helpful },
+    });
+
+    await clearReviewCache();
+    res.status(200).json({ status: "success", data: null });
+  },
+);
+
+// Remove vote from a review
+export const unvoteReview = catchAsync(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const userId = req.user!.id;
+    const reviewId = req.params.id;
+
+    const existing = await prisma.reviewVote.findUnique({
+      where: { userId_reviewId: { userId, reviewId } },
+    });
+    if (!existing) return next(new AppError("Vote not found", 404));
+
+    await prisma.reviewVote.delete({
+      where: { userId_reviewId: { userId, reviewId } },
+    });
+    await clearReviewCache();
+
+    res.status(204).json({ status: "success", data: null });
   },
 );

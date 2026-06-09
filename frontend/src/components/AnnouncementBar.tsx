@@ -10,7 +10,9 @@ const MESSAGES = [
 
 export function AnnouncementBar() {
   const [idx, setIdx] = useState(0);
-  const [visible, setVisible] = useState(true);
+  const [visible, setVisible] = useState(() => {
+    try { return !sessionStorage.getItem("northline-ann-dismissed"); } catch { return true; }
+  });
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -61,7 +63,7 @@ export function AnnouncementBar() {
 
       <button
         type="button"
-        onClick={() => setVisible(false)}
+        onClick={() => { try { sessionStorage.setItem("northline-ann-dismissed", "1"); } catch {} setVisible(false); }}
         aria-label="Dismiss announcement"
         className="absolute right-3 top-1/2 -translate-y-1/2 flex size-5 items-center justify-center rounded text-white/60 hover:text-white transition-colors"
       >

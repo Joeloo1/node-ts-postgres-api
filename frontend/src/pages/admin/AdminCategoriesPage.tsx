@@ -6,6 +6,7 @@ import { ApiError, apiFetch } from "../../lib/api";
 import type { Category } from "../../lib/types";
 import { PlusIcon, TrashIcon } from "../../components/Icons";
 import { ConfirmButton } from "../../components/ConfirmButton";
+import { usePageTitle } from "../../hooks/usePageTitle";
 
 type CategoriesRes = { status: string; data: { categories: Category[] } };
 
@@ -16,6 +17,7 @@ const listItem = {
 };
 
 export function AdminCategoriesPage() {
+  usePageTitle("Admin · Categories");
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
 

@@ -2,15 +2,14 @@ import { useState, type FormEvent } from "react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { usePageTitle } from "../hooks/usePageTitle";
-import { MailIcon, MapPinIcon, PhoneIcon } from "../components/Icons";
+import { MailIcon } from "../components/Icons";
+import { ApiError, apiFetch } from "../lib/api";
 
 const inputClass =
   "w-full rounded-xl border border-stroke bg-input px-4 py-3 text-sm text-ink placeholder:text-ink4 transition focus:border-emerald-500/60 focus:outline-none focus:ring-2 focus:ring-emerald-500/20";
 
 const info = [
-  { icon: MailIcon,   label: "Email",   value: "support@northline.store",        href: "mailto:support@northline.store" },
-  { icon: PhoneIcon,  label: "Phone",   value: "+1 (800) 123-4567",              href: "tel:+18001234567" },
-  { icon: MapPinIcon, label: "Address", value: "123 Commerce St, New York NY 10001", href: undefined },
+  { icon: MailIcon, label: "Email", value: "support@northline.store", href: "mailto:support@northline.store" },
 ];
 
 export function ContactPage() {
@@ -25,11 +24,19 @@ export function ContactPage() {
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setPending(true);
-    await new Promise((r) => setTimeout(r, 900));
-    setPending(false);
-    setSent(true);
-    toast.success("Message sent! We'll get back to you within 24 hours.");
-    setName(""); setEmail(""); setSubject(""); setMessage("");
+    try {
+      await apiFetch("/api/v1/contact", {
+        method: "POST",
+        body: JSON.stringify({ name, email, subject, message }),
+      });
+      setSent(true);
+      toast.success("Message sent! We'll get back to you within 24 hours.");
+      setName(""); setEmail(""); setSubject(""); setMessage("");
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Failed to send message. Please try again.");
+    } finally {
+      setPending(false);
+    }
   }
 
   return (

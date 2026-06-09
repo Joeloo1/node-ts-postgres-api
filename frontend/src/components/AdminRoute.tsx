@@ -20,8 +20,7 @@ export function AdminRoute({ children }: { children: ReactNode }) {
     );
   }
 
-  const roles = user ? (user as unknown as { roles?: unknown }).roles : undefined;
-  if (!user || String(roles) !== "ADMIN") {
+  if (!user || user.roles !== "ADMIN") {
     return <Navigate to="/403" replace />;
   }
 

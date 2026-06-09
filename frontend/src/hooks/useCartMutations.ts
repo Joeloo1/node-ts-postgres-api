@@ -57,5 +57,21 @@ export function useCartMutations() {
     onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.cart() }),
   });
 
-  return { addItem, updateItem, removeItem };
+  const clearCart = useMutation({
+    mutationFn: () => cartService.clearCart(),
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.cart() });
+      const previous = queryClient.getQueryData<Cart>(queryKeys.cart());
+      queryClient.setQueryData<Cart>(queryKeys.cart(), (old) => old ? { ...old, items: [] } : old);
+      return { previous };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(queryKeys.cart(), ctx.previous);
+      toast.error("Could not clear cart");
+    },
+    onSuccess: () => toast.success("Cart cleared"),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.cart() }),
+  });
+
+  return { addItem, updateItem, removeItem, clearCart };
 }

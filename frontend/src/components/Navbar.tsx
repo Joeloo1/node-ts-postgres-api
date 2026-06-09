@@ -46,7 +46,7 @@ export function Navbar({ onCartOpen }: NavbarProps) {
   const debouncedQuery = useDebounce(searchQuery, 260);
 
   const isSignedIn = Boolean(token);
-  const isAdmin = isSignedIn && String((user as unknown as { roles?: string })?.roles) === "ADMIN";
+  const isAdmin = isSignedIn && user?.roles === "ADMIN";
   const wishlistCount = wishlist.size;
 
   const { data: suggestions, isFetching: suggestionsFetching } = useQuery({
@@ -115,6 +115,15 @@ export function Navbar({ onCartOpen }: NavbarProps) {
           {!searchOpen && (
             <nav className="hidden md:flex items-center" aria-label="Main navigation">
               <NavLink to="/products" className={navLinkClass}>Shop</NavLink>
+              <NavLink
+                to="/deals"
+                className={({ isActive }) =>
+                  `${navLinkClass({ isActive })} flex items-center gap-1.5`
+                }
+              >
+                Deals
+                <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-[9px] font-bold leading-none text-white">Sale</span>
+              </NavLink>
               <NavLink to="/about"    className={navLinkClass}>About</NavLink>
               <NavLink to="/contact"  className={navLinkClass}>Contact</NavLink>
             </nav>
@@ -407,6 +416,10 @@ export function Navbar({ onCartOpen }: NavbarProps) {
 
             <div className="flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
               <NavLink to="/products" className={mobileNavClass} onClick={() => setMobileOpen(false)}>Shop</NavLink>
+              <NavLink to="/deals" className={mobileNavClass} onClick={() => setMobileOpen(false)}>
+                Deals
+                <span className="ml-auto rounded-full bg-red-500 px-2 py-0.5 text-[9px] font-bold text-white">Sale</span>
+              </NavLink>
               <NavLink to="/about"    className={mobileNavClass} onClick={() => setMobileOpen(false)}>About</NavLink>
               <NavLink to="/contact"  className={mobileNavClass} onClick={() => setMobileOpen(false)}>Contact</NavLink>
 

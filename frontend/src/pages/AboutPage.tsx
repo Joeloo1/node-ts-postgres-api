@@ -55,10 +55,10 @@ const values = [
 ];
 
 const stats = [
-  { value: "12k+", label: "Happy customers" },
-  { value: "2,300+", label: "5-star reviews" },
-  { value: "500+", label: "Products curated" },
   { value: "30 days", label: "Return window" },
+  { value: "24h",     label: "Order dispatch" },
+  { value: "$50+",    label: "Free shipping" },
+  { value: "2025",    label: "Founded" },
 ];
 
 export function AboutPage() {

@@ -1,11 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { ApiError, apiFetch } from "../../lib/api";
 import { AdminTableSkeleton } from "../../components/ProductSkeleton";
 import type { Order, OrderStatus } from "../../lib/types";
-import { ChevronRightIcon } from "../../components/Icons";
+import { usePageTitle } from "../../hooks/usePageTitle";
+import { ChevronRightIcon, XIcon } from "../../components/Icons";
 import { ConfirmButton } from "../../components/ConfirmButton";
 
 type AdminOrdersRes = {
@@ -32,17 +34,22 @@ const ALL_STATUSES: OrderStatus[] = [
 ];
 
 export function AdminOrdersPage() {
+  usePageTitle("Admin · Orders");
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const userIdFilter = searchParams.get("userId") ?? "";
+  const userNameFilter = searchParams.get("userName") ?? "";
   const [statusFilter, setStatusFilter] = useState<OrderStatus | "">("");
   const [page, setPage] = useState(1);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [newStatus, setNewStatus] = useState<OrderStatus>("PROCESSING");
 
   const ordersQuery = useQuery({
-    queryKey: ["admin-orders", statusFilter, page],
+    queryKey: ["admin-orders", statusFilter, page, userIdFilter],
     queryFn: async () => {
       const params = new URLSearchParams({ page: String(page), limit: "20" });
       if (statusFilter) params.set("status", statusFilter);
+      if (userIdFilter) params.set("userId", userIdFilter);
       const res = await apiFetch<AdminOrdersRes>(`/api/v1/admin/orders?${params}`, { auth: true });
       return res;
     },
@@ -96,6 +103,21 @@ export function AdminOrdersPage() {
             <p className="text-xs text-ink4">{total} orders total</p>
           )}
         </div>
+        {userIdFilter && (
+          <div className="flex items-center gap-2 rounded-lg border border-sky-500/20 bg-sky-500/8 px-3 py-1.5">
+            <p className="text-xs font-medium text-sky-700 dark:text-sky-300">
+              Filtered by user{userNameFilter ? `: ${userNameFilter}` : ""}
+            </p>
+            <button
+              type="button"
+              onClick={() => setSearchParams({})}
+              className="text-sky-500 transition-colors hover:text-sky-700"
+              aria-label="Clear user filter"
+            >
+              <XIcon className="size-3.5" />
+            </button>
+          </div>
+        )}
 
         {/* Status filter chips */}
         <div className="flex flex-wrap gap-1.5">

@@ -40,9 +40,11 @@ export function WishlistPage() {
   const isLoading = productQueries.some((q) => q.isPending);
   const rawProducts = productQueries.map((q) => q.data).filter(Boolean) as Product[];
 
-  /* Fix #10 — sort wishlist */
   const products = useMemo(() => {
     return [...rawProducts].sort((a, b) => {
+      const aOos = a.availability === false ? 1 : 0;
+      const bOos = b.availability === false ? 1 : 0;
+      if (aOos !== bOos) return aOos - bOos;
       if (sortKey === "price-asc")  return a.price - b.price;
       if (sortKey === "price-desc") return b.price - a.price;
       if (sortKey === "rating")     return (b.rating ?? 0) - (a.rating ?? 0);
@@ -112,11 +114,21 @@ export function WishlistPage() {
         </div>
       ) : (
         <motion.div variants={container} initial="hidden" animate="show" className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {products.map((product) => (
-            <motion.div key={product.product_id} variants={item}>
-              <ProductCard product={product} />
-            </motion.div>
-          ))}
+          {products.map((product) => {
+            const oos = product.availability === false;
+            return (
+              <motion.div key={product.product_id} variants={item} className="relative">
+                {oos && (
+                  <div className="absolute left-2 top-2 z-10 rounded-full border border-stroke bg-card px-2 py-0.5 text-[10px] font-semibold text-ink4 shadow-sm">
+                    Out of stock
+                  </div>
+                )}
+                <div className={oos ? "opacity-50 pointer-events-none select-none" : ""}>
+                  <ProductCard product={product} />
+                </div>
+              </motion.div>
+            );
+          })}
         </motion.div>
       )}
     </div>

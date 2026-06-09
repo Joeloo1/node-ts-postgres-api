@@ -1,6 +1,6 @@
-import { NavLink, Outlet, useLocation } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { useMemo, useRef, useState } from "react";
+import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { apiFetch } from "../lib/api";
 import { queryKeys } from "../lib/queryKeys";
@@ -180,15 +180,37 @@ type AdminOrdersRes = {
   data: { orders: Order[] };
 };
 
+function timeAgo(date: Date): string {
+  const s = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (s < 60) return "just now";
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ago`;
+  return `${Math.floor(m / 60)}h ago`;
+}
+
 function AdminDashboard() {
-  /* Use the real analytics endpoint */
+  const queryClient = useQueryClient();
+  const [refreshedAt, setRefreshedAt] = useState<Date>(() => new Date());
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
+  function handleRefresh() {
+    queryClient.invalidateQueries({ queryKey: queryKeys.analytics() });
+    queryClient.invalidateQueries({ queryKey: ["admin-orders-recent"] });
+    queryClient.invalidateQueries({ queryKey: ["admin-orders-all"] });
+    queryClient.invalidateQueries({ queryKey: ["admin-low-stock"] });
+    setRefreshedAt(new Date());
+  }
+
   const analyticsQ = useQuery({
     queryKey: queryKeys.analytics(),
     queryFn: analyticsService.getDashboardStats,
     staleTime: 5 * 60_000,
   });
 
-  /* Recent orders — keep fetching for the live table */
   const ordersQ = useQuery({
     queryKey: ["admin-orders-recent"],
     queryFn: async () => {
@@ -198,7 +220,15 @@ function AdminDashboard() {
     staleTime: 60_000,
   });
 
-  /* Low stock — still computed from products */
+  const allOrdersQ = useQuery({
+    queryKey: ["admin-orders-all"],
+    queryFn: async () => {
+      const res = await apiFetch<AdminOrdersRes>("/api/v1/admin/orders?limit=500&sortBy=createdAt&order=desc", { auth: true });
+      return res.data.orders;
+    },
+    staleTime: 120_000,
+  });
+
   const lowStockQ = useQuery({
     queryKey: ["admin-low-stock"],
     queryFn: async () => {
@@ -213,6 +243,7 @@ function AdminDashboard() {
   const revenueByDay = analyticsQ.data?.revenueByDay ?? [];
   const topProducts  = analyticsQ.data?.topProducts  ?? [];
   const recentOrders = ordersQ.data?.data.orders ?? [];
+  const allOrders    = allOrdersQ.data ?? [];
   const lowStock     = lowStockQ.data ?? [];
 
   const statsCards = [
@@ -223,6 +254,7 @@ function AdminDashboard() {
       icon: ChartBarIcon,
       color: "text-emerald-500",
       bg: "bg-emerald-500/10",
+      to: "/admin/orders",
     },
     {
       label: "Total orders",
@@ -231,6 +263,7 @@ function AdminDashboard() {
       icon: PackageIcon,
       color: "text-amber-500",
       bg: "bg-amber-500/10",
+      to: "/admin/orders",
     },
     {
       label: "Customers",
@@ -239,6 +272,7 @@ function AdminDashboard() {
       icon: UsersIcon,
       color: "text-sky-500",
       bg: "bg-sky-500/10",
+      to: "/admin/users",
     },
     {
       label: "Products",
@@ -247,44 +281,75 @@ function AdminDashboard() {
       icon: TagIcon,
       color: "text-violet-500",
       bg: "bg-violet-500/10",
+      to: "/admin/products",
     },
   ];
+
+  const anyFetching = analyticsQ.isFetching || ordersQ.isFetching || allOrdersQ.isFetching || lowStockQ.isFetching;
 
   return (
     <div className="space-y-8">
 
-      {/* ── Stat cards ── */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {statsCards.map(({ label, value, sub, icon: Icon, color, bg }) => (
-          <motion.div
-            key={label}
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.28 }}
-            className="overflow-hidden rounded-xl border border-stroke bg-card p-5 space-y-3"
+      {/* Refresh toolbar */}
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-ink4">
+          Updated {timeAgo(refreshedAt)}
+        </p>
+        <button
+          type="button"
+          onClick={handleRefresh}
+          disabled={anyFetching}
+          className="flex items-center gap-1.5 rounded-lg border border-stroke bg-card px-3 py-1.5 text-xs font-medium text-ink3 transition-colors hover:bg-raised hover:text-ink disabled:opacity-50"
+        >
+          <svg
+            className={`size-3.5 ${anyFetching ? "animate-spin" : ""}`}
+            fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
           >
-            <div className={`flex size-9 items-center justify-center rounded-lg ${bg}`}>
-              <Icon className={`size-4.5 ${color}`} />
-            </div>
-            <div>
-              {analyticsQ.isPending ? (
-                <>
-                  <div className="h-6 w-24 animate-shimmer rounded mb-1" />
-                  <div className="h-3 w-16 animate-shimmer rounded" />
-                </>
-              ) : (
-                <>
-                  <p className="text-2xl font-bold tabular-nums text-ink">{value}</p>
-                  <p className="mt-0.5 text-xs font-medium text-ink">{label}</p>
-                  <p className="text-[11px] text-ink4">{sub}</p>
-                </>
-              )}
-            </div>
-          </motion.div>
-        ))}
+            <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+          </svg>
+          {anyFetching ? "Refreshing…" : "Refresh"}
+        </button>
       </div>
 
-      {/* ── Revenue chart ── */}
+      {/* Stat cards */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {statsCards.map(({ label, value, sub, icon: Icon, color, bg, to }) => {
+          const content = (
+            <div className="space-y-3">
+              <div className={`flex size-9 items-center justify-center rounded-lg ${bg}`}>
+                <Icon className={`size-4.5 ${color}`} />
+              </div>
+              <div>
+                {analyticsQ.isPending ? (
+                  <>
+                    <div className="mb-1 h-6 w-24 animate-shimmer rounded" />
+                    <div className="h-3 w-16 animate-shimmer rounded" />
+                  </>
+                ) : (
+                  <>
+                    <p className="text-2xl font-bold tabular-nums text-ink">{value}</p>
+                    <p className="mt-0.5 text-xs font-medium text-ink">{label}</p>
+                    <p className="text-[11px] text-ink4">{sub}</p>
+                  </>
+                )}
+              </div>
+            </div>
+          );
+          return (
+            <motion.div
+              key={label}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.28 }}
+              className="overflow-hidden rounded-xl border border-stroke bg-card p-5 transition-all hover:border-emerald-500/25 hover:shadow-md hover:shadow-black/5"
+            >
+              <Link to={to} className="block">{content}</Link>
+            </motion.div>
+          );
+        })}
+      </div>
+
+      {/* Revenue chart */}
       <div className="overflow-hidden rounded-xl border border-stroke bg-card">
         <div className="flex items-center justify-between border-b border-stroke px-5 py-4">
           <div>
@@ -309,19 +374,26 @@ function AdminDashboard() {
         </div>
       </div>
 
-      {/* ── Orders + Top products ── */}
+      {/* Recent orders + Top products */}
       <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
 
-        {/* Recent orders */}
         <div className="space-y-3">
-          <h2 className="font-display text-base font-semibold text-ink">Recent orders</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="font-display text-base font-semibold text-ink">Recent orders</h2>
+            <Link
+              to="/admin/orders"
+              className="text-xs font-medium text-emerald-600 transition-colors hover:text-emerald-500 dark:text-emerald-400"
+            >
+              View all →
+            </Link>
+          </div>
           <div className="overflow-hidden rounded-xl border border-stroke bg-card">
             {ordersQ.isPending ? (
               <div className="divide-y divide-stroke">
                 {[1,2,3,4,5].map((i) => (
                   <div key={i} className="flex items-center gap-4 px-4 py-3.5">
                     <div className="h-3 w-28 animate-shimmer rounded" />
-                    <div className="h-3 w-16 animate-shimmer rounded ml-auto" />
+                    <div className="ml-auto h-3 w-16 animate-shimmer rounded" />
                     <div className="h-5 w-16 animate-shimmer rounded-full" />
                   </div>
                 ))}
@@ -331,7 +403,7 @@ function AdminDashboard() {
             ) : (
               <div className="divide-y divide-stroke">
                 {recentOrders.map((o) => (
-                  <div key={o.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
+                  <div key={o.id} className="flex flex-wrap items-center gap-3 px-4 py-3 transition-colors hover:bg-hover">
                     <div className="min-w-0 flex-1">
                       <p className="font-mono text-[11px] font-semibold text-ink">#{o.id.slice(0, 8).toUpperCase()}</p>
                       <p className="text-[11px] text-ink4">
@@ -350,9 +422,16 @@ function AdminDashboard() {
           </div>
         </div>
 
-        {/* Top products */}
         <div className="space-y-3">
-          <h2 className="font-display text-base font-semibold text-ink">Top products</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="font-display text-base font-semibold text-ink">Top products</h2>
+            <Link
+              to="/admin/products"
+              className="text-xs font-medium text-emerald-600 transition-colors hover:text-emerald-500 dark:text-emerald-400"
+            >
+              View all →
+            </Link>
+          </div>
           <div className="overflow-hidden rounded-xl border border-stroke bg-card">
             {analyticsQ.isPending ? (
               <div className="divide-y divide-stroke">
@@ -395,18 +474,25 @@ function AdminDashboard() {
         </div>
       </div>
 
-      {/* ── Low stock + Order by status ── */}
+      {/* Low stock + Order by status */}
       <div className="grid gap-6 lg:grid-cols-2">
 
-        {/* Low stock */}
         <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <h2 className="font-display text-base font-semibold text-ink">Low stock alerts</h2>
-            {lowStock.length > 0 && (
-              <span className="rounded-full bg-red-500/12 px-2 py-0.5 text-[11px] font-semibold text-red-600 dark:text-red-400">
-                {lowStock.length}
-              </span>
-            )}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <h2 className="font-display text-base font-semibold text-ink">Low stock alerts</h2>
+              {lowStock.length > 0 && (
+                <span className="rounded-full bg-red-500/12 px-2 py-0.5 text-[11px] font-semibold text-red-600 dark:text-red-400">
+                  {lowStock.length}
+                </span>
+              )}
+            </div>
+            <Link
+              to="/admin/products"
+              className="text-xs font-medium text-emerald-600 transition-colors hover:text-emerald-500 dark:text-emerald-400"
+            >
+              Manage →
+            </Link>
           </div>
           <div className="overflow-hidden rounded-xl border border-stroke bg-card">
             {lowStockQ.isPending ? (
@@ -433,33 +519,42 @@ function AdminDashboard() {
           </div>
         </div>
 
-        {/* Order status breakdown */}
         <div className="space-y-3">
           <h2 className="font-display text-base font-semibold text-ink">Orders by status</h2>
-          <div className="overflow-hidden rounded-xl border border-stroke bg-card p-4 space-y-3">
-            {(["PENDING","PAID","PROCESSING","SHIPPED","DELIVERED","CANCELLED"] as OrderStatus[]).map((s) => {
-              const orders = ordersQ.data?.data.orders ?? [];
-              const count = orders.filter((o) => o.status === s).length;
-              const total = Math.max(orders.length, 1);
-              const COLORS: Record<string, string> = {
-                PENDING: "bg-amber-400", PAID: "bg-blue-400", PROCESSING: "bg-violet-400",
-                SHIPPED: "bg-sky-400", DELIVERED: "bg-emerald-500", CANCELLED: "bg-edge",
-              };
-              return (
-                <div key={s} className="space-y-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-medium text-ink3">{s.charAt(0) + s.slice(1).toLowerCase()}</span>
-                    <span className="tabular-nums font-semibold text-ink">{count}</span>
+          <div className="space-y-3 overflow-hidden rounded-xl border border-stroke bg-card p-4">
+            {allOrdersQ.isPending ? (
+              <div className="space-y-3">
+                {[1,2,3,4,5,6].map((i) => (
+                  <div key={i} className="space-y-1.5">
+                    <div className="h-3 w-24 animate-shimmer rounded" />
+                    <div className="h-1.5 w-full animate-shimmer rounded-full" />
                   </div>
-                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-raised">
-                    <div
-                      className={`h-full rounded-full transition-all duration-500 ${COLORS[s] ?? "bg-emerald-500"}`}
-                      style={{ width: `${(count / total) * 100}%` }}
-                    />
+                ))}
+              </div>
+            ) : (
+              (["PENDING","PAID","PROCESSING","SHIPPED","DELIVERED","CANCELLED"] as OrderStatus[]).map((s) => {
+                const count = allOrders.filter((o) => o.status === s).length;
+                const total = Math.max(allOrders.length, 1);
+                const COLORS: Record<string, string> = {
+                  PENDING: "bg-amber-400", PAID: "bg-blue-400", PROCESSING: "bg-violet-400",
+                  SHIPPED: "bg-sky-400", DELIVERED: "bg-emerald-500", CANCELLED: "bg-edge",
+                };
+                return (
+                  <div key={s} className="space-y-1.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-medium text-ink3">{s.charAt(0) + s.slice(1).toLowerCase()}</span>
+                      <span className="tabular-nums font-semibold text-ink">{count}</span>
+                    </div>
+                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-raised">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${COLORS[s] ?? "bg-emerald-500"}`}
+                        style={{ width: `${(count / total) * 100}%` }}
+                      />
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
         </div>
       </div>

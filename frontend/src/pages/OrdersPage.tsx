@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { OrdersSkeleton } from "../components/ProductSkeleton";
@@ -23,6 +23,7 @@ const statusConfig: Record<string, { label: string; dot: string; badge: string }
 const FILTER_TABS: Array<{ value: OrderStatus | "ALL"; label: string }> = [
   { value: "ALL",        label: "All orders" },
   { value: "PENDING",    label: "Pending" },
+  { value: "PAID",       label: "Paid" },
   { value: "PROCESSING", label: "Processing" },
   { value: "SHIPPED",    label: "Shipped" },
   { value: "DELIVERED",  label: "Delivered" },
@@ -35,10 +36,29 @@ const rowFade: Variants = {
   show: { opacity: 1, y: 0, transition: { duration: 0.3, ease: [0.25, 0.1, 0.25, 1] } },
 };
 
+function relativeDate(dateStr: string): string {
+  const date = new Date(dateStr);
+  const diffMs = Date.now() - date.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  if (diffDays === 0) return "Today";
+  if (diffDays === 1) return "Yesterday";
+  if (diffDays < 7) return `${diffDays} days ago`;
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: diffDays > 365 ? "numeric" : undefined });
+}
+
+type SortKey = "newest" | "oldest" | "highest" | "lowest";
+
 export function OrdersPage() {
   usePageTitle("Orders");
   const [filter, setFilter] = useState<OrderStatus | "ALL">("ALL");
   const [searchText, setSearchText] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [sortKey, setSortKey] = useState<SortKey>("newest");
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchText), 200);
+    return () => clearTimeout(t);
+  }, [searchText]);
 
   const { data, isPending, isError, error } = useQuery({
     queryKey: queryKeys.orders(),
@@ -60,16 +80,6 @@ export function OrdersPage() {
   }
 
   const orders = Array.isArray(data) ? data : [];
-  const filtered = orders
-    .filter((o) => filter === "ALL" || o.status === filter)
-    .filter((o) => {
-      if (!searchText.trim()) return true;
-      const q = searchText.toLowerCase();
-      return (
-        o.id.slice(0, 8).toUpperCase().includes(q.toUpperCase()) ||
-        o.items.some((i) => i.product?.name?.toLowerCase().includes(q))
-      );
-    });
 
   if (orders.length === 0) {
     return (
@@ -83,7 +93,7 @@ export function OrdersPage() {
             <PackageIcon className="size-7" />
           </div>
           <h2 className="mt-5 text-base font-semibold text-ink">No orders yet</h2>
-          <p className="mt-1.5 text-sm text-ink4">When you check out, your orders will appear here.</p>
+          <p className="mt-1.5 text-sm text-ink4">When you place your first order, it will show up here.</p>
           <Link
             to="/products"
             className="mt-7 inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
@@ -95,6 +105,32 @@ export function OrdersPage() {
     );
   }
 
+  const filtered = orders
+    .filter((o) => filter === "ALL" || o.status === filter)
+    .filter((o) => {
+      if (!debouncedSearch.trim()) return true;
+      const q = debouncedSearch.toLowerCase();
+      return (
+        o.id.slice(0, 8).toUpperCase().includes(q.toUpperCase()) ||
+        o.items.some((i) => i.product?.name?.toLowerCase().includes(q))
+      );
+    })
+    .slice()
+    .sort((a, b) => {
+      if (sortKey === "oldest")  return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      if (sortKey === "highest") return b.total - a.total;
+      if (sortKey === "lowest")  return a.total - b.total;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(); // newest
+    });
+
+  const totalSpent = orders
+    .filter((o) => o.status !== "CANCELLED" && o.status !== "REFUNDED")
+    .reduce((sum, o) => sum + o.total, 0);
+  const deliveredCount = orders.filter((o) => o.status === "DELIVERED").length;
+  const activeCount = orders.filter((o) =>
+    ["PENDING", "PAID", "PROCESSING", "SHIPPED"].includes(o.status),
+  ).length;
+
   return (
     <div className="space-y-6">
       <div>
@@ -102,9 +138,38 @@ export function OrdersPage() {
         <h1 className="mt-1.5 font-display text-2xl font-bold text-ink sm:text-3xl">Your orders</h1>
       </div>
 
-      {/* Fix #27 — search within orders */}
-      {orders.length > 0 && (
-        <div className="relative">
+      {/* Stats bar */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {(
+          [
+            { label: "Total orders", value: orders.length.toString(),        filterValue: "ALL" as const },
+            { label: "Total spent",  value: `$${totalSpent.toFixed(2)}`,     filterValue: undefined },
+            { label: "Active",       value: activeCount.toString(),           filterValue: undefined },
+            { label: "Delivered",    value: deliveredCount.toString(),        filterValue: "DELIVERED" as const },
+          ] as const
+        ).map(({ label, value, filterValue }) =>
+          filterValue !== undefined ? (
+            <button
+              key={label}
+              type="button"
+              onClick={() => setFilter(filterValue)}
+              className="rounded-xl border border-stroke bg-card px-4 py-3 text-left transition-colors hover:border-emerald-500/30 hover:bg-raised"
+            >
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-ink4">{label}</p>
+              <p className="mt-1 text-lg font-bold tabular-nums text-ink">{value}</p>
+            </button>
+          ) : (
+            <div key={label} className="rounded-xl border border-stroke bg-card px-4 py-3">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-ink4">{label}</p>
+              <p className="mt-1 text-lg font-bold tabular-nums text-ink">{value}</p>
+            </div>
+          ),
+        )}
+      </div>
+
+      {/* Search + Sort */}
+      <div className="flex gap-2">
+        <div className="relative flex-1">
           <SearchIcon className="absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-ink4" />
           <input
             value={searchText}
@@ -113,13 +178,28 @@ export function OrdersPage() {
             className="w-full rounded-lg border border-stroke bg-card py-2.5 pl-9 pr-9 text-sm text-ink placeholder:text-ink4 focus:border-emerald-500/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/25"
           />
           {searchText && (
-            <button type="button" onClick={() => setSearchText("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-ink4 hover:text-ink transition-colors">
+            <button
+              type="button"
+              onClick={() => setSearchText("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-ink4 transition-colors hover:text-ink"
+            >
               <XIcon className="size-3.5" />
             </button>
           )}
         </div>
-      )}
+        <select
+          value={sortKey}
+          onChange={(e) => setSortKey(e.target.value as SortKey)}
+          className="shrink-0 rounded-lg border border-stroke bg-card px-3 py-2.5 text-sm text-ink focus:border-emerald-500/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/25"
+        >
+          <option value="newest">Newest first</option>
+          <option value="oldest">Oldest first</option>
+          <option value="highest">Highest value</option>
+          <option value="lowest">Lowest value</option>
+        </select>
+      </div>
 
+      {/* Filter tabs */}
       <div className="-mx-4 sm:mx-0">
         <div className="flex overflow-x-auto border-b border-stroke scrollbar-none">
           {FILTER_TABS.map(({ value, label }) => {
@@ -152,6 +232,7 @@ export function OrdersPage() {
         </div>
       </div>
 
+      {/* Orders list */}
       <AnimatePresence mode="wait">
         {filtered.length === 0 ? (
           <motion.div
@@ -161,17 +242,19 @@ export function OrdersPage() {
             exit={{ opacity: 0 }}
             className="flex flex-col items-center justify-center rounded-2xl border border-stroke bg-card py-16 text-center"
           >
-            <p className="text-sm text-ink4">No {filter.toLowerCase()} orders.</p>
+            <p className="text-sm text-ink4">
+              {searchText ? `No orders matching "${searchText}".` : `No ${filter.toLowerCase()} orders.`}
+            </p>
             <button
               type="button"
-              onClick={() => setFilter("ALL")}
+              onClick={() => { setFilter("ALL"); setSearchText(""); }}
               className="mt-3 text-sm font-medium text-emerald-600 transition-colors hover:text-emerald-500 dark:text-emerald-400"
             >
               Show all orders
             </button>
           </motion.div>
         ) : (
-          <motion.ul key={filter} className="space-y-3" variants={stagger} initial="hidden" animate="show">
+          <motion.ul key={filter + debouncedSearch + sortKey} className="space-y-3" variants={stagger} initial="hidden" animate="show">
             {filtered.map((o) => {
               const status = statusConfig[o.status] ?? { label: o.status, dot: "bg-ink4", badge: "border-edge bg-well text-ink3" };
               const thumbs = (o.items ?? [])
@@ -180,6 +263,11 @@ export function OrdersPage() {
                 .filter(Boolean) as string[];
               const extraCount = (o.items?.length ?? 0) - thumbs.length;
               const itemCount = o.items?.length ?? 0;
+              const productNames = (o.items ?? [])
+                .slice(0, 2)
+                .map((i) => i.product?.name)
+                .filter(Boolean) as string[];
+              const moreProducts = itemCount - productNames.length;
 
               return (
                 <motion.li key={o.id} variants={rowFade}>
@@ -187,15 +275,23 @@ export function OrdersPage() {
                     to={`/orders/${o.id}`}
                     className="group block overflow-hidden rounded-2xl border border-stroke bg-card transition-all duration-200 hover:border-edge hover:shadow-lg hover:shadow-black/8"
                   >
+                    {/* Header row */}
                     <div className="flex items-center justify-between border-b border-stroke bg-raised/30 px-5 py-2.5">
                       <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${status.badge}`}>
                         <span className={`size-1.5 shrink-0 rounded-full ${status.dot}`} />
                         {status.label}
                       </span>
-                      <p className="text-[12px] text-ink4">
-                        {new Date(o.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                      </p>
+                      <div className="flex items-center gap-3">
+                        <p className="text-[12px] text-ink4">
+                          {relativeDate(o.createdAt)}
+                        </p>
+                        <p className="hidden text-[11px] text-ink4 sm:block">
+                          {new Date(o.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                        </p>
+                      </div>
                     </div>
+
+                    {/* Body */}
                     <div className="flex items-center gap-4 px-5 py-4">
                       {thumbs.length > 0 && (
                         <div className="flex shrink-0 -space-x-2.5">
@@ -211,12 +307,21 @@ export function OrdersPage() {
                           )}
                         </div>
                       )}
+
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-semibold text-ink">
                           Order <span className="font-mono text-[13px] text-ink2">#{o.id.slice(0, 8).toUpperCase()}</span>
                         </p>
-                        <p className="mt-0.5 text-xs text-ink4">{itemCount} item{itemCount !== 1 ? "s" : ""}</p>
+                        {productNames.length > 0 ? (
+                          <p className="mt-0.5 truncate text-xs text-ink4">
+                            {productNames.join(", ")}
+                            {moreProducts > 0 && ` +${moreProducts} more`}
+                          </p>
+                        ) : (
+                          <p className="mt-0.5 text-xs text-ink4">{itemCount} item{itemCount !== 1 ? "s" : ""}</p>
+                        )}
                       </div>
+
                       <div className="flex shrink-0 items-center gap-3">
                         <p className="text-base font-bold tabular-nums text-ink">${o.total.toFixed(2)}</p>
                         <div className="flex size-8 items-center justify-center rounded-full bg-raised text-ink3 transition-all group-hover:bg-emerald-500 group-hover:text-white">
@@ -224,6 +329,15 @@ export function OrdersPage() {
                         </div>
                       </div>
                     </div>
+
+                    {/* Shipped banner */}
+                    {o.status === "SHIPPED" && (
+                      <div className="border-t border-violet-500/15 bg-violet-500/5 px-5 py-2">
+                        <p className="text-[11px] font-medium text-violet-600 dark:text-violet-400">
+                          Your order is on its way — check details for tracking info
+                        </p>
+                      </div>
+                    )}
                   </Link>
                 </motion.li>
               );

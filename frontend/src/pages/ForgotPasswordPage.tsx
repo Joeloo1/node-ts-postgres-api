@@ -3,8 +3,10 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { ApiError, apiFetch } from "../lib/api";
+import { usePageTitle } from "../hooks/usePageTitle";
 
 export function ForgotPasswordPage() {
+  usePageTitle("Forgot Password");
   const [email, setEmail] = useState("");
   const [pending, setPending] = useState(false);
   const [sent, setSent] = useState(false);

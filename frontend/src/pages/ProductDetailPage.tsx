@@ -681,7 +681,7 @@ export function ProductDetailPage() {
                 </button>
               </div>
 
-              {!isAvailable && <BackInStockNotify productName={p.name} />}
+              {!isAvailable && <BackInStockNotify productId={p.product_id} productName={p.name} />}
             </div>
 
             {/* Merged share button — UI fix #12 */}

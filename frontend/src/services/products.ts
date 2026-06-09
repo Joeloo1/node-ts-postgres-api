@@ -59,6 +59,12 @@ export async function getDeals(limit = 8): Promise<Product[]> {
   return res.data.products.filter((p) => p.discount && p.discount > 0).slice(0, limit);
 }
 
+export async function getDealsAll(): Promise<Product[]> {
+  const qs = new URLSearchParams({ limit: "100", sortBy: "rating", order: "desc" });
+  const res = await apiFetch<ProductsRes>(`/api/v1/products?${qs}`);
+  return res.data.products.filter((p) => p.discount && p.discount > 0);
+}
+
 export async function getProductsFeed(cursor?: string, limit = 12): Promise<{ products: Product[]; nextCursor: string | null }> {
   const qs = new URLSearchParams({ limit: String(limit) });
   if (cursor) qs.set("cursor", cursor);

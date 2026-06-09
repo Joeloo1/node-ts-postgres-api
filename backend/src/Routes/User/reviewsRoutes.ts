@@ -5,6 +5,8 @@ import {
   updateReview,
   getProductReview,
   deleteReview,
+  voteReview,
+  unvoteReview,
 } from "../../controller/reviewsController";
 import {
   createReviewSchema,
@@ -31,8 +33,13 @@ router
   .patch(
     validateParams(reviewIdShema),
     validateBody(updateReviewSchema),
-    updateReview
+    updateReview,
   )
   .delete(validateParams(reviewIdShema), deleteReview);
+
+router
+  .route("/:id/vote")
+  .post(validateParams(reviewIdShema), voteReview)
+  .delete(validateParams(reviewIdShema), unvoteReview);
 
 export default router;

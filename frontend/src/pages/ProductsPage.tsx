@@ -19,8 +19,9 @@ const cardFade: Variants = {
   show:   { opacity: 1, y: 0, transition: { duration: 0.28, ease: [0.25, 0.1, 0.25, 1] } },
 };
 
-/* ── Sort preference persistence ──────────────────────────── */
+/* ── Preference persistence ────────────────────────────────── */
 const SORT_STORAGE_KEY = "shop:sort";
+const VIEW_STORAGE_KEY = "shop:view";
 
 /* ── "New" badge threshold ─────────────────────────────────── */
 const NEW_THRESHOLD_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
@@ -101,7 +102,10 @@ export function ProductsPage() {
   const [minRating, setMinRating] = useState(() => searchParams.get("rating_gte") ?? "");
   const [inStockOnly, setInStockOnly] = useState(() => searchParams.get("in_stock") === "true");
   const [onSaleOnly, setOnSaleOnly]   = useState(() => searchParams.get("on_sale") === "true");
-  const [viewMode, setViewMode]   = useState<"grid" | "list">("grid");
+  const [viewMode, setViewMode]   = useState<"grid" | "list">(() => {
+    const saved = localStorage.getItem(VIEW_STORAGE_KEY);
+    return saved === "list" ? "list" : "grid";
+  });
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const resultsRef       = useRef<HTMLDivElement>(null);
@@ -129,8 +133,8 @@ export function ProductsPage() {
 
   useEffect(() => { syncUrl(); }, [syncUrl]);
 
-  /* Persist last-used sort to localStorage */
   useEffect(() => { localStorage.setItem(SORT_STORAGE_KEY, sortKey); }, [sortKey]);
+  useEffect(() => { localStorage.setItem(VIEW_STORAGE_KEY, viewMode); }, [viewMode]);
 
   const baseQueryString = useMemo(() => {
     const p = new URLSearchParams();

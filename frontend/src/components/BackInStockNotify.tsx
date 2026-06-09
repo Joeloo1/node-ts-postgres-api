@@ -1,16 +1,29 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { BellIcon } from "./Icons";
+import { ApiError, apiFetch } from "../lib/api";
 
-export function BackInStockNotify({ productName }: { productName: string }) {
+export function BackInStockNotify({ productId, productName }: { productId: string; productName: string }) {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!email) return;
-    setSubmitted(true);
-    toast.success(`We'll notify you when ${productName} is back in stock!`);
+    setLoading(true);
+    try {
+      await apiFetch(`/api/v1/products/${productId}/notify`, {
+        method: "POST",
+        body: JSON.stringify({ email }),
+      });
+      setSubmitted(true);
+      toast.success(`We'll notify you when ${productName} is back in stock!`);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Could not subscribe. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   if (submitted) {
@@ -40,9 +53,10 @@ export function BackInStockNotify({ productName }: { productName: string }) {
         />
         <button
           type="submit"
-          className="shrink-0 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
+          disabled={loading}
+          className="shrink-0 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-60"
         >
-          Notify me
+          {loading ? "…" : "Notify me"}
         </button>
       </form>
     </div>

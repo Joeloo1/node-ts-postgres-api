@@ -27,3 +27,7 @@ export async function updateItem(itemId: string, quantity: number): Promise<void
 export async function removeItem(itemId: string): Promise<void> {
   await apiFetch(`/api/v1/cart/items/${itemId}`, { method: "DELETE", auth: true });
 }
+
+export async function clearCart(): Promise<void> {
+  await apiFetch("/api/v1/cart", { method: "DELETE", auth: true });
+}

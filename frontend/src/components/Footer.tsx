@@ -53,6 +53,7 @@ export function Footer() {
             <p className="text-[11px] font-semibold uppercase tracking-widest text-ink3">Shop</p>
             <ul className="mt-4 space-y-3">
               <li><Link to="/products" className="text-sm text-ink4 transition-colors hover:text-ink">All products</Link></li>
+              <li><Link to="/deals" className="text-sm text-ink4 transition-colors hover:text-ink">Deals &amp; offers</Link></li>
               <li><Link to="/products?sortBy=rating&order=desc" className="text-sm text-ink4 transition-colors hover:text-ink">Top rated</Link></li>
               <li><Link to="/products?sortBy=price&order=asc" className="text-sm text-ink4 transition-colors hover:text-ink">Best value</Link></li>
               <li><Link to="/search" className="text-sm text-ink4 transition-colors hover:text-ink">Search</Link></li>
@@ -83,6 +84,7 @@ export function Footer() {
             <ul className="mt-4 space-y-3">
               <li><Link to="/about" className="text-sm text-ink4 transition-colors hover:text-ink">About</Link></li>
               <li><Link to="/contact" className="text-sm text-ink4 transition-colors hover:text-ink">Contact</Link></li>
+              <li><Link to="/faq" className="text-sm text-ink4 transition-colors hover:text-ink">FAQ</Link></li>
               <li><Link to="/terms" className="text-sm text-ink4 transition-colors hover:text-ink">Terms of service</Link></li>
               <li><Link to="/privacy" className="text-sm text-ink4 transition-colors hover:text-ink">Privacy policy</Link></li>
             </ul>

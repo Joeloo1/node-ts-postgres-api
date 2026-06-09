@@ -3,13 +3,50 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { useState } from "react";
+
+function CopyOrderId({ id }: { id: string }) {
+  const [copied, setCopied] = useState(false);
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(id);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error("Could not copy to clipboard");
+    }
+  }
+  return (
+    <button
+      type="button"
+      onClick={copy}
+      title="Copy order ID"
+      className="ml-2 inline-flex items-center gap-1 rounded-md border border-stroke bg-raised px-2 py-0.5 text-[11px] font-medium text-ink4 transition-colors hover:bg-well hover:text-ink2"
+    >
+      {copied ? (
+        <>
+          <svg className="size-3 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+          </svg>
+          Copied
+        </>
+      ) : (
+        <>
+          <svg className="size-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0 0 13.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 0 1-.75.75H9a.75.75 0 0 1-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 0 1 1.927-.184" />
+          </svg>
+          Copy
+        </>
+      )}
+    </button>
+  );
+}
 import { OrderDetailSkeleton } from "../components/ProductSkeleton";
 import { ApiError, apiFetch } from "../lib/api";
 import { usePageTitle } from "../hooks/usePageTitle";
 import { queryKeys } from "../lib/queryKeys";
 import { productImageUrl } from "../lib/productImage";
 import type { Order } from "../lib/types";
-import { ArrowLeftIcon, CheckCircleIcon, PackageIcon } from "../components/Icons";
+import { ArrowLeftIcon, CheckCircleIcon, PackageIcon, StarIcon, TruckIcon } from "../components/Icons";
 import { ConfirmButton } from "../components/ConfirmButton";
 
 type OrderRes = { status: string; data: { order: Order } };
@@ -25,20 +62,37 @@ const statusConfig: Record<string, { label: string; dot: string; badge: string }
 };
 
 const TIMELINE_STEPS = [
-  { key: "PENDING",    label: "Order placed" },
-  { key: "PAID",       label: "Payment confirmed" },
-  { key: "PROCESSING", label: "Processing" },
-  { key: "SHIPPED",    label: "Shipped" },
-  { key: "DELIVERED",  label: "Delivered" },
+  { key: "PENDING",    label: "Order placed",       desc: "We received your order" },
+  { key: "PAID",       label: "Payment confirmed",  desc: "Payment was verified" },
+  { key: "PROCESSING", label: "Processing",          desc: "Being prepared for shipment" },
+  { key: "SHIPPED",    label: "Shipped",             desc: "On its way to you" },
+  { key: "DELIVERED",  label: "Delivered",           desc: "Order has been delivered" },
 ];
 
-function OrderTimeline({ status }: { status: string }) {
+const ACTIVE_STATUSES = new Set(["PENDING", "PAID", "PROCESSING", "SHIPPED"]);
+
+function getEstimatedDelivery(createdAt: string, status: string): string {
+  const base = new Date(createdAt);
+  const offset = status === "SHIPPED" ? 2 : 5;
+  const lo = new Date(base);
+  const hi = new Date(base);
+  lo.setDate(lo.getDate() + offset);
+  hi.setDate(hi.getDate() + offset + 3);
+  const fmt = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return `${fmt(lo)} – ${fmt(hi)}`;
+}
+
+function isWithin30Days(dateStr: string): boolean {
+  return Date.now() - new Date(dateStr).getTime() < 30 * 24 * 60 * 60 * 1000;
+}
+
+function OrderTimeline({ status, createdAt }: { status: string; createdAt: string }) {
   if (status === "CANCELLED" || status === "REFUNDED") {
     return (
       <div className={`flex items-center gap-3 rounded-2xl border px-5 py-4 ${
         status === "CANCELLED" ? "border-edge/40 bg-well/50" : "border-blue-500/15 bg-blue-500/5"
       }`}>
-        <div className={`flex size-8 shrink-0 items-center justify-center rounded-full ${status === "CANCELLED" ? "bg-raised" : "bg-blue-500/10"}`}>
+        <div className={`flex size-9 shrink-0 items-center justify-center rounded-full ${status === "CANCELLED" ? "bg-raised" : "bg-blue-500/10"}`}>
           <svg className={`size-4 ${status === "CANCELLED" ? "text-ink4" : "text-blue-400"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d={
               status === "CANCELLED"
@@ -54,7 +108,7 @@ function OrderTimeline({ status }: { status: string }) {
           <p className="mt-0.5 text-xs text-ink4">
             {status === "CANCELLED"
               ? "This order was cancelled and will not be fulfilled."
-              : "A refund has been processed for this order."}
+              : "A refund has been processed to your original payment method."}
           </p>
         </div>
       </div>
@@ -75,8 +129,11 @@ function OrderTimeline({ status }: { status: string }) {
         {TIMELINE_STEPS.map((step, i) => {
           const done   = i < currentIdx;
           const active = i === currentIdx;
+          const placedDate = i === 0 && (done || active)
+            ? new Date(createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+            : null;
           return (
-            <div key={step.key} className="relative flex flex-1 flex-col items-center gap-2.5">
+            <div key={step.key} className="group relative flex flex-1 flex-col items-center gap-2.5">
               <div className={`relative z-10 flex size-7 items-center justify-center rounded-full border-2 transition-all duration-300 ${
                 done ? "border-emerald-500 bg-emerald-500 shadow-sm shadow-emerald-500/30" :
                 active ? "border-emerald-500 bg-page ring-4 ring-emerald-500/15" : "border-stroke bg-page"
@@ -91,15 +148,25 @@ function OrderTimeline({ status }: { status: string }) {
                   <span className="size-1.5 rounded-full bg-edge" />
                 )}
               </div>
-              <span className={`max-w-[60px] text-center text-[10px] font-medium leading-tight sm:max-w-none sm:text-[11px] ${
-                active ? "text-ink font-semibold" : done ? "text-ink3" : "text-ink4"
+              <span className={`max-w-[58px] text-center text-[10px] font-medium leading-tight sm:max-w-none sm:text-[11px] ${
+                active ? "font-semibold text-ink" : done ? "text-ink3" : "text-ink4"
               }`}>
                 {step.label}
               </span>
+              {placedDate && (
+                <span className="hidden text-[10px] tabular-nums text-ink4 sm:block">{placedDate}</span>
+              )}
             </div>
           );
         })}
       </div>
+
+      {/* Current step description */}
+      {currentIdx >= 0 && (
+        <p className="mt-5 text-center text-xs text-ink4">
+          {TIMELINE_STEPS[currentIdx].desc}
+        </p>
+      )}
     </div>
   );
 }
@@ -134,25 +201,39 @@ export function OrderDetailPage() {
     },
   });
 
-  /* Fix #5 — use Promise.all, show loading state */
   async function handleReorder(order: Order) {
-    const ids = order.items.map((i) => i.product_id).filter(Boolean);
-    if (!ids.length) { toast.error("No products to reorder."); return; }
+    const reorderItems = order.items.filter((i) => i.product_id);
+    if (!reorderItems.length) { toast.error("No products to reorder."); return; }
     setReordering(true);
     try {
       const results = await Promise.allSettled(
-        ids.map((pid) =>
+        reorderItems.map((i) =>
           apiFetch("/api/v1/cart/items", {
             method: "POST", auth: true,
-            body: JSON.stringify({ product_id: pid, quantity: 1 }),
+            body: JSON.stringify({ product_id: i.product_id, quantity: i.quantity }),
           }),
         ),
       );
       const added = results.filter((r) => r.status === "fulfilled").length;
+      const failedItems = results
+        .map((r, idx) => (r.status === "rejected" ? reorderItems[idx] : null))
+        .filter((x): x is NonNullable<typeof x> => x !== null);
+
       queryClient.invalidateQueries({ queryKey: queryKeys.cart() });
-      toast.success(`${added} item${added !== 1 ? "s" : ""} added to cart`, {
-        action: { label: "View cart", onClick: () => navigate("/cart") },
-      });
+
+      if (added > 0) {
+        toast.success(`${added} item${added !== 1 ? "s" : ""} added to cart`, {
+          action: { label: "View cart", onClick: () => navigate("/cart") },
+        });
+      }
+      if (failedItems.length > 0) {
+        const names = failedItems
+          .slice(0, 2)
+          .map((i) => i.product?.name ?? "item")
+          .join(", ");
+        const extra = failedItems.length > 2 ? ` +${failedItems.length - 2} more` : "";
+        toast.warning(`Could not add: ${names}${extra} — item may be out of stock`);
+      }
     } finally {
       setReordering(false);
     }
@@ -179,6 +260,9 @@ export function OrderDetailPage() {
   const order = orderQuery.data;
   const status = statusConfig[order.status] ?? { label: order.status, dot: "bg-ink4", badge: "border-edge bg-well text-ink3" };
   const canCancel = order.status === "PENDING";
+  const isActive = ACTIVE_STATUSES.has(order.status);
+  const isDelivered = order.status === "DELIVERED";
+  const canReturn = isDelivered && isWithin30Days(order.createdAt);
   const subtotal = order.items.reduce((s, i) => s + i.price * i.quantity, 0);
   const shipping = subtotal >= 50 ? 0 : 4.99;
 
@@ -189,7 +273,7 @@ export function OrderDetailPage() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
     >
-      {/* Back + header — print:hidden on actions */}
+      {/* Back + header */}
       <div>
         <Link to="/orders" className="inline-flex items-center gap-1.5 text-sm text-ink4 transition-colors hover:text-ink2 print:hidden">
           <ArrowLeftIcon className="size-3.5" />
@@ -199,9 +283,12 @@ export function OrderDetailPage() {
         <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Order details</p>
-            <h1 className="mt-1 font-display text-2xl font-bold text-ink sm:text-3xl">
-              #{order.id.slice(0, 8).toUpperCase()}
-            </h1>
+            <div className="mt-1 flex items-center gap-2">
+              <h1 className="font-display text-2xl font-bold text-ink sm:text-3xl">
+                #{order.id.slice(0, 8).toUpperCase()}
+              </h1>
+              <CopyOrderId id={order.id} />
+            </div>
             <p className="mt-1 text-sm text-ink4">
               {new Date(order.createdAt).toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
             </p>
@@ -213,7 +300,7 @@ export function OrderDetailPage() {
               {status.label}
             </span>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center justify-end gap-2">
               <button
                 type="button"
                 onClick={() => handleReorder(order)}
@@ -247,9 +334,113 @@ export function OrderDetailPage() {
         </div>
       </div>
 
-      <OrderTimeline status={order.status} />
+      {/* Progress timeline */}
+      <OrderTimeline status={order.status} createdAt={order.createdAt} />
 
+      {/* Estimated delivery banner for active orders */}
+      {isActive && (
+        <div className="flex items-center gap-3 rounded-2xl border border-violet-500/15 bg-violet-500/5 px-5 py-4">
+          <TruckIcon className="size-5 shrink-0 text-violet-500" />
+          <div>
+            <p className="text-sm font-semibold text-ink">Estimated delivery</p>
+            <p className="mt-0.5 text-sm text-ink3">{getEstimatedDelivery(order.createdAt, order.status)}</p>
+          </div>
+          {order.status === "SHIPPED" && (
+            <span className="ml-auto shrink-0 rounded-full border border-violet-500/20 bg-violet-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-violet-500">
+              In transit
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Tracking section for shipped orders */}
+      {order.status === "SHIPPED" && (
+        <div className="overflow-hidden rounded-2xl border border-stroke bg-card">
+          <div className="flex items-center justify-between border-b border-stroke px-5 py-4">
+            <h2 className="text-sm font-semibold text-ink">Shipment tracking</h2>
+            {order.trackingCarrier && (
+              <span className="rounded-full border border-violet-500/20 bg-violet-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-violet-600 dark:text-violet-400">
+                {order.trackingCarrier}
+              </span>
+            )}
+          </div>
+          {order.trackingNumber ? (
+            <div className="space-y-3 px-5 py-5">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-ink4">Tracking number</p>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 rounded-lg border border-stroke bg-raised px-3 py-2 font-mono text-sm font-semibold text-ink">
+                  {order.trackingNumber}
+                </code>
+                <CopyOrderId id={order.trackingNumber} />
+              </div>
+              <p className="text-xs text-ink4">
+                Use this number on the carrier's website to get live updates.
+              </p>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-3 px-5 py-6 text-center">
+              <div className="flex size-10 items-center justify-center rounded-full bg-violet-500/10">
+                <TruckIcon className="size-5 text-violet-500" />
+              </div>
+              <p className="text-sm font-medium text-ink">Your package is on its way</p>
+              <p className="text-xs text-ink4">
+                Tracking information will be emailed to you once available from the carrier.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Delivered — review + return actions */}
+      {isDelivered && (
+        <div className="overflow-hidden rounded-2xl border border-emerald-500/20 bg-emerald-500/5">
+          <div className="flex items-center gap-3 border-b border-emerald-500/15 px-5 py-4">
+            <CheckCircleIcon className="size-5 text-emerald-500" />
+            <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+              Order delivered successfully
+            </p>
+          </div>
+          <div className="space-y-3 px-5 py-4">
+            {/* Review links for every item in the order */}
+            <div>
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-ink4">
+                Rate your items
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {order.items
+                  .filter((i) => i.product_id && i.product?.name)
+                  .map((item) => (
+                    <Link
+                      key={item.id}
+                      to={`/products/${item.product_id}#reviews`}
+                      className="inline-flex items-center gap-2 rounded-lg border border-stroke bg-card px-3 py-1.5 text-[13px] font-medium text-ink2 transition-colors hover:bg-raised hover:text-ink"
+                    >
+                      <StarIcon className="size-3.5 shrink-0 text-amber-400" filled />
+                      <span className="max-w-[160px] truncate">{item.product!.name}</span>
+                    </Link>
+                  ))}
+              </div>
+            </div>
+
+            {canReturn && (
+              <button
+                type="button"
+                onClick={() => toast.info("Return requests can be submitted via our support team.")}
+                className="inline-flex items-center gap-2 rounded-lg border border-stroke bg-card px-3.5 py-2 text-[13px] font-medium text-ink2 transition-colors hover:bg-raised hover:text-ink"
+              >
+                <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" />
+                </svg>
+                Request return
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Items + summary */}
       <div className="grid gap-5 lg:grid-cols-3">
+        {/* Items */}
         <div className="lg:col-span-2">
           <div className="overflow-hidden rounded-2xl border border-stroke bg-card">
             <div className="border-b border-stroke px-5 py-4">
@@ -290,7 +481,9 @@ export function OrderDetailPage() {
                       </div>
                     </div>
                     <div className="shrink-0 text-right">
-                      <p className="text-sm font-bold tabular-nums text-ink">${(item.price * item.quantity).toFixed(2)}</p>
+                      <p className="text-sm font-bold tabular-nums text-ink">
+                        ${(item.price * item.quantity).toFixed(2)}
+                      </p>
                       {item.quantity > 1 && (
                         <p className="mt-0.5 text-[11px] tabular-nums text-ink4">${item.price.toFixed(2)} each</p>
                       )}
@@ -302,12 +495,13 @@ export function OrderDetailPage() {
           </div>
         </div>
 
+        {/* Summary */}
         <div className="h-fit overflow-hidden rounded-2xl border border-stroke bg-card">
           <div className="border-b border-stroke px-5 py-4">
             <h2 className="text-sm font-semibold text-ink">Order summary</h2>
           </div>
 
-          <div className="px-5 py-4 space-y-2.5">
+          <div className="space-y-2.5 px-5 py-4">
             <div className="flex items-center justify-between text-sm">
               <span className="text-ink3">Subtotal</span>
               <span className="tabular-nums font-medium text-ink">${subtotal.toFixed(2)}</span>
@@ -327,27 +521,46 @@ export function OrderDetailPage() {
             <span className="text-lg font-bold tabular-nums text-ink">${order.total.toFixed(2)}</span>
           </div>
 
-          {/* Fix #4 — Cancel with ConfirmButton */}
+          {/* Shipping address */}
+          {order.shippingAddress && (
+            <div className="space-y-1 border-t border-stroke px-5 py-4">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-ink4">Shipped to</p>
+              <p className="text-sm text-ink">{order.shippingAddress.street}</p>
+              <p className="text-sm text-ink3">
+                {order.shippingAddress.city}
+                {order.shippingAddress.state ? `, ${order.shippingAddress.state}` : ""}
+                {order.shippingAddress.zipCode ? ` ${order.shippingAddress.zipCode}` : ""}
+              </p>
+              {order.shippingAddress.country && (
+                <p className="text-sm text-ink3">{order.shippingAddress.country}</p>
+              )}
+            </div>
+          )}
+
+          {/* Payment method */}
+          {order.paymentMethod && (
+            <div className="flex items-center gap-2 border-t border-stroke px-5 py-4">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-ink4 shrink-0">Payment</p>
+              <p className="text-sm text-ink3 capitalize">
+                {order.paymentMethod.type === "card"
+                  ? `${order.paymentMethod.brand} ···· ${order.paymentMethod.last4}`
+                  : `PayPal · ${order.paymentMethod.email}`}
+              </p>
+            </div>
+          )}
+
           {canCancel && (
-            <div className="border-t border-stroke px-5 py-4 space-y-3 print:hidden">
+            <div className="space-y-3 border-t border-stroke px-5 py-4 print:hidden">
               <p className="text-xs text-ink4">This order hasn't shipped yet and can still be cancelled.</p>
               <ConfirmButton
                 onConfirm={() => cancelMutation.mutate()}
                 message="Permanently cancel this order?"
                 confirmLabel="Yes, cancel order"
-                className="w-full rounded-lg border border-red-500/25 bg-transparent px-4 py-2.5 text-sm font-semibold text-red-500 dark:text-red-400 transition-colors hover:bg-red-500/8 hover:border-red-500/40 disabled:opacity-50"
+                className="w-full rounded-lg border border-red-500/25 bg-transparent px-4 py-2.5 text-sm font-semibold text-red-500 transition-colors hover:border-red-500/40 hover:bg-red-500/8 dark:text-red-400 disabled:opacity-50"
+                disabled={cancelMutation.isPending}
               >
                 {cancelMutation.isPending ? "Cancelling…" : "Cancel order"}
               </ConfirmButton>
-            </div>
-          )}
-
-          {order.status === "DELIVERED" && (
-            <div className="border-t border-stroke px-5 py-4">
-              <div className="flex items-center gap-2.5 text-sm">
-                <CheckCircleIcon className="size-4 shrink-0 text-emerald-500" />
-                <span className="text-ink3">Delivered successfully</span>
-              </div>
             </div>
           )}
         </div>

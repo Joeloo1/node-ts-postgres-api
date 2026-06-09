@@ -31,17 +31,17 @@ const clearUsersListCache = async () => {
 const AUTH_USER_TTL = 300; // 5 minutes
 const getAuthUserKey = (id: string) => `auth:user:${id}`;
 
-const buildAuthCookieOptions = (): CookieOptions => {
-  const maxAgeMs =
-    Number(process.env.JWT_COOKIE_EXPIRES_DAYS ?? "7") * 24 * 60 * 60 * 1000;
-  return {
-    httpOnly: true,
-    secure: isProd,
-    sameSite: isProd ? "none" : "lax",
-    maxAge: maxAgeMs,
-    path: "/",
-  };
-};
+// const buildAuthCookieOptions = (): CookieOptions => {
+//   const maxAgeMs =
+//     Number(process.env.JWT_COOKIE_EXPIRES_DAYS ?? "7") * 24 * 60 * 60 * 1000;
+//   return {
+//     httpOnly: true,
+//     secure: isProd,
+//     sameSite: isProd ? "none" : "lax",
+//     maxAge: maxAgeMs,
+//     path: "/",
+//   };
+// };
 
 // const setAuthCookie = (res: Response, token: string) => {
 //   res.cookie("jwt", token, buildAuthCookieOptions());

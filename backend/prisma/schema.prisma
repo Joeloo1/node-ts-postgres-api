@@ -74,6 +74,9 @@ model Products {
   reviews      Review[]
   cartItems    CartItem[]
   orderItems   OrderItem[]
+  variants     ProductVariant[]
+  questions    ProductQuestion[]
+  priceHistory PriceHistory[]
 
   @@index([category_id])
   @@index([createdAt(sort: Desc)])
@@ -94,7 +97,10 @@ model User {
   addresses          Address[]
   orders             Order[]
   cart               Cart?
-  reviews            Review[]    
+  reviews            Review[]
+  reviewVotes        ReviewVote[]
+  questions          ProductQuestion[]
+  answers            ProductAnswer[]
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
   isVerified         Boolean   @default(false)
@@ -180,15 +186,83 @@ model CartItem {
 }
 
 model Review {
+  id         String       @id @default(uuid())
+  userId     String
+  user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product_id String       @db.Uuid
+  product    Products     @relation(fields: [product_id], references: [product_id], onDelete: Cascade)
+  content    String?
+  rating     Float
+  votes      ReviewVote[]
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  @@unique([userId, product_id])
+}
+
+model ReviewVote {
   id        String   @id @default(uuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  product_id String   @db.Uuid
-  product   Products @relation(fields: [product_id], references: [product_id], onDelete: Cascade)
-  content   String?
-  rating    Float
+  reviewId  String
+  review    Review   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  helpful   Boolean
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([userId, product_id])
+  @@unique([userId, reviewId])
+  @@index([reviewId])
+}
+
+model ProductVariant {
+  id            String   @id @default(uuid())
+  product_id    String   @db.Uuid
+  product       Products @relation(fields: [product_id], references: [product_id], onDelete: Cascade)
+  name          String   @db.VarChar(100)
+  priceModifier Float    @default(0)
+  stock         Int      @default(0)
+  availability  Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([product_id])
+}
+
+model ProductQuestion {
+  id         String          @id @default(uuid())
+  product_id String          @db.Uuid
+  product    Products        @relation(fields: [product_id], references: [product_id], onDelete: Cascade)
+  userId     String
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question   String
+  answers    ProductAnswer[]
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+
+  @@index([product_id])
+  @@index([createdAt(sort: Desc)])
+}
+
+model ProductAnswer {
+  id         String          @id @default(uuid())
+  questionId String
+  question   ProductQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  answer     String
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+
+  @@index([questionId])
+}
+
+model PriceHistory {
+  id         String   @id @default(uuid())
+  product_id String   @db.Uuid
+  product    Products @relation(fields: [product_id], references: [product_id], onDelete: Cascade)
+  price      Float
+  createdAt  DateTime @default(now())
+
+  @@index([product_id])
+  @@index([product_id, createdAt(sort: Desc)])
 }

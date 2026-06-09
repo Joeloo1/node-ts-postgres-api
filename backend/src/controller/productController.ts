@@ -94,6 +94,13 @@ export const createProduct = catchAsync(
       },
     });
 
+    // Seed initial price into history
+    if (product.price != null) {
+      await prisma.priceHistory.create({
+        data: { product_id: product.product_id, price: product.price },
+      });
+    }
+
     await clearProductCache();
 
     await logAudit({
@@ -285,6 +292,14 @@ export const updateProduct = catchAsync(
       data,
       include: productCategoryInclude,
     });
+
+    // Record price history whenever price changes
+    if (data.price !== undefined && data.price !== existingProduct.price) {
+      await prisma.priceHistory.create({
+        data: { product_id: productId, price: data.price },
+      });
+      await redis.del(`price_history:${productId}`);
+    }
 
     await redis.del(getProductKey(productId));
     await clearProductCache();

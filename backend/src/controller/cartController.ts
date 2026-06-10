@@ -130,12 +130,32 @@ export const updateCartItem = catchAsync(
 
     const item = await prisma.cartItem.findUnique({
       where: { id: itemId },
-      include: { cart: true },
+      include: {
+        cart: true,
+        product: {
+          select: {
+            stock: true,
+            name: true,
+          },
+        },
+      },
     });
 
     if (!item || item.cart.userId !== req.user!.id) {
-      logger.warn("Cart item not found or user unauthorized", { userId: req.user!.id, itemId });
+      logger.warn("Cart item not found or user unauthorized", {
+        userId: req.user!.id,
+        itemId,
+      });
       return next(new AppError("Cart items not found", 404));
+    }
+
+    if (item.product.stock < quantity) {
+      return next(
+        new AppError(
+          `Only ${item.product.stock} unit${item.product.stock === 1 ? "" : "s"} of "${item.product.name}" available`,
+          400,
+        ),
+      );
     }
 
     await prisma.cartItem.update({
@@ -148,6 +168,7 @@ export const updateCartItem = catchAsync(
       itemId,
       quantity,
     });
+
     res.status(200).json({
       status: "success",
       message: "Cart items updated ",

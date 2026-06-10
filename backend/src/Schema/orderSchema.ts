@@ -1,3 +1,4 @@
+import { OrderStatus } from "@prisma/client";
 import { z } from "zod";
 
 export const orderItemSchema = z.object({
@@ -25,4 +26,10 @@ export const updateProductSchema = z.object({
   availability: z.boolean().optional(),
   brand: z.string().max(100).optional(),
   category_id: z.number().int().positive().optional(),
+});
+
+export const updateOrderStatusSchema = z.object({
+  status: z.nativeEnum(OrderStatus, {
+    message: `status must be one of: ${Object.values(OrderStatus).join(", ")}`,
+  }),
 });

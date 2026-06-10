@@ -115,7 +115,9 @@ export const deleteQuestion = catchAsync(
     const isAdmin = req.user!.roles === "ADMIN";
 
     const question = await prisma.productQuestion.findUnique({ where: { id } });
+
     if (!question) return next(new AppError("Question not found", 404));
+
     if (question.userId !== userId && !isAdmin)
       return next(new AppError("Unauthorized", 403));
 
@@ -128,7 +130,7 @@ export const deleteQuestion = catchAsync(
 
 export const deleteAnswer = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
-    const { id } = req.params;
+    const id = req.params.answerId ?? req.params.id;
     const userId = req.user!.id;
     const isAdmin = req.user!.roles === "ADMIN";
 
@@ -136,7 +138,9 @@ export const deleteAnswer = catchAsync(
       where: { id },
       include: { question: { select: { product_id: true } } },
     });
+
     if (!answerRecord) return next(new AppError("Answer not found", 404));
+
     if (answerRecord.userId !== userId && !isAdmin)
       return next(new AppError("Unauthorized", 403));
 

@@ -4,43 +4,36 @@ import {
   updateVariant,
   deleteVariant,
 } from "../../controller/variantsController";
-import { Protect, restrictTo } from "../../controller/authController";
-import { Role } from "../../types/role.types";
-import {
-  validateBody,
-  validateParams,
-} from "../../middleware/validationMiddleware";
+import { validateBody, validateParams } from "../../middleware/validationMiddleware";
 import {
   createVariantSchema,
   updateVariantSchema,
   variantIdSchema,
 } from "../../Schema/variantSchema";
+import { productIdSchema } from "../../Schema/productSchema";
 
-const router = express.Router({ mergeParams: true });
+// Auth/role guard is applied globally in adminRoutes.ts — no need to repeat it here.
+const router = express.Router();
 
-// POST /api/v1/products/:id/variants — admin only
+// POST  /api/v1/admin/variants/product/:id  — :id is the product UUID
 router.post(
-  "/",
-  Protect,
-  restrictTo(Role.ADMIN),
+  "/product/:id",
+  validateParams(productIdSchema),
   validateBody(createVariantSchema),
   createVariant,
 );
 
-// PATCH/DELETE /api/v1/variants/:id — admin only
+// PATCH  /api/v1/admin/variants/:id  — :id is the variant UUID
 router.patch(
   "/:id",
-  Protect,
-  restrictTo(Role.ADMIN),
   validateParams(variantIdSchema),
   validateBody(updateVariantSchema),
   updateVariant,
 );
 
+// DELETE /api/v1/admin/variants/:id  — :id is the variant UUID
 router.delete(
   "/:id",
-  Protect,
-  restrictTo(Role.ADMIN),
   validateParams(variantIdSchema),
   deleteVariant,
 );

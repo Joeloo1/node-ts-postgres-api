@@ -5,7 +5,10 @@ import catchAsync from "../utils/catchAsync";
 import AppError from "../utils/AppError";
 import { CancelledBy, OrderStatus } from "@prisma/client";
 import logger from "../config/logger";
-import { createOrderSchema } from "../Schema/orderSchema";
+import {
+  createOrderSchema,
+  updateOrderStatusSchema,
+} from "../Schema/orderSchema";
 import { emailQueue } from "../jobs/emailQueue";
 import { logAudit } from "../utils/audit";
 
@@ -35,6 +38,7 @@ const ORDER_STATUS_COPY: Partial<
       "Your order has been cancelled. If you have questions, please contact support.",
   },
 };
+
 export const createOrder = catchAsync(
   async (req: Request, res: Response, _next: NextFunction) => {
     const userId = req.user!.id;
@@ -234,7 +238,7 @@ export const getOrderById = catchAsync(
 // update Order (only Admin)
 export const updateOrder = catchAsync(
   async (req: Request, res: Response, _next: NextFunction) => {
-    const { status } = req.body;
+    const { status } = updateOrderStatusSchema.parse(req.body);
 
     const before = await prisma.order.findUnique({
       where: { id: req.params.id },
@@ -279,7 +283,9 @@ export const updateOrder = catchAsync(
       after: { status: order.status },
     });
 
-    logger.info(`Order ${order.id} status updated: ${before?.status} → ${order.status}`);
+    logger.info(
+      `Order ${order.id} status updated: ${before?.status} → ${order.status}`,
+    );
     res.status(200).json({
       status: "success",
       message: "Order status updated successfully",
@@ -355,11 +361,11 @@ export const cancelOrder = catchAsync(
 
     await logAudit({
       req,
-      action: "ADMIN_CANCEL_ORDER",
+      action: "USER_CANCEL_ORDER",
       entityType: "Order",
       entityId: orderId,
       before: { status: order.status },
-      after: { status: OrderStatus.CANCELLED, cancelledBy: CancelledBy.ADMIN },
+      after: { status: OrderStatus.CANCELLED, cancelledBy: CancelledBy.USER },
     });
 
     logger.info(`Order with ID: ${orderId} sucessfully cancelled`);

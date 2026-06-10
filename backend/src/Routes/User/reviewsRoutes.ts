@@ -21,25 +21,23 @@ import { Protect } from "../../controller/authController";
 
 const router = express.Router();
 
+router.get("/", getProductReview);
+
 router.use(Protect);
 
-router
-  .route("/")
-  .get(getProductReview)
-  .post(validateBody(createReviewSchema), createReview);
+router.post("/", validateBody(createReviewSchema), createReview);
 
-router
-  .route("/:id")
-  .patch(
-    validateParams(reviewIdShema),
-    validateBody(updateReviewSchema),
-    updateReview,
-  )
-  .delete(validateParams(reviewIdShema), deleteReview);
+router.patch(
+  "/:id",
+  validateParams(reviewIdShema),
+  validateBody(updateReviewSchema),
+  updateReview,
+);
 
-router
-  .route("/:id/vote")
-  .post(validateParams(reviewIdShema), voteReview)
-  .delete(validateParams(reviewIdShema), unvoteReview);
+router.delete("/:id", validateParams(reviewIdShema), deleteReview);
+
+router.post("/:id/vote", validateParams(reviewIdShema), voteReview);
+
+router.delete("/:id/vote", validateParams(reviewIdShema), unvoteReview);
 
 export default router;

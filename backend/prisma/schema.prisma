@@ -2,7 +2,6 @@ generator client {
   provider = "prisma-client-js"
 }
 
-  // url is no longer supported, configure in prisma.config.ts
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
@@ -77,6 +76,7 @@ model Products {
   variants     ProductVariant[]
   questions    ProductQuestion[]
   priceHistory PriceHistory[]
+  wishlists    Wishlist[]
 
   @@index([category_id])
   @@index([createdAt(sort: Desc)])
@@ -101,6 +101,7 @@ model User {
   reviewVotes        ReviewVote[]
   questions          ProductQuestion[]
   answers            ProductAnswer[]
+  wishlist           Wishlist[]
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
   isVerified         Boolean   @default(false)
@@ -265,4 +266,38 @@ model PriceHistory {
 
   @@index([product_id])
   @@index([product_id, createdAt(sort: Desc)])
+}
+
+model Wishlist {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product_id String   @db.Uuid
+  product    Products @relation(fields: [product_id], references: [product_id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, product_id])
+  @@index([userId])
+}
+
+model NewsletterSubscription {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@index([createdAt(sort: Desc)])
+}
+
+model ContactMessage {
+  id        String   @id @default(uuid())
+  name      String
+  email     String
+  subject   String
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([createdAt(sort: Desc)])
+  @@index([read])
 }

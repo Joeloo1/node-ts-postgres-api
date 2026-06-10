@@ -3,63 +3,59 @@ import logger from "./logger";
 
 const redisUrl = process.env.REDIS_URL;
 
-console.log("🔧 Redis URL:", redisUrl ? "configured" : "NOT CONFIGURED");
-
 let clientInstance: RedisClientType | null = null;
 
 const initializeClient = (): RedisClientType => {
   if (!clientInstance) {
-    console.log("📦 Creating Redis client...");
     clientInstance = createClient({
       url: redisUrl,
       socket: {
-        reconnectStrategy: (retries) => {
-          const delay = Math.min(retries * 50, 500);
-          console.log(`🔄 Redis reconnect attempt ${retries}, waiting ${delay}ms...`);
-          return delay;
-        },
+        reconnectStrategy: (retries) => Math.min(retries * 50, 500),
       },
     }) as RedisClientType;
 
     clientInstance.on("error", (err) => {
-      console.error("❌ Redis Error:", err.message);
       logger.error("Redis client error", err);
     });
 
     clientInstance.on("connect", () => {
-      console.log("🟢 Redis connected");
+      logger.info("Redis connected");
     });
 
     clientInstance.on("ready", () => {
-      console.log("✅ Redis ready");
+      logger.info("Redis ready");
     });
   }
   return clientInstance;
 };
 
-// Export as a lazy getter/property
 export const client = new Proxy({} as RedisClientType, {
-  get: (target, prop) => {
+  get: (_target, prop) => {
     return initializeClient()[prop as keyof RedisClientType];
-  }
+  },
 });
 
 export const getClient = initializeClient;
+
+// SCAN-safe cache invalidation — avoids blocking KEYS command in production
+export const scanDel = async (pattern: string): Promise<void> => {
+  const rc = initializeClient();
+  const keys: string[] = [];
+  for await (const page of rc.scanIterator({ MATCH: pattern, COUNT: 100 })) {
+    const pageKeys = Array.isArray(page) ? page : [page];
+    keys.push(...pageKeys);
+  }
+  if (keys.length > 0) await Promise.all(keys.map((k) => rc.del(k)));
+};
 
 export const connectRedis = async () => {
   try {
     const redisClient = initializeClient();
     if (!redisClient.isOpen) {
-      console.log("⏳ Connecting to Redis...");
       await redisClient.connect();
-      console.log("🟢 Redis Connected");
-      logger.info("🟢 Redis Connected");
-    } else {
-      console.log("✅ Redis already connected");
+      logger.info("Redis connected successfully");
     }
   } catch (err) {
-    const errorMsg = err instanceof Error ? err.message : String(err);
-    console.error("❌ Failed to connect to Redis during startup:", errorMsg);
     logger.error("Redis connection error", err);
     throw err;
   }

@@ -2,7 +2,6 @@ import { z } from "zod";
 
 // create products
 export const createProductSchema = z.object({
-  // product_id: z.number(),
   name: z
     .string()
     .min(1, { message: "A product must have a name" })
@@ -16,10 +15,9 @@ export const createProductSchema = z.object({
   discount: z.number().min(0).max(100).optional(),
   availability: z.boolean().optional().default(true),
   brand: z.string().max(100).optional(),
-  rating: z.number().min(0).max(5),
+  rating: z.number().min(0).max(5).optional(),
+  stock: z.number().int().min(0).optional().default(0),
   category_id: z.number().int().optional(),
-  createdAt: z.date().default(() => new Date()),
-  updatedAt: z.date().default(() => new Date()),
 });
 
 export const productIdSchema = z.object({
@@ -49,6 +47,8 @@ export const updateProductSchema = z.object({
   brand: z.string().max(100).optional(),
 
   rating: z.number().min(0).max(5).optional(),
+
+  stock: z.number().int().min(0).optional(),
 
   category_id: z.number().int().optional(),
 });

@@ -2,7 +2,6 @@ generator client {
   provider = "prisma-client-js"
 }
 
-  // url is no longer supported, configure in prisma.config.ts
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
@@ -15,6 +14,7 @@ enum OrderStatus {
   SHIPPED
   DELIVERED
   CANCELLED
+  REFUNDED
 }
 
 enum UserRole {
@@ -29,6 +29,22 @@ enum CancelledBy {
 }
 
 
+model AuditLog {
+  id         String   @id @default(uuid())
+  adminId    String
+  action     String
+  entityType String
+  entityId   String
+  before     Json?
+  after      Json?
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  @@index([adminId])
+  @@index([entityType, entityId])
+  @@index([createdAt(sort: Desc)])
+}
+
 model Category {
   category_id Int        @id @default(autoincrement())   
   name        String     @unique @db.VarChar(100)
@@ -41,14 +57,15 @@ model Products {
   product_id   String    @id @default(uuid()) @db.Uuid
   name         String    @db.VarChar(255)
   description  String?
-  price        Float     
+  price        Float
   unit         String?   @db.VarChar(50)
   image        String?
   images       String[]  @default([])
-  discount     Float?    
+  discount     Float?
+  stock        Int       @default(0)
   availability Boolean   @default(true)
   brand        String?   @db.VarChar(100)
-  rating       Float?    
+  rating       Float?
   category_id  Int?
   createdAt    DateTime  @default(now()) @db.Timestamp(6)
   updatedAt    DateTime  @updatedAt @db.Timestamp(6)
@@ -56,6 +73,17 @@ model Products {
   reviews      Review[]
   cartItems    CartItem[]
   orderItems   OrderItem[]
+  variants     ProductVariant[]
+  questions    ProductQuestion[]
+  priceHistory PriceHistory[]
+  wishlists    Wishlist[]
+
+  @@index([category_id])
+  @@index([createdAt(sort: Desc)])
+  @@index([price])
+  @@index([rating])
+  @@index([availability])
+  @@index([category_id, createdAt(sort: Desc)])
 }
 
 model User {
@@ -69,14 +97,20 @@ model User {
   addresses          Address[]
   orders             Order[]
   cart               Cart?
-  reviews            Review[]    
+  reviews            Review[]
+  reviewVotes        ReviewVote[]
+  questions          ProductQuestion[]
+  answers            ProductAnswer[]
+  wishlist           Wishlist[]
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
   isVerified         Boolean   @default(false)
   resetToken         String?
   resetTokenExpiry   DateTime?
-  passwordChangedAt  DateTime?  
-  active             Boolean   @default(true) 
+  passwordChangedAt  DateTime?
+  verifyToken        String?
+  verifyTokenExpiry  DateTime?
+  active             Boolean   @default(true)
 }
 
 model Address {
@@ -102,11 +136,19 @@ model Order {
 
   items        OrderItem[]
 
+  stripeSessionId String?      @unique
+
   cancelledAt  DateTime?
   cancelledBy  CancelledBy?
 
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt(sort: Desc)])
+  @@index([userId, status])
+  @@index([userId, createdAt(sort: Desc)])
 }
 
 model OrderItem {
@@ -119,6 +161,9 @@ model OrderItem {
   price      Float
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+
+  @@index([orderId])
+  @@index([product_id])
 }
 
 model Cart {
@@ -142,15 +187,117 @@ model CartItem {
 }
 
 model Review {
+  id         String       @id @default(uuid())
+  userId     String
+  user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product_id String       @db.Uuid
+  product    Products     @relation(fields: [product_id], references: [product_id], onDelete: Cascade)
+  content    String?
+  rating     Float
+  votes      ReviewVote[]
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  @@unique([userId, product_id])
+}
+
+model ReviewVote {
   id        String   @id @default(uuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  product_id String   @db.Uuid
-  product   Products @relation(fields: [product_id], references: [product_id], onDelete: Cascade)
-  content   String?
-  rating    Float
+  reviewId  String
+  review    Review   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  helpful   Boolean
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([userId, reviewId])
+  @@index([reviewId])
+}
+
+model ProductVariant {
+  id            String   @id @default(uuid())
+  product_id    String   @db.Uuid
+  product       Products @relation(fields: [product_id], references: [product_id], onDelete: Cascade)
+  name          String   @db.VarChar(100)
+  priceModifier Float    @default(0)
+  stock         Int      @default(0)
+  availability  Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([product_id])
+}
+
+model ProductQuestion {
+  id         String          @id @default(uuid())
+  product_id String          @db.Uuid
+  product    Products        @relation(fields: [product_id], references: [product_id], onDelete: Cascade)
+  userId     String
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question   String
+  answers    ProductAnswer[]
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+
+  @@index([product_id])
+  @@index([createdAt(sort: Desc)])
+}
+
+model ProductAnswer {
+  id         String          @id @default(uuid())
+  questionId String
+  question   ProductQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  answer     String
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+
+  @@index([questionId])
+}
+
+model PriceHistory {
+  id         String   @id @default(uuid())
+  product_id String   @db.Uuid
+  product    Products @relation(fields: [product_id], references: [product_id], onDelete: Cascade)
+  price      Float
+  createdAt  DateTime @default(now())
+
+  @@index([product_id])
+  @@index([product_id, createdAt(sort: Desc)])
+}
+
+model Wishlist {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product_id String   @db.Uuid
+  product    Products @relation(fields: [product_id], references: [product_id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
   @@unique([userId, product_id])
+  @@index([userId])
+}
+
+model NewsletterSubscription {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@index([createdAt(sort: Desc)])
+}
+
+model ContactMessage {
+  id        String   @id @default(uuid())
+  name      String
+  email     String
+  subject   String
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([createdAt(sort: Desc)])
+  @@index([read])
 }

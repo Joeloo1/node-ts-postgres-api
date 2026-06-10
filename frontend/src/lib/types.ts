@@ -12,11 +12,13 @@ export type Product = {
   image: string | null;
   images?: string[] | null;
   discount: number | null;
+  stock?: number;
   availability: boolean;
   brand: string | null;
   rating: number | null;
   category_id: number | null;
   category?: { category_id: number; name: string } | { name: string };
+  createdAt?: string;
 };
 
 export type User = {
@@ -26,6 +28,9 @@ export type User = {
   roles: string;
   phoneNumber?: string | null;
   profileImage?: string;
+  isVerified?: boolean;
+  createdAt?: string;
+  orderCount?: number;
 };
 
 export type CartItem = {
@@ -46,13 +51,19 @@ export type OrderStatus =
   | "PROCESSING"
   | "SHIPPED"
   | "DELIVERED"
-  | "CANCELLED";
+  | "CANCELLED"
+  | "REFUNDED";
 
 export type OrderItem = {
   id: string;
   product_id: string;
   quantity: number;
   price: number;
+  product?: {
+    name: string;
+    image: string | null;
+    images?: string[] | null;
+  };
 };
 
 export type Order = {
@@ -63,6 +74,19 @@ export type Order = {
   items: OrderItem[];
   createdAt: string;
   cancelledAt?: string | null;
+  shippingAddress?: {
+    street: string;
+    city: string;
+    state?: string | null;
+    zipCode?: string | null;
+    country?: string | null;
+  } | null;
+  paymentMethod?: (
+    | { type: "card"; brand: string; last4: string }
+    | { type: "paypal"; email: string }
+  ) | null;
+  trackingNumber?: string | null;
+  trackingCarrier?: string | null;
 };
 
 export type Address = {
@@ -72,6 +96,7 @@ export type Address = {
   state: string | null;
   zipCode: string | null;
   country: string | null;
+  isDefault: boolean;
 };
 
 export type Review = {
@@ -81,6 +106,41 @@ export type Review = {
   content: string | null;
   userId: string;
   user?: { id: string; name: string; email: string };
+  votes?: { helpful: boolean }[];
+  createdAt: string;
+};
+
+export type ProductVariant = {
+  id: string;
+  product_id: string;
+  name: string;
+  priceModifier: number;
+  stock: number;
+  availability: boolean;
+  createdAt: string;
+};
+
+export type ProductAnswer = {
+  id: string;
+  questionId: string;
+  userId: string;
+  user?: { id: string; name: string };
+  answer: string;
+  createdAt: string;
+};
+
+export type ProductQuestion = {
+  id: string;
+  product_id: string;
+  userId: string;
+  user?: { id: string; name: string };
+  question: string;
+  answers: ProductAnswer[];
+  createdAt: string;
+};
+
+export type PriceHistoryPoint = {
+  price: number;
   createdAt: string;
 };
 

@@ -13,6 +13,10 @@
     "docker:down": "npm --prefix backend run docker:down"
   },
   "devDependencies": {
+    "@types/compression": "^1.8.1",
     "concurrently": "^8.2.2"
+  },
+  "dependencies": {
+    "compression": "^1.8.1"
   }
 }

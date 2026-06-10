@@ -4,24 +4,14 @@ import catchAsync from "../utils/catchAsync";
 import AppError from "../utils/AppError";
 import { prisma } from "../config/database";
 import logger from "../config/logger";
+import { addToCartSchema, updateCartItemSchema } from "../Schema/cartSchema";
 
 // Add item to cart
 export const addItemToCart = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
     const userId = req.user!.id;
-    const { product_id, quantity = 1 } = req.body;
+    const { product_id, quantity } = addToCartSchema.parse(req.body);
     logger.info("User adding items to cart", { userId, product_id, quantity });
-
-    if (!product_id || quantity <= 0) {
-      logger.warn("Invalid product_id or quantity provided", {
-        userId,
-        product_id,
-        quantity,
-      });
-      return next(
-        new AppError("Please provide a valid product_id and quantity", 400),
-      );
-    }
 
     const product = await prisma.products.findUnique({
       where: { product_id },
@@ -40,26 +30,25 @@ export const addItemToCart = catchAsync(
       });
 
       const existingItem = await tx.cartItem.findFirst({
-        where: {
-          cartId: cart.id,
-          product_id,
-        },
+        where: { cartId: cart.id, product_id },
       });
+
+      const newTotal = (existingItem?.quantity ?? 0) + quantity;
+      if (product.stock < newTotal) {
+        throw new AppError(
+          `Only ${product.stock} unit${product.stock === 1 ? "" : "s"} available`,
+          400,
+        );
+      }
 
       if (existingItem) {
         await tx.cartItem.update({
           where: { id: existingItem.id },
-          data: {
-            quantity: existingItem.quantity + quantity,
-          },
+          data: { quantity: newTotal },
         });
       } else {
         await tx.cartItem.create({
-          data: {
-            cartId: cart.id,
-            product_id,
-            quantity,
-          },
+          data: { cartId: cart.id, product_id, quantity },
         });
       }
     });
@@ -87,7 +76,18 @@ export const getMyCart = catchAsync(
       include: {
         items: {
           include: {
-            product: true,
+            product: {
+              select: {
+                product_id: true,
+                name: true,
+                price: true,
+                discount: true,
+                image: true,
+                images: true,
+                availability: true,
+                unit: true,
+              },
+            },
           },
         },
       },
@@ -120,26 +120,42 @@ export const getMyCart = catchAsync(
 export const updateCartItem = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
     const { itemId } = req.params;
-    const { quantity } = req.body;
+    const { quantity } = updateCartItemSchema.parse(req.body);
 
     logger.info("User updating cart items", {
       userId: req.user!.id,
       itemId,
       quantity,
     });
-    if (quantity <= 0) {
-      logger.warn("Invalid quantity provided for cart item update");
-      return next(new AppError("Quantity must be greater than Zero", 400));
-    }
 
     const item = await prisma.cartItem.findUnique({
       where: { id: itemId },
-      include: { cart: true },
+      include: {
+        cart: true,
+        product: {
+          select: {
+            stock: true,
+            name: true,
+          },
+        },
+      },
     });
 
     if (!item || item.cart.userId !== req.user!.id) {
-      logger.warn("art item not found", { userInfo: req.user!.id, itemId });
+      logger.warn("Cart item not found or user unauthorized", {
+        userId: req.user!.id,
+        itemId,
+      });
       return next(new AppError("Cart items not found", 404));
+    }
+
+    if (item.product.stock < quantity) {
+      return next(
+        new AppError(
+          `Only ${item.product.stock} unit${item.product.stock === 1 ? "" : "s"} of "${item.product.name}" available`,
+          400,
+        ),
+      );
     }
 
     await prisma.cartItem.update({
@@ -152,6 +168,7 @@ export const updateCartItem = catchAsync(
       itemId,
       quantity,
     });
+
     res.status(200).json({
       status: "success",
       message: "Cart items updated ",

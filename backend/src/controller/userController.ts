@@ -1,10 +1,11 @@
-import { Request, Response, NextFunction, Router } from "express";
+import { Request, Response, NextFunction } from "express";
 import catchAsync from "../utils/catchAsync";
 import AppError from "../utils/AppError";
+
 import { prisma } from "../config/database";
 import { updateUserSchema } from "../Schema/userSchema";
-// import { User } from "@prisma/client";
 import { filterObj } from "../utils/filterObj";
+import { sanitizeUser } from "../utils/sanitizeUser";
 import logger from "../config/logger";
 import { client as redis } from "../config/redis";
 
@@ -16,14 +17,13 @@ import { client as redis } from "../config/redis";
 //   }
 // }
 
-const REDIS_TTL = 3600;
+// const REDIS_TTL = 3600;
 const getUserKey = (id: string) => `user:${id}`;
-const getUserQueryKey = (query: any) => `users:list:${JSON.stringify(query)}`;
+// const getUserQueryKey = (query: any) => `users:list:${JSON.stringify(query)}`;
 
-const clearUserCache = async () => {
-  const keys = await redis.keys("users:list:*");
-  if (keys.length > 0) await redis.del(keys);
-};
+// const clearUserCache = async () => {
+//   await scanDel("users:list:*");
+// };
 
 // update user
 export const updateMe = catchAsync(
@@ -63,11 +63,13 @@ export const updateMe = catchAsync(
       data: filteredBody,
     });
 
+    await redis.del(`auth:user:${req.user!.id}`);
+
     logger.info(`User with ID: ${req.user!.id} updated successfully`);
     res.status(200).json({
       status: "success",
       message: "User updated successfully",
-      user: updatedUser,
+      user: sanitizeUser(updatedUser),
     });
   },
 );
@@ -88,158 +90,28 @@ export const getMe = catchAsync(
     logger.info(`User with ID: ${req.user!.id} fetched successfully`);
     res.status(200).json({
       status: "success",
-      data: user,
+      data: sanitizeUser(user),
     });
   },
 );
 
 // delete Me
 export const deleteMe = catchAsync(
-  async (req: Request, res: Response, next: NextFunction) => {
-    logger.info(`User with ID: ${req.user!.id} is deactivating their account`);
+  async (req: Request, res: Response, _next: NextFunction) => {
+    const userId = req.user!.id;
+    logger.info(`User with ID: ${userId} is deactivating their account`);
     await prisma.user.update({
-      where: { id: req.user!.id },
+      where: { id: userId },
       data: { active: false },
     });
 
-    logger.info(
-      `User with ID: ${req.user!.id} successfully deactivated their account`,
-    );
-    res.status(200).json({
-      status: "success",
-      data: null,
-    });
-  },
-);
-
-/*
- * FOR THE ADMIN TO MANAGE THE USERS
- */
-// get all the user
-export const getAllUsers = catchAsync(
-  async (req: Request, res: Response, next: NextFunction) => {
-    const cacheKey = getUserQueryKey(req.query);
-
-    // check redis
-    const cachedUsers = await redis.get(cacheKey);
-    if (cachedUsers) {
-      const parsed = JSON.parse(cachedUsers);
-      const users = Array.isArray(parsed) ? parsed : [];
-      logger.info(`Serving user from cache`);
-      return res.status(200).json({
-        status: "success",
-        source: "cache",
-        results: users.length,
-        data: { users },
-      });
-    }
-
-    logger.info("Admin fetching all users");
-    const users = await prisma.user.findMany();
-
-    await redis.setEx(cacheKey, REDIS_TTL, JSON.stringify(users));
-
-    logger.info(`Fetched ${users.length} users successfully`);
-    res.status(200).json({
-      status: "success",
-      results: users.length,
-      data: {
-        users,
-      },
-    });
-  },
-);
-
-// get user
-export const getUser = catchAsync(
-  async (req: Request, res: Response, next: NextFunction) => {
-    const cacheKey = getUserKey(req.params.id);
-
-    // check redis
-    const cachedUser = await redis.get(cacheKey);
-    if (cachedUser) {
-      logger.info(`Serving user from cache`);
-      return res.status(200).json({
-        status: "success",
-        source: "cache",
-        data: { user: JSON.parse(cachedUser) },
-      });
-    }
-
-    logger.info(`Admin fetching user with ID: ${req.params.id}`);
-    const user = await prisma.user.findUnique({
-      where: { id: req.params.id },
-    });
-
-    if (!user) {
-      logger.warn(`User with ID: ${req.params.id} not found`);
-      return next(new AppError("There is no user with the ID", 404));
-    }
-
-    await redis.setEx(cacheKey, REDIS_TTL, JSON.stringify(user));
-
-    logger.info(`User with ID:${req.params.id} fetched successfully`);
-    res.status(200).json({
-      status: "success",
-      data: { user },
-    });
-  },
-);
-
-// create user
-export const createUser = (req: Request, res: Response, next: NextFunction) => {
-  logger.error("Attempt to create user via undefined route");
-  res.status(500).json({
-    status: "error",
-    message: "This route is not defined! Please use /Signup instead",
-  });
-};
-
-// update user
-export const updateUser = catchAsync(
-  async (req: Request, res: Response, next: NextFunction) => {
-    const { name, email, roles } = req.body;
-
-    logger.info(`Admin updating user with ID: ${req.params.id}`);
-    const updatedUser = await prisma.user.update({
-      where: { id: req.params.id },
-      data: { name, email, roles },
-    });
-
-    if (!updatedUser) {
-      logger.warn(`No user found with ID: ${req.params.id}`);
-      return next(new AppError("No user found with this ID", 404));
-    }
-
-    await redis.del(getUserKey(updatedUser.id));
-    await clearUserCache();
-
-    logger.info(`User with ID: ${req.params.id} update successfully`);
-    res.status(200).json({
-      status: "success",
-      data: {
-        user: updatedUser,
-      },
-    });
-  },
-);
-
-// delete user
-export const deleteUser = catchAsync(
-  async (req: Request, res: Response, next: NextFunction) => {
-    const userId = req.params.id;
-    logger.info(
-      `Admin deleting user with ID: ${req.params.id} from the database`,
-    );
-    await prisma.user.delete({
-      where: { id: userId },
-    });
-
     await redis.del(getUserKey(userId));
-    await clearUserCache();
+    await redis.del(`auth:user:${userId}`);
 
-    logger.info(`User with ID: ${req.params.id} deleted successfully`);
-    res.status(204).json({
+    logger.info(
+      `User with ID: ${userId} successfully deactivated their account`,
+    );
+    res.status(200).json({
       status: "success",
       data: null,
     });

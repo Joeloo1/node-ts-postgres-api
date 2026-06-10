@@ -4,6 +4,7 @@ import { client as redis } from "../config/redis";
 import catchAsync from "../utils/catchAsync";
 import AppError from "../utils/AppError";
 import { productQuerySchema } from "../Schema/querySchema";
+import { updateProductSchema } from "../Schema/productSchema";
 import {
   buildWhereClause,
   buildOrderByClause,
@@ -11,11 +12,22 @@ import {
   getPaginationParams,
 } from "../utils/queryBuilder";
 import logger from "../config/logger";
+import { scanDel } from "../config/redis";
+import { logAudit } from "../utils/audit";
 
-const REDIS_TTL = 3600; // 1 hour in seconds
+const REDIS_TTL = 3600;
 const getProductKey = (id: string) => `product:${id}`;
-const getProductsQueryKey = (query: any) =>
-  `products:list:${JSON.stringify(query)}`;
+
+// Sort keys so query param order never produces a different cache key
+const getProductsQueryKey = (query: Record<string, unknown>) => {
+  const sorted = Object.keys(query)
+    .sort()
+    .reduce<Record<string, unknown>>((acc, k) => {
+      acc[k] = query[k];
+      return acc;
+    }, {});
+  return `products:list:${JSON.stringify(sorted)}`;
+};
 
 const productCategoryInclude = {
   category: {
@@ -46,8 +58,7 @@ const baseListSelect = (includeImages: boolean) =>
   }) as any;
 
 const clearProductCache = async () => {
-  const keys = await redis.keys("products:list:*");
-  if (keys.length > 0) await redis.del(keys);
+  await scanDel("products:list:*");
 };
 
 // CREATE PRODUCT
@@ -83,7 +94,22 @@ export const createProduct = catchAsync(
       },
     });
 
+    // Seed initial price into history
+    if (product.price != null) {
+      await prisma.priceHistory.create({
+        data: { product_id: product.product_id, price: product.price },
+      });
+    }
+
     await clearProductCache();
+
+    await logAudit({
+      req,
+      action: "CREATE_PRODUCT",
+      entityType: "Product",
+      entityId: product.product_id,
+      after: product,
+    });
 
     logger.info("Product created successfully");
     res.status(201).json({
@@ -97,16 +123,19 @@ export const createProduct = catchAsync(
 
 // GET ALL PRODUCTS WITH FILTERING, SORTING & PAGINATION
 export const getAllProducts = catchAsync(
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (req: Request, res: Response, _next: NextFunction) => {
     // Validate and parse query parameters
     const filters = productQuerySchema.parse(req.query);
 
     const cacheKey = getProductsQueryKey(req.query);
 
-    //  Try to fetch from Redis
     const cachedData = await redis.get(cacheKey);
     if (cachedData) {
       logger.info("Serving products from cache");
+      res.setHeader(
+        "Cache-Control",
+        "public, max-age=30, stale-while-revalidate=600",
+      );
       return res.status(200).json(JSON.parse(cachedData));
     }
 
@@ -161,9 +190,12 @@ export const getAllProducts = catchAsync(
         hasPrev: filters.page > 1,
       },
     };
-    // 3. Save to Redis
     await redis.setEx(cacheKey, REDIS_TTL, JSON.stringify(responseData));
 
+    res.setHeader(
+      "Cache-Control",
+      "public, max-age=30, stale-while-revalidate=600",
+    );
     res.status(200).json(responseData);
   },
 );
@@ -187,6 +219,10 @@ export const getProduct = catchAsync(
         );
         await redis.del(cacheKey);
       } else {
+        res.setHeader(
+          "Cache-Control",
+          "public, max-age=60, stale-while-revalidate=600",
+        );
         return res.status(200).json({
           status: "Success",
           source: "cached",
@@ -202,14 +238,17 @@ export const getProduct = catchAsync(
     });
 
     if (!product) {
-      logger.warn(`Prouct with ID: ${productId} not found`);
-      return next(new AppError("Product not found", 400));
+      logger.warn(`Product with ID: ${productId} not found`);
+      return next(new AppError("Product not found", 404));
     }
 
-    //  Store in Cache
     await redis.setEx(cacheKey, REDIS_TTL, JSON.stringify(product));
 
     logger.info("Product Fetched by ID successfully");
+    res.setHeader(
+      "Cache-Control",
+      "public, max-age=60, stale-while-revalidate=600",
+    );
     res.status(200).json({
       status: "Success",
       data: { product },
@@ -221,7 +260,7 @@ export const getProduct = catchAsync(
 export const updateProduct = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
     const productId = req.params.id;
-    const data = req.body;
+    const data = updateProductSchema.parse(req.body);
 
     const existingProduct = await prisma.products.findUnique({
       where: { product_id: productId },
@@ -254,8 +293,25 @@ export const updateProduct = catchAsync(
       include: productCategoryInclude,
     });
 
+    // Record price history whenever price changes
+    if (data.price !== undefined && data.price !== existingProduct.price) {
+      await prisma.priceHistory.create({
+        data: { product_id: productId, price: data.price },
+      });
+      await redis.del(`price_history:${productId}`);
+    }
+
     await redis.del(getProductKey(productId));
     await clearProductCache();
+
+    await logAudit({
+      req,
+      action: "UPDATE_PRODUCT",
+      entityType: "Product",
+      entityId: productId,
+      before: existingProduct,
+      after: product,
+    });
 
     logger.info(`Product with ID: ${productId} updated successfully`);
     res.status(200).json({
@@ -286,11 +342,19 @@ export const deleteProduct = catchAsync(
       where: { product_id: productId },
     });
 
+    await logAudit({
+      req,
+      action: "DELETE_PRODUCT",
+      entityType: "Product",
+      entityId: productId,
+      before: existingProduct,
+    });
+
     await redis.del(getProductKey(productId));
     await clearProductCache();
 
     logger.info(`Product with ID: ${productId} deleted successfully`);
-    res.status(200).json({
+    res.status(204).json({
       status: "Success",
       data: null,
     });
@@ -339,6 +403,57 @@ export const addProductImages = catchAsync(
       status: "success",
       data: {
         product: updated,
+      },
+    });
+  },
+);
+
+export const getProductsFeed = catchAsync(
+  async (req: Request, res: Response, _next: NextFunction) => {
+    const cursor =
+      typeof req.query.cursor === "string" ? req.query.cursor : undefined;
+    const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 20));
+
+    const products = await prisma.products.findMany({
+      take: limit + 1,
+      ...(cursor
+        ? {
+            cursor: { product_id: cursor },
+            skip: 1,
+          }
+        : {}),
+      orderBy: { createdAt: "desc" },
+      select: {
+        product_id: true,
+        name: true,
+        price: true,
+        image: true,
+        brand: true,
+        rating: true,
+        availability: true,
+        discount: true,
+        category: {
+          select: {
+            category_id: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    const hasNextPage = products.length > limit;
+
+    if (hasNextPage) products.pop();
+
+    res.status(200).json({
+      status: "success",
+      result: products.length,
+      data: { products },
+      pagination: {
+        hasNextPage,
+        nextCursor: hasNextPage
+          ? products[products.length - 1].product_id
+          : null,
       },
     });
   },

@@ -62,48 +62,53 @@ node-prisma-ecommerce-api/
 - [Node.js](https://nodejs.org/) (v18+)
 - [Docker](https://www.docker.com/) & Docker Compose (for local Postgres & Redis)
 
-### 1. Database & Services Setup
-We provide a `docker-compose.yml` in the backend to easily spin up PostgreSQL and Redis.
+### 1. Unified Setup (Recommended)
+You can now set up the entire project (backend and frontend) from the root directory:
 ```bash
-cd backend
-npm run docker:up
+# 1. Install all dependencies for both services
+npm install
+
+# 2. Spin up local database and redis (in a new terminal)
+cd backend && npm run docker:up && cd ..
+
+# 3. Initialize the database (run once)
+npm --prefix backend run build # This generates Prisma client
+npm --prefix backend run db:seed
+
+# 4. Start both backend and frontend concurrently
+npm run dev
 ```
 
-### 2. Backend Setup
-1. Open a new terminal and navigate to the backend directory:
-   ```bash
-   cd backend
-   ```
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Create a `.env` file based on `.env.example`. (Ensure you set `DATABASE_URL`, `REDIS_URL`, etc.).
-4. Run migrations and seed the database:
-   ```bash
-   npx prisma migrate dev
-   npm run db:seed
-   ```
-5. Start the backend server:
-   ```bash
-   npm run dev
-   ```
-   *(The server will start on port 8000 by default)*
+### 2. Service-Specific Management
+If you prefer to manage services separately:
 
-### 3. Frontend Setup
-1. Open another terminal and navigate to the frontend directory:
-   ```bash
-   cd frontend
-   ```
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Start the development server:
-   ```bash
-   npm run dev
-   ```
-   *(The app will be accessible at http://localhost:5173)*
+**Backend Setup**
+```bash
+cd backend
+npm install
+npx prisma generate
+npm run dev
+```
+
+**Frontend Setup**
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+## 🚢 Deployment
+
+### Vercel (Frontend)
+The frontend is pre-configured for Vercel. Ensure you set the `VITE_API_URL` environment variable in Vercel to point to your live API.
+
+### Render (Backend)
+The backend is designed for Render. Use the following settings:
+- **Root Directory**: `backend`
+- **Build Command**: `npm install --include=dev && npm run build && npx prisma db push --accept-data-loss`
+- **Start Command**: `npm start`
+- **Environment Variables**: `DATABASE_URL`, `REDIS_URL`, `JWT_SECRET`, `NODE_ENV=production`.
+
 
 ## 🛡️ Key API Endpoints
 

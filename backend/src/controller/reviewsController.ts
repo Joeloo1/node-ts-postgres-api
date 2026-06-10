@@ -1,18 +1,41 @@
-import { Request, Response, NextFunction, Router } from "express";
+import { Request, Response, NextFunction } from "express";
 import catchAsync from "../utils/catchAsync";
 import AppError from "../utils/AppError";
 import { createReviewSchema } from "../Schema/reviewsSchema";
 import { prisma } from "../config/database";
 import logger from "../config/logger";
-import { client as redis } from "../config/redis";
+import { client as redis, scanDel } from "../config/redis";
 
 const REDIS_TTL = 3600;
 const getReviewKey = (id: string) => `review:${id}`;
-const getReviewQueryKey = (query: any) => `user:list:${JSON.stringify(query)}`;
+
+const getReviewQueryKey = (query: Record<string, unknown>) => {
+  const sorted = Object.keys(query)
+    .sort()
+    .reduce<Record<string, unknown>>((acc, k) => {
+      acc[k] = query[k];
+      return acc;
+    }, {});
+  return `reviews:list:${JSON.stringify(sorted)}`;
+};
 
 const clearReviewCache = async () => {
-  const keys = await redis.keys("users:list:*");
-  if (keys.length > 0) await redis.del(keys);
+  await scanDel("reviews:list:*");
+};
+
+const syncProductRating = async (productId: string) => {
+  const result = await prisma.review.aggregate({
+    where: { product_id: productId },
+    _avg: { rating: true },
+    _count: { rating: true },
+  });
+  const avg = result._avg.rating ?? null;
+  await prisma.products.update({
+    where: { product_id: productId },
+    data: { rating: avg },
+  });
+  await redis.del(`product:${productId}`);
+  await scanDel("products:list:*");
 };
 
 // create review
@@ -45,9 +68,10 @@ export const createReview = catchAsync(
     });
 
     await clearReviewCache();
+    await syncProductRating(product_id);
 
     logger.info("Review created successfully");
-    res.status(200).json({
+    res.status(201).json({
       status: "success",
       data: {
         review,
@@ -65,7 +89,9 @@ export const updateReview = catchAsync(
     });
 
     if (!review || review.userId !== req.user!.id) {
-      logger.info(`Review with ID: ${req.params.id} not found`);
+      logger.warn(
+        `Review with ID: ${req.params.id} not found or user unauthorized`,
+      );
       return next(new AppError("Review not found", 404));
     }
 
@@ -80,9 +106,10 @@ export const updateReview = catchAsync(
 
     await redis.del(getReviewKey(review.id));
     await clearReviewCache();
+    await syncProductRating(review.product_id);
 
     logger.info(`Review with ID: ${req.params.id} updated successfully`);
-    res.status(201).json({
+    res.status(200).json({
       status: "success",
       data: {
         updatedReview,
@@ -99,13 +126,9 @@ export const getProductReview = catchAsync(
     const cachedDate = await redis.get(cacheKey);
     if (cachedDate) {
       logger.info("Serving review from cache");
-      return res.status(200).json({
-        status: "success",
-        source: "cached",
-        data: {
-          reviews: JSON.parse(cachedDate),
-        },
-      });
+      return res
+        .status(200)
+        .json({ ...JSON.parse(cachedDate), source: "cached" });
     }
 
     const productId =
@@ -116,23 +139,44 @@ export const getProductReview = catchAsync(
       return next(new AppError("Query parameter product_id is required", 400));
     }
 
-    logger.info(`Fetching reviews for product ID: ${productId}`);
-    const reviews = await prisma.review.findMany({
-      where: { product_id: productId },
-      include: {
-        user: { select: { id: true, name: true, email: true } },
-      },
-    });
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 10));
+    const skip = (page - 1) * limit;
 
-    await redis.setEx(cacheKey, REDIS_TTL, JSON.stringify(reviews));
+    logger.info(`Fetching reviews for product ID: ${productId}`);
+
+    const [reviews, total] = await Promise.all([
+      prisma.review.findMany({
+        where: { product_id: productId },
+        include: {
+          user: { select: { id: true, name: true } },
+          votes: { select: { helpful: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+      }),
+      prisma.review.count({ where: { product_id: productId } }),
+    ]);
+
+    const totalPages = Math.ceil(total / limit);
+    const responseData = {
+      status: "success",
+      data: { reviews },
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1,
+      },
+    };
+
+    await redis.setEx(cacheKey, REDIS_TTL, JSON.stringify(responseData));
 
     logger.info(`Reviews for Product ID: ${productId} fetched successfully`);
-    res.status(200).json({
-      status: "success",
-      data: {
-        reviews,
-      },
-    });
+    res.status(200).json(responseData);
   },
 );
 
@@ -144,7 +188,9 @@ export const deleteReview = catchAsync(
     });
 
     if (!review || review.userId !== req.user!.id) {
-      logger.info(`Review with ID: ${req.params.id} not found`);
+      logger.warn(
+        `Review with ID: ${req.params.id} not found or user unauthorized`,
+      );
       return next(new AppError("Review not found", 404));
     }
 
@@ -155,11 +201,57 @@ export const deleteReview = catchAsync(
 
     await redis.del(getReviewKey(review.id));
     await clearReviewCache();
+    await syncProductRating(review.product_id);
 
     logger.info(`Review with ID: ${req.params.id} deleted successfully`);
-    res.status(200).json({
+    res.status(204).json({
       status: "success",
       data: null,
     });
+  },
+);
+
+// Vote on a review (helpful / not helpful)
+export const voteReview = catchAsync(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const userId = req.user!.id;
+    const reviewId = req.params.id;
+    const helpful: boolean = Boolean(req.body.helpful);
+
+    const review = await prisma.review.findUnique({ where: { id: reviewId } });
+
+    if (!review) return next(new AppError("Review not found", 404));
+
+    if (review.userId === userId)
+      return next(new AppError("You cannot vote on your own review", 400));
+
+    await prisma.reviewVote.upsert({
+      where: { userId_reviewId: { userId, reviewId } },
+      create: { userId, reviewId, helpful },
+      update: { helpful },
+    });
+
+    await clearReviewCache();
+    res.status(200).json({ status: "success", data: null });
+  },
+);
+
+// Remove vote from a review
+export const unvoteReview = catchAsync(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const userId = req.user!.id;
+    const reviewId = req.params.id;
+
+    const existing = await prisma.reviewVote.findUnique({
+      where: { userId_reviewId: { userId, reviewId } },
+    });
+    if (!existing) return next(new AppError("Vote not found", 404));
+
+    await prisma.reviewVote.delete({
+      where: { userId_reviewId: { userId, reviewId } },
+    });
+    await clearReviewCache();
+
+    res.status(204).json({ status: "success", data: null });
   },
 );

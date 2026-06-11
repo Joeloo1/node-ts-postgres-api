@@ -13,6 +13,7 @@ export const createOrderSchema = z.object({
   items: z
     .array(orderItemSchema)
     .min(1, { message: "Order must contain at least one item" }),
+  couponCode: z.string().optional(),
 });
 
 export const updateProductSchema = z.object({

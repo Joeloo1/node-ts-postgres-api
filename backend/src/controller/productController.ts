@@ -14,6 +14,7 @@ import {
 import logger from "../config/logger";
 import { scanDel } from "../config/redis";
 import { logAudit } from "../utils/audit";
+import { triggerStockNotification } from "./stockNotifyController";
 
 const REDIS_TTL = 3600;
 const getProductKey = (id: string) => `product:${id}`;
@@ -292,6 +293,15 @@ export const updateProduct = catchAsync(
       data,
       include: productCategoryInclude,
     });
+
+    const stocKIncreased =
+      data.stock !== undefined && existingProduct.stock === 0 && data.stock > 0;
+
+    if (stocKIncreased) {
+      triggerStockNotification(productId).catch((err) => {
+        logger.warn("Back-in-stock trgger failed", { productId, err });
+      });
+    }
 
     // Record price history whenever price changes
     if (data.price !== undefined && data.price !== existingProduct.price) {

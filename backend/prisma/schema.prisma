@@ -28,6 +28,17 @@ enum CancelledBy {
   SYSTEM
 }
 
+enum CouponType {
+  PERCENTAGE
+  FIXED
+}
+
+enum ReturnStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  COMPLETED
+}
 
 model AuditLog {
   id         String   @id @default(uuid())
@@ -77,6 +88,7 @@ model Products {
   questions    ProductQuestion[]
   priceHistory PriceHistory[]
   wishlists    Wishlist[]
+  backInStockSubscriptions BackInStockSubscription[]
 
   @@index([category_id])
   @@index([createdAt(sort: Desc)])
@@ -102,6 +114,9 @@ model User {
   questions          ProductQuestion[]
   answers            ProductAnswer[]
   wishlist           Wishlist[]
+  returnRequests ReturnRequest[]
+  backInStockSubscriptions BackInStockSubscription[]
+
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
   isVerified         Boolean   @default(false)
@@ -137,6 +152,8 @@ model Order {
   items        OrderItem[]
 
   stripeSessionId String?      @unique
+  returnRequest ReturnRequest?
+
 
   cancelledAt  DateTime?
   cancelledBy  CancelledBy?
@@ -194,6 +211,7 @@ model Review {
   product    Products     @relation(fields: [product_id], references: [product_id], onDelete: Cascade)
   content    String?
   rating     Float
+  verifiedPurchase Boolean @default(false)
   votes      ReviewVote[]
   createdAt  DateTime     @default(now())
   updatedAt  DateTime     @updatedAt
@@ -301,3 +319,51 @@ model ContactMessage {
   @@index([createdAt(sort: Desc)])
   @@index([read])
 }
+model Coupon {
+    id            String    @id @default(uuid())
+    code          String    @unique @db.VarChar(50)
+    type          CouponType
+    value         Float
+    minOrderTotal Float?
+    maxUses       Int?
+    usedCount      Int       @default(0)
+    expiresAt     DateTime?
+    active        Boolean   @default(true)
+    createdAt     DateTime  @default(now())
+    updatedAt     DateTime  @updatedAt
+
+    @@index([code])
+    @@index([active, expiresAt])
+}
+
+model ReturnRequest {
+  id        String       @id @default(uuid())
+  orderId   String
+  order     Order        @relation(fields: [orderId], references: [id])
+  userId    String
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reason    String
+  status    ReturnStatus @default(PENDING)
+  adminNote String?
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@unique([orderId])
+  @@index([userId])
+  @@index([status])
+}
+
+model BackInStockSubscription {
+  id         String    @id @default(uuid())
+  email      String
+  product_id String    @db.Uuid
+  product    Products  @relation(fields: [product_id], references: [product_id], onDelete: Cascade)
+  userId     String?
+  user       User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  notified   Boolean   @default(false)
+  createdAt  DateTime  @default(now())
+
+  @@unique([email, product_id])
+  @@index([product_id, notified])
+}
+

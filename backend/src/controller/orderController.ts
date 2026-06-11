@@ -11,6 +11,7 @@ import {
 } from "../Schema/orderSchema";
 import { emailQueue } from "../jobs/emailQueue";
 import { logAudit } from "../utils/audit";
+import { applyCoupon } from "./couponController";
 
 const ORDER_STATUS_COPY: Partial<
   Record<OrderStatus, { label: string; message: string }>
@@ -42,7 +43,7 @@ const ORDER_STATUS_COPY: Partial<
 export const createOrder = catchAsync(
   async (req: Request, res: Response, _next: NextFunction) => {
     const userId = req.user!.id;
-    const { items } = createOrderSchema.parse(req.body);
+    const { items, couponCode } = createOrderSchema.parse(req.body);
 
     const order = await prisma.$transaction(async (tx) => {
       const productIds = items.map((item) => item.product_id);
@@ -92,6 +93,10 @@ export const createOrder = catchAsync(
         include: { items: true },
       });
     });
+
+    if (couponCode) {
+      await applyCoupon(couponCode);
+    }
 
     logger.info(`Order ${order.id} created by user ${userId}`);
     res.status(201).json({
@@ -160,6 +165,11 @@ export const checkoutFromCart = catchAsync(
 
       return newOrder;
     });
+
+    const { couponCode: cartCouponCode } = req.body as { couponCode?: string };
+    if (cartCouponCode) {
+      await applyCoupon(cartCouponCode);
+    }
 
     logger.info(`Order ${order.id} created from cart by user ${userId}`);
     res.status(201).json({

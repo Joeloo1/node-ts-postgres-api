@@ -14,6 +14,22 @@ import {
   getContractMessages,
   markRead,
 } from "../../controller/contactController";
+import {
+  adminCreateCoupon,
+  adminDeleteCoupon,
+  adminGetCoupon,
+  adminUpdateCoupon,
+} from "../../controller/couponController";
+import {
+  adminGetReturn,
+  adminUpdateReturn,
+} from "../../controller/returnController";
+import { validateBody } from "../../middleware/validationMiddleware";
+import {
+  createCouponSchema,
+  updateCouponSchema,
+} from "../../Schema/couponSchema";
+import { updateReturnSchema } from "../../Schema/returnSchema";
 
 const router = express.Router();
 
@@ -25,8 +41,23 @@ router.use("/users", adminUserRoute);
 router.use("/orders", adminOrderRoute);
 router.use("/analytics", adminAnalyticsRoute);
 router.use("/variants", adminVariantRoute);
+
 router.get("/newsletter/subscribers", getSubscribers);
 router.get("/contact", getContractMessages);
 router.patch("/contact/:id/read", markRead);
+router
+  .route("/coupons")
+  .get(adminGetCoupon)
+  .post(validateBody(createCouponSchema), adminCreateCoupon);
+router
+  .route("/coupons")
+  .patch(validateBody(updateCouponSchema), adminUpdateCoupon)
+  .delete(adminDeleteCoupon);
+router.get("/returns", adminGetReturn);
+router.patch(
+  "/returns/:id",
+  validateBody(updateReturnSchema),
+  adminUpdateReturn,
+);
 
 export default router;

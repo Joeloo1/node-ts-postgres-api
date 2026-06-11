@@ -20,6 +20,8 @@ import paymentRoutes from "./Routes/User/paymentRoutes";
 import wishlistRoutes from "./Routes/User/wishlistRoutes";
 import newsletterRoutes from "./Routes/User/newsletterRoutes";
 import contactRoutes from "./Routes/User/contactRoutes";
+import couponRoutes from "./Routes/User/couponRoutes";
+import stockNotifyRoutes from "./Routes/User/stockNotifyRoutes";
 import { stripeWebhook } from "./controller/paymentController";
 
 import logger from "./config/logger";
@@ -212,6 +214,7 @@ app.use("/api/v1/products", productRoutes);
 app.use("/api/v1/categories", categoryRoutes);
 // User Routes
 app.use("/api/v1/users", userRoutes);
+// admin Routes
 app.use("/api/v1/admin", adminRoutes);
 // Address Routes
 app.use("/api/v1/addresses", addressRoutes);
@@ -229,6 +232,10 @@ app.use("/api/v1/wishlist", wishlistRoutes);
 app.use("/api/v1/newsletter", newsletterRoutes);
 // contact Routes
 app.use("/api/v1/contact", contactRoutes);
+// coupon Routes
+app.use("/api/v1/coupons", couponRoutes);
+// stockNotify Routes
+app.use("/api/v1/stock-notify", stockNotifyRoutes);
 
 // HANDLING  unhandled Routes
 app.use((req: Request, _res: Response, next: NextFunction) => {

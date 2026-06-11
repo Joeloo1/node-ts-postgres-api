@@ -55,6 +55,25 @@ export const createReview = catchAsync(
       return next(new AppError("You already reviewed this product", 400));
     }
 
+    const varifiedPurchase = await prisma.orderItem.findFirst({
+      where: {
+        product_id,
+        order: {
+          userId,
+          status: "DELIVERED",
+        },
+      },
+    });
+
+    if (!varifiedPurchase) {
+      return next(
+        new AppError(
+          "You can only review products you have purchased and received",
+          403,
+        ),
+      );
+    }
+
     logger.info(
       `Creating review for product ID: ${product_id} by user ID: ${userId}`,
     );
@@ -64,6 +83,7 @@ export const createReview = catchAsync(
         product_id,
         rating,
         content,
+        verifiedPurchase: true,
       },
     });
 

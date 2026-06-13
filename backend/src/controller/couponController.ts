@@ -19,18 +19,22 @@ export const validateCoupon = catchAsync(
     });
 
     if (!coupon || !coupon.active) {
+      logger.warn("Coupon validation failed — invalid or inactive", { code, userId: req.user!.id });
       return next(new AppError("Invalid or expired coupon code", 400));
     }
 
     if (coupon.expiresAt && coupon.expiresAt < new Date()) {
+      logger.warn("Coupon validation failed — expired", { code, userId: req.user!.id, expiresAt: coupon.expiresAt });
       return next(new AppError("This coupon has expired", 400));
     }
 
     if (coupon.maxUses !== null && coupon.usedCount >= coupon.maxUses) {
+      logger.warn("Coupon validation failed — usage limit reached", { code, userId: req.user!.id, usedCount: coupon.usedCount, maxUses: coupon.maxUses });
       return next(new AppError("This coupon has reached its usage limit", 400));
     }
 
     if (coupon.minOrderTotal !== null && orderTotal < coupon.minOrderTotal) {
+      logger.warn("Coupon validation failed — order total too low", { code, userId: req.user!.id, orderTotal, minOrderTotal: coupon.minOrderTotal });
       return next(
         new AppError(
           `This coupon requires a minimum order of $${coupon.minOrderTotal.toFixed(2)}`,
@@ -74,6 +78,7 @@ export const adminGetCoupon = catchAsync(
     const coupon = await prisma.coupon.findMany({
       orderBy: { createdAt: "desc" },
     });
+    logger.info("Admin fetched all coupons", { count: coupon.length });
     res.status(200).json({
       status: "success",
       data: { coupon },

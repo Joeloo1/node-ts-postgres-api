@@ -170,14 +170,30 @@ app.use("/api/v1/contact", contactLimiter);
 
 app.use("/api", Limiter as any);
 
-// Log all Request
-app.use((req: Request, _res: Response, next: NextFunction) => {
-  logger.http("Incoming request...", {
+// Log all requests + response status + duration
+app.use((req: Request, res: Response, next: NextFunction) => {
+  const start = Date.now();
+  logger.http("Incoming request", {
     method: req.method,
     path: req.path,
     ip: req.ip,
   });
+  res.on("finish", () => {
+    const ms = Date.now() - start;
+    const logFn = res.statusCode >= 500 ? "error" : res.statusCode >= 400 ? "warn" : "http";
+    logger[logFn]("Request completed", {
+      method: req.method,
+      path: req.path,
+      status: res.statusCode,
+      ms,
+    });
+  });
   next();
+});
+
+// Root route for Render's default health check ping
+app.get("/", (_req, res) => {
+  res.status(200).json({ status: "ok" });
 });
 
 // Health check

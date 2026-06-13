@@ -21,6 +21,7 @@ import { UserRole } from "@prisma/client";
 import { client as redis, scanDel } from "../config/redis";
 import type { CookieOptions } from "express";
 import { emailQueue } from "../jobs/emailQueue";
+import { isAccountLocked, recordFailedLogin, clearFailedLogins } from "../utils/authLimiter";
 
 const isProd = process.env.NODE_ENV === "production";
 
@@ -177,9 +178,19 @@ export const login = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
     const { email, password } = loginSchema.parse(req.body);
 
+    if (await isAccountLocked(email)) {
+      return next(
+        new AppError(
+          "Account is temporarily locked due to too many failed attempts. Please try again in 15 minutes.",
+          401,
+        ),
+      );
+    }
+
     const user = await prisma.user.findUnique({ where: { email } });
 
     if (!user) {
+      await recordFailedLogin(email);
       logger.warn("Login attempt with incorrect email", { email });
       return next(new AppError("Incorrect email and password", 401));
     }
@@ -191,9 +202,12 @@ export const login = catchAsync(
     const isPasswordCorrect = await comparePassword(password, user.password);
 
     if (!isPasswordCorrect) {
+      await recordFailedLogin(email);
       logger.warn("Login attempt with incorrect password", { email });
       return next(new AppError("Incorrect email and password", 401));
     }
+
+    await clearFailedLogins(email);
 
     const accessToken = signAccessToken({ id: user.id });
     const refreshToken = signRefreshToken({ id: user.id });

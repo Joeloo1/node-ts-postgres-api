@@ -7,6 +7,7 @@ import cookieParser from "cookie-parser";
 import path from "path";
 import RedisStore from "rate-limit-redis";
 import compression from "compression";
+import timeout from "connect-timeout";
 
 import productRoutes from "./Routes/User/productRoutes";
 import categoryRoutes from "./Routes/User/categoriesRoutes";
@@ -76,6 +77,12 @@ if (process.env.NODE_ENV === "development") {
 }
 
 app.use(requestIdMiddleware);
+
+app.use(timeout("30s"));
+
+app.use((req: Request, _res: Response, next: NextFunction) => {
+  if (!req.timedout) next();
+});
 
 app.use(
   compression({

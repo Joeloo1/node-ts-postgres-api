@@ -12,6 +12,7 @@ interface CustomError extends Error {
   meta?: { target?: string } | any;
   detail?: string;
   column?: string;
+  timeout?: boolean;
 }
 
 // Prisma Error Handlers
@@ -81,7 +82,7 @@ const handlePostgresNotNullViolationError = (err: CustomError) => {
 
 // send error in development
 const sendErrorDev = (err: CustomError, res: Response) => {
-    logger.error("Error:", err);
+  logger.error("Error:", err);
   res.status(err.statusCode || 500).json({
     status: err.status || "error",
     message: err.message,
@@ -92,7 +93,7 @@ const sendErrorDev = (err: CustomError, res: Response) => {
 
 // send error n production
 const sendErrorProd = (err: AppError, res: Response) => {
-    logger.error("Error:", err);
+  logger.error("Error:", err);
   if (err.isOperational) {
     res.status(err.statusCode).json({
       status: err.status,
@@ -114,6 +115,13 @@ export const globalErrorHandler = (
   res: Response,
   next: NextFunction,
 ) => {
+  if (err.timeout) {
+    return res.status(503).json({
+      status: "fail",
+      message: "Request timed out. Please try again.",
+    });
+  }
+
   err.statusCode = err.statusCode || 500;
   err.status = err.status || "error";
 
@@ -126,7 +134,9 @@ export const globalErrorHandler = (
 
   // Zod validation errors
   if (err instanceof ZodError) {
-    const message = err.issues.map((i: { message: string }) => i.message).join(". ");
+    const message = err.issues
+      .map((i: { message: string }) => i.message)
+      .join(". ");
     return sendErrorProd(new AppError(message, 400), res);
   }
 

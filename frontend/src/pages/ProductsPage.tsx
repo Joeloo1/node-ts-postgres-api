@@ -5,7 +5,9 @@ import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { ProductCard } from "../components/ProductCard";
 import { ProductListItem } from "../components/ProductListItem";
 import { FilterPanel, type FilterPanelProps } from "../components/FilterPanel";
+import { PRICE_PRESETS } from "../lib/constants";
 import { usePageTitle } from "../hooks/usePageTitle";
+import { useDebounce } from "../hooks/useDebounce";
 import { ProductSkeletonGrid3 } from "../components/ProductSkeleton";
 import { queryKeys } from "../lib/queryKeys";
 import * as productService from "../services/products";
@@ -75,13 +77,77 @@ const SORT_OPTIONS = [
   { value: "name:asc",       label: "Name A–Z" },
 ];
 
-const QUICK_SORTS = [
-  { label: "All",       sort: "createdAt:desc" },
-  { label: "Newest",    sort: "createdAt:desc" },
-  { label: "Top rated", sort: "rating:desc" },
-  { label: "Price ↑",  sort: "price:asc" },
-  { label: "Price ↓",  sort: "price:desc" },
+/* ── Rating filter rows ("N stars & up") ───────────────────── */
+const RATING_FILTERS: { value: string; full: number; half: boolean }[] = [
+  { value: "4.5", full: 4, half: true },
+  { value: "4",   full: 4, half: false },
+  { value: "3",   full: 3, half: false },
 ];
+
+/* ── Toolbar filter popover ────────────────────────────────── */
+function FilterPopover({
+  label, activeLabel, active, children, panelClass = "w-72 p-4",
+}: {
+  label: string;
+  activeLabel?: string;
+  active: boolean;
+  children: React.ReactNode;
+  panelClass?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDown(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[12px] font-medium transition-colors ${
+          active
+            ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+            : open
+              ? "border-edge bg-raised text-ink"
+              : "border-stroke bg-raised text-ink2 hover:border-edge hover:text-ink"
+        }`}
+      >
+        {active && activeLabel ? activeLabel : label}
+        <svg className={`size-3 transition-transform duration-200 ${open ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+        </svg>
+      </button>
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: -6, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -6, scale: 0.98 }}
+            transition={{ duration: 0.14, ease: [0.25, 0.1, 0.25, 1] }}
+            className={`absolute left-0 top-[calc(100%+8px)] z-30 rounded-xl border border-stroke bg-card shadow-2xl shadow-black/25 ${panelClass}`}
+          >
+            {children}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
 
 /* ══════════════════════════════════════════════════════════════ */
 export function ProductsPage() {
@@ -100,6 +166,7 @@ export function ProductsPage() {
   const [minPrice, setMinPrice]   = useState(() => searchParams.get("price_gte") ?? "");
   const [maxPrice, setMaxPrice]   = useState(() => searchParams.get("price_lte") ?? "");
   const [minRating, setMinRating] = useState(() => searchParams.get("rating_gte") ?? "");
+  const [brand, setBrand]         = useState(() => searchParams.get("brand") ?? "");
   const [inStockOnly, setInStockOnly] = useState(() => searchParams.get("in_stock") === "true");
   const [onSaleOnly, setOnSaleOnly]   = useState(() => searchParams.get("on_sale") === "true");
   const [viewMode, setViewMode]   = useState<"grid" | "list">(() => {
@@ -108,17 +175,53 @@ export function ProductsPage() {
   });
   const [drawerOpen, setDrawerOpen] = useState(false);
 
+  /* Adopt external URL changes (header category links, back/forward).
+     Filter state seeds from the URL only on first mount, so without this,
+     navigating to /products?category_id=… while already on the page would
+     be silently overwritten by syncUrl. Render-phase sync, per React docs. */
+  const urlSnapshot = searchParams.toString();
+  const [lastUrlSnapshot, setLastUrlSnapshot] = useState(urlSnapshot);
+  if (urlSnapshot !== lastUrlSnapshot) {
+    setLastUrlSnapshot(urlSnapshot);
+    const cat = searchParams.get("category_id") ?? "";
+    if (cat !== categoryId) setCategoryId(cat);
+    const q = searchParams.get("q") ?? "";
+    if (q !== search) { setSearch(q); setName(q); }
+    const by = searchParams.get("sortBy");
+    if (by) {
+      const key = `${by}:${searchParams.get("order") ?? "desc"}`;
+      if (key !== sortKey) setSortKey(key);
+    }
+    const pg = searchParams.get("price_gte") ?? "";
+    if (pg !== minPrice) setMinPrice(pg);
+    const pl = searchParams.get("price_lte") ?? "";
+    if (pl !== maxPrice) setMaxPrice(pl);
+    const rg = searchParams.get("rating_gte") ?? "";
+    if (rg !== minRating) setMinRating(rg);
+    const br = searchParams.get("brand") ?? "";
+    if (br !== brand) setBrand(br);
+    const stock = searchParams.get("in_stock") === "true";
+    if (stock !== inStockOnly) setInStockOnly(stock);
+    const sale = searchParams.get("on_sale") === "true";
+    if (sale !== onSaleOnly) setOnSaleOnly(sale);
+  }
+
   const resultsRef       = useRef<HTMLDivElement>(null);
   const sentinelRef      = useRef<HTMLDivElement>(null);
   const scrollRestoredRef = useRef(false);
 
   const [sortBy, order] = sortKey.split(":") as [string, "asc" | "desc"];
 
+  /* Debounce typed prices so each keystroke doesn't refetch the grid */
+  const debouncedMinPrice = useDebounce(minPrice, 400);
+  const debouncedMaxPrice = useDebounce(maxPrice, 400);
+
   /* ── Sync filters → URL (replace so back-button isn't spammy) ── */
   const syncUrl = useCallback(() => {
     const p = new URLSearchParams();
     if (search)      p.set("q", search);
     if (categoryId)  p.set("category_id", categoryId);
+    if (brand)       p.set("brand", brand);
     if (minPrice)    p.set("price_gte", minPrice);
     if (maxPrice)    p.set("price_lte", maxPrice);
     if (minRating)   p.set("rating_gte", minRating);
@@ -129,7 +232,7 @@ export function ProductsPage() {
       p.set("order", order);
     }
     navigate({ search: p.toString() }, { replace: true });
-  }, [search, categoryId, minPrice, maxPrice, minRating, inStockOnly, onSaleOnly, sortBy, order, navigate]);
+  }, [search, categoryId, brand, minPrice, maxPrice, minRating, inStockOnly, onSaleOnly, sortBy, order, navigate]);
 
   useEffect(() => { syncUrl(); }, [syncUrl]);
 
@@ -141,15 +244,16 @@ export function ProductsPage() {
     p.set("limit", "12");
     if (search.trim()) p.set("name", search.trim());
     if (categoryId)    p.set("category_id", categoryId);
-    if (minPrice)      p.set("price_gte", minPrice);
-    if (maxPrice)      p.set("price_lte", maxPrice);
+    if (brand)         p.set("brand", brand);
+    if (debouncedMinPrice) p.set("price_gte", debouncedMinPrice);
+    if (debouncedMaxPrice) p.set("price_lte", debouncedMaxPrice);
     if (minRating)     p.set("rating_gte", minRating);
     if (inStockOnly)   p.set("availability", "true");
     if (onSaleOnly)    p.set("discount_gte", "1");
     p.set("sortBy", sortBy);
     p.set("order", order);
     return p.toString();
-  }, [search, categoryId, minPrice, maxPrice, minRating, inStockOnly, onSaleOnly, sortBy, order]);
+  }, [search, categoryId, brand, debouncedMinPrice, debouncedMaxPrice, minRating, inStockOnly, onSaleOnly, sortBy, order]);
 
   /* Scroll restoration — reset flag whenever query changes */
   useEffect(() => { scrollRestoredRef.current = false; }, [baseQueryString]);
@@ -167,6 +271,12 @@ export function ProductsPage() {
     queryFn: categoryService.getCategories,
   });
 
+  const { data: availableBrands = [] } = useQuery({
+    queryKey: queryKeys.brands(),
+    queryFn: productService.getAvailableBrands,
+    staleTime: 5 * 60_000,
+  });
+
   const {
     data, isPending, isError, error, isFetching, isPlaceholderData, refetch,
     fetchNextPage, hasNextPage, isFetchingNextPage,
@@ -177,8 +287,9 @@ export function ProductsPage() {
         page: pageParam as number, limit: 12,
         name: search.trim() || undefined,
         category_id: categoryId || undefined,
-        price_gte: minPrice || undefined,
-        price_lte: maxPrice || undefined,
+        brand: brand || undefined,
+        price_gte: debouncedMinPrice || undefined,
+        price_lte: debouncedMaxPrice || undefined,
         rating_gte: minRating || undefined,
         availability: inStockOnly ? "true" : undefined,
         discount_gte: onSaleOnly ? "1" : undefined,
@@ -215,8 +326,8 @@ export function ProductsPage() {
   const totalAvailable = pagination?.total ?? 0;
   const progressPct    = totalAvailable > 0 ? Math.round((totalLoaded / totalAvailable) * 100) : 0;
 
-  const hasActiveFilters  = Boolean(search || categoryId || minPrice || maxPrice || minRating || inStockOnly || onSaleOnly);
-  const activeFilterCount = [search, categoryId, minPrice || maxPrice, minRating, inStockOnly, onSaleOnly].filter(Boolean).length;
+  const hasActiveFilters  = Boolean(search || categoryId || brand || minPrice || maxPrice || minRating || inStockOnly || onSaleOnly);
+  const activeFilterCount = [search, categoryId, brand, minPrice || maxPrice, minRating, inStockOnly, onSaleOnly].filter(Boolean).length;
 
   const selectedCategory = categoryId
     ? categories?.find((c) => String(c.category_id) === categoryId)
@@ -231,15 +342,13 @@ export function ProductsPage() {
   );
 
   function clearFilters() {
-    setName(""); setSearch(""); setCategoryId("");
+    setName(""); setSearch(""); setCategoryId(""); setBrand("");
     setMinPrice(""); setMaxPrice("");
     setMinRating(""); setInStockOnly(false); setOnSaleOnly(false);
     resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
-  const filterProps: Omit<FilterPanelProps, "onDone"> = {
-    name, setName, search, setSearch,
-    sortKey, setSortKey,
+  const filterProps: FilterPanelProps = {
     categoryId, setCategoryId,
     minPrice, setMinPrice,
     maxPrice, setMaxPrice,
@@ -402,18 +511,8 @@ export function ProductsPage() {
         </div>
       )}
 
-      {/* ══ MAIN LAYOUT ══════════════════════════════════════ */}
-      <div className="flex gap-7 xl:gap-8">
-
-        {/* ── Desktop sidebar ── */}
-        <aside className="hidden lg:block w-56 xl:w-64 shrink-0">
-          <div className="sticky top-24 overflow-hidden rounded-2xl border border-stroke bg-card shadow-sm">
-            <FilterPanel {...filterProps} />
-          </div>
-        </aside>
-
-        {/* ── Product area ── */}
-        <div ref={resultsRef} className="flex-1 min-w-0 space-y-4">
+      {/* ══ PRODUCT AREA (full width — filters live in the toolbar) ══ */}
+      <div ref={resultsRef} className="relative space-y-4">
 
           {/* Screen-reader live region for result count */}
           <span aria-live="polite" aria-atomic="true" className="sr-only">
@@ -437,52 +536,220 @@ export function ProductsPage() {
             )}
           </AnimatePresence>
 
-          {/* ── Quick sort pills ── */}
-          <div className="flex flex-wrap items-center gap-2">
-            {QUICK_SORTS.map(({ label, sort }) => {
-              const isAllActive = label === "All" && !hasActiveFilters;
-              const active = label === "All" ? isAllActive : (sortKey === sort && label !== "All");
-              return (
+          {/* ── Toolbar: quick filters + sort + view ── */}
+          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-stroke bg-card px-3 py-2.5">
+
+            {/* Desktop quick filters */}
+            <div className="hidden items-center gap-2 lg:flex">
+              <FilterPopover
+                label="Price"
+                active={Boolean(minPrice || maxPrice)}
+                activeLabel={
+                  minPrice && maxPrice ? `$${minPrice} – $${maxPrice}`
+                  : minPrice ? `Over $${minPrice}`
+                  : `Under $${maxPrice}`
+                }
+              >
+                <div className="flex flex-wrap gap-1.5">
+                  {PRICE_PRESETS.map(([label, min, max]) => {
+                    const isActive = minPrice === min && maxPrice === max;
+                    return (
+                      <button
+                        key={label}
+                        type="button"
+                        onClick={() => { setMinPrice(min); setMaxPrice(max); }}
+                        className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-all ${
+                          isActive
+                            ? "border-emerald-500/40 bg-emerald-500/12 text-emerald-600 dark:text-emerald-400"
+                            : "border-stroke bg-raised text-ink3 hover:border-edge hover:text-ink2"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="mt-3 flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px] text-ink4">$</span>
+                    <input
+                      type="number" min={0}
+                      value={minPrice}
+                      onChange={(e) => setMinPrice(e.target.value)}
+                      placeholder="Min"
+                      className="w-full rounded-lg border border-stroke bg-input py-2 pl-5 pr-3 text-[13px] text-ink placeholder:text-ink4 transition-colors focus:border-emerald-500/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/25"
+                    />
+                  </div>
+                  <div className="h-px w-3 shrink-0 bg-edge" />
+                  <div className="relative flex-1">
+                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px] text-ink4">$</span>
+                    <input
+                      type="number" min={0}
+                      value={maxPrice}
+                      onChange={(e) => setMaxPrice(e.target.value)}
+                      placeholder="Max"
+                      className="w-full rounded-lg border border-stroke bg-input py-2 pl-5 pr-3 text-[13px] text-ink placeholder:text-ink4 transition-colors focus:border-emerald-500/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/25"
+                    />
+                  </div>
+                </div>
+                {(minPrice || maxPrice) && (
+                  <button
+                    type="button"
+                    onClick={() => { setMinPrice(""); setMaxPrice(""); }}
+                    className="mt-3 text-[11px] font-semibold text-ink4 transition-colors hover:text-ink3"
+                  >
+                    Reset price
+                  </button>
+                )}
+              </FilterPopover>
+
+              <FilterPopover
+                label="Rating"
+                active={Boolean(minRating)}
+                activeLabel={`${minRating}★ & up`}
+                panelClass="w-52 p-1.5"
+              >
                 <button
-                  key={label}
                   type="button"
-                  onClick={() => {
-                    setSortKey(sort);
-                    if (label === "All") clearFilters();
-                  }}
-                  className={`rounded-full border px-4 py-1.5 text-[12px] font-semibold transition-all ${
-                    active
-                      ? "border-emerald-500/40 bg-emerald-500/12 text-emerald-600 dark:text-emerald-400"
-                      : "border-stroke bg-card text-ink3 hover:border-edge hover:text-ink"
+                  onClick={() => setMinRating("")}
+                  className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] transition-all ${
+                    !minRating ? "bg-emerald-500/8 font-semibold text-ink" : "text-ink3 hover:bg-hover hover:text-ink2"
                   }`}
                 >
-                  {label === "Top rated" && <span className="mr-1">★</span>}
-                  {label}
+                  Any rating
                 </button>
-              );
-            })}
+                {RATING_FILTERS.map(({ value, full, half }) => {
+                  const isActive = minRating === value;
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setMinRating(value)}
+                      className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-[13px] transition-all ${
+                        isActive ? "bg-amber-500/10 font-semibold text-ink" : "text-ink3 hover:bg-hover hover:text-ink2"
+                      }`}
+                    >
+                      <span className="flex items-center gap-0.5">
+                        {[1, 2, 3, 4, 5].map((i) => {
+                          const isFull = i <= full;
+                          const isHalf = half && i === full + 1;
+                          return (
+                            <StarIcon
+                              key={i}
+                              className={`size-3.5 ${isFull ? "text-amber-400" : isHalf ? "text-amber-400/50" : "text-ink4/40"}`}
+                              filled={isFull || isHalf}
+                            />
+                          );
+                        })}
+                      </span>
+                      <span>&amp; up</span>
+                    </button>
+                  );
+                })}
+              </FilterPopover>
 
-            {/* Spacer + mobile filter + view toggle */}
-            <div className="ml-auto flex items-center gap-2">
+              {/* Brand filter */}
+              {availableBrands.length > 0 && (
+                <FilterPopover
+                  label="Brand"
+                  active={Boolean(brand)}
+                  activeLabel={brand}
+                  panelClass="w-56 p-1.5 max-h-64 overflow-y-auto"
+                >
+                  <button
+                    type="button"
+                    onClick={() => setBrand("")}
+                    className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] transition-all ${
+                      !brand ? "bg-emerald-500/8 font-semibold text-ink" : "text-ink3 hover:bg-hover hover:text-ink2"
+                    }`}
+                  >
+                    All brands
+                  </button>
+                  {availableBrands.map((b) => (
+                    <button
+                      key={b}
+                      type="button"
+                      onClick={() => setBrand(b)}
+                      className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] transition-all ${
+                        brand === b ? "bg-emerald-500/8 font-semibold text-ink" : "text-ink3 hover:bg-hover hover:text-ink2"
+                      }`}
+                    >
+                      {b}
+                    </button>
+                  ))}
+                </FilterPopover>
+              )}
+
+              {/* In stock / On sale toggles */}
               <button
                 type="button"
-                onClick={() => setDrawerOpen(true)}
-                className="flex items-center gap-2 rounded-lg border border-stroke bg-card px-3.5 py-2 text-[12px] font-medium text-ink2 transition-colors hover:border-edge hover:text-ink lg:hidden"
+                aria-pressed={inStockOnly}
+                onClick={() => setInStockOnly(!inStockOnly)}
+                className={`rounded-lg border px-3 py-1.5 text-[12px] font-medium transition-colors ${
+                  inStockOnly
+                    ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                    : "border-stroke bg-raised text-ink2 hover:border-edge hover:text-ink"
+                }`}
               >
-                <SlidersIcon className="size-3.5" />
-                Filters
-                {activeFilterCount > 0 && (
-                  <span className="flex size-4 items-center justify-center rounded-full bg-emerald-500 text-[9px] font-bold text-white">
-                    {activeFilterCount}
-                  </span>
-                )}
+                In stock
               </button>
+              <button
+                type="button"
+                aria-pressed={onSaleOnly}
+                onClick={() => setOnSaleOnly(!onSaleOnly)}
+                className={`rounded-lg border px-3 py-1.5 text-[12px] font-medium transition-colors ${
+                  onSaleOnly
+                    ? "border-rose-500/40 bg-rose-500/10 text-rose-700 dark:text-rose-400"
+                    : "border-stroke bg-raised text-ink2 hover:border-edge hover:text-ink"
+                }`}
+              >
+                On sale
+              </button>
+            </div>
 
-              <div className="flex items-center gap-0.5 rounded-lg border border-stroke bg-card p-1">
+            {/* Mobile filters */}
+            <button
+              type="button"
+              onClick={() => setDrawerOpen(true)}
+              className="flex items-center gap-2 rounded-lg border border-stroke bg-raised px-3 py-1.5 text-[12px] font-medium text-ink2 transition-colors hover:border-edge hover:text-ink lg:hidden"
+            >
+              <SlidersIcon className="size-3.5" />
+              Filters
+              {activeFilterCount > 0 && (
+                <span className="flex size-4 items-center justify-center rounded-full bg-emerald-500 text-[9px] font-bold text-white">
+                  {activeFilterCount}
+                </span>
+              )}
+            </button>
+
+            <div className="ml-auto flex shrink-0 items-center gap-2">
+              {!isPending && totalAvailable > 0 && (
+                <p className="hidden text-[12px] tabular-nums text-ink4 md:block">
+                  {totalLoaded.toLocaleString()} of {totalAvailable.toLocaleString()}
+                </p>
+              )}
+
+              {/* Sort */}
+              <div className="relative">
+                <select
+                  value={sortKey}
+                  onChange={(e) => setSortKey(e.target.value)}
+                  aria-label="Sort products"
+                  className="appearance-none rounded-lg border border-stroke bg-raised py-1.5 pl-3 pr-8 text-[12px] font-medium text-ink2 focus:outline-none focus:ring-1 focus:ring-emerald-500/30 cursor-pointer hover:border-edge transition-colors"
+                >
+                  {SORT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+                <svg className="pointer-events-none absolute right-2.5 top-1/2 size-3 -translate-y-1/2 text-ink4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                </svg>
+              </div>
+
+              {/* View toggle */}
+              <div className="flex items-center gap-0.5 rounded-lg border border-stroke bg-raised p-0.5">
                 <button
                   type="button"
                   onClick={() => setViewMode("grid")}
-                  className={`flex size-7 items-center justify-center rounded-md transition-colors ${viewMode === "grid" ? "bg-raised text-ink shadow-sm" : "text-ink4 hover:text-ink"}`}
+                  className={`flex size-6.5 items-center justify-center rounded-md transition-colors ${viewMode === "grid" ? "bg-card text-ink shadow-sm" : "text-ink4 hover:text-ink"}`}
                   aria-label="Grid view"
                 >
                   <GridIcon className="size-3.5" />
@@ -490,7 +757,7 @@ export function ProductsPage() {
                 <button
                   type="button"
                   onClick={() => setViewMode("list")}
-                  className={`flex size-7 items-center justify-center rounded-md transition-colors ${viewMode === "list" ? "bg-raised text-ink shadow-sm" : "text-ink4 hover:text-ink"}`}
+                  className={`flex size-6.5 items-center justify-center rounded-md transition-colors ${viewMode === "list" ? "bg-card text-ink shadow-sm" : "text-ink4 hover:text-ink"}`}
                   aria-label="List view"
                 >
                   <ListIcon className="size-3.5" />
@@ -499,9 +766,9 @@ export function ProductsPage() {
             </div>
           </div>
 
-          {/* ── Toolbar: active chips + count + sort ── */}
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-stroke bg-card px-4 py-3">
-            <div className="flex flex-wrap items-center gap-2 min-w-0">
+          {/* ── Active filter chips ── */}
+          {hasActiveFilters && (
+            <div className="flex flex-wrap items-center gap-2 px-1">
               {search && (
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/25 bg-emerald-500/8 px-2.5 py-0.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
                   "{search}"
@@ -514,6 +781,14 @@ export function ProductsPage() {
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/25 bg-emerald-500/8 px-2.5 py-0.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
                   {minPrice && maxPrice ? `$${minPrice}–$${maxPrice}` : minPrice ? `≥$${minPrice}` : `≤$${maxPrice}`}
                   <button type="button" onClick={() => { setMinPrice(""); setMaxPrice(""); }} className="text-emerald-500/60 hover:text-emerald-500">
+                    <XIcon className="size-3" />
+                  </button>
+                </span>
+              )}
+              {brand && (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/25 bg-violet-500/8 px-2.5 py-0.5 text-[11px] font-medium text-violet-700 dark:text-violet-400">
+                  {brand}
+                  <button type="button" onClick={() => setBrand("")} className="text-violet-500/60 hover:text-violet-500">
                     <XIcon className="size-3" />
                   </button>
                 </span>
@@ -547,28 +822,9 @@ export function ProductsPage() {
                   Clear all
                 </button>
               )}
-              {!search && !minPrice && !maxPrice && !minRating && !inStockOnly && !onSaleOnly && !isPending && (
-                <p className="text-[12px] text-ink4 truncate">
-                  {totalLoaded > 0
-                    ? `Showing ${totalLoaded.toLocaleString()} of ${totalAvailable.toLocaleString()}`
-                    : "No results"}
-                </p>
-              )}
             </div>
+          )}
 
-            <div className="relative shrink-0">
-              <select
-                value={sortKey}
-                onChange={(e) => setSortKey(e.target.value)}
-                className="appearance-none rounded-lg border border-stroke bg-raised py-1.5 pl-3 pr-8 text-[12px] font-medium text-ink2 focus:outline-none focus:ring-1 focus:ring-emerald-500/30 cursor-pointer hover:border-edge transition-colors"
-              >
-                {SORT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-              <svg className="pointer-events-none absolute right-2.5 top-1/2 size-3 -translate-y-1/2 text-ink4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-              </svg>
-            </div>
-          </div>
 
           {/* ── Product results ── */}
           {isPending ? (
@@ -604,7 +860,7 @@ export function ProductsPage() {
               <AnimatePresence mode="wait">
                 <motion.div
                   key={`${baseQueryString}-${viewMode}`}
-                  className={viewMode === "grid" ? "grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-3" : "flex flex-col gap-2.5"}
+                  className={viewMode === "grid" ? "grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4" : "flex flex-col gap-2.5"}
                   variants={stagger}
                   initial="hidden"
                   animate="show"
@@ -652,8 +908,8 @@ export function ProductsPage() {
 
               {/* Skeleton rows when fetching next page */}
               {isFetchingNextPage && (
-                <div ref={sentinelRef} className={viewMode === "grid" ? "grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-3 mt-3" : "flex flex-col gap-2.5 mt-2"}>
-                  {Array.from({ length: viewMode === "grid" ? 6 : 3 }).map((_, i) => (
+                <div ref={sentinelRef} className={viewMode === "grid" ? "grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4 mt-3" : "flex flex-col gap-2.5 mt-2"}>
+                  {Array.from({ length: viewMode === "grid" ? 8 : 3 }).map((_, i) => (
                     viewMode === "grid" ? (
                       <div key={i} className="flex flex-col overflow-hidden rounded-xl border border-stroke bg-card">
                         <div className="aspect-[3/4] animate-shimmer" />
@@ -698,7 +954,6 @@ export function ProductsPage() {
               )}
             </div>
           )}
-        </div>
       </div>
 
       {/* ══ MOBILE FILTER DRAWER ═════════════════════════════ */}
@@ -745,7 +1000,7 @@ export function ProductsPage() {
               </div>
 
               <div className="overflow-hidden rounded-2xl border border-stroke bg-card mx-4 my-4">
-                <FilterPanel {...filterProps} onDone={() => setDrawerOpen(false)} />
+                <FilterPanel {...filterProps} />
               </div>
 
               <div className="sticky bottom-0 border-t border-stroke bg-page/95 px-5 pb-8 pt-4 backdrop-blur-sm">

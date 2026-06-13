@@ -29,20 +29,27 @@ function greeting(name: string): string {
   return `Good ${tod}, ${first}`;
 }
 
-function SidebarAvatar({ src, name, initials }: { src: string | null; name: string; initials: string }) {
+function SidebarAvatar({ src, name, initials, size = "md" }: {
+  src: string | null; name: string; initials: string; size?: "md" | "lg"
+}) {
   const [failed, setFailed] = useState(false);
+  const isLg   = size === "lg";
+  const szCls   = isLg ? "size-20" : "size-12";
+  const ringCls = isLg ? "ring-[3px] ring-card shadow-xl" : "ring-2 ring-stroke";
+  const txtCls  = isLg ? "text-xl font-bold" : "text-sm font-bold";
+
   if (src && !failed) {
     return (
       <img
         src={src}
         alt={name}
-        className="size-12 rounded-full object-cover ring-2 ring-stroke"
+        className={`${szCls} ${ringCls} rounded-full object-cover`}
         onError={() => setFailed(true)}
       />
     );
   }
   return (
-    <div className="flex size-12 items-center justify-center rounded-full bg-gradient-to-br from-emerald-600 to-teal-700 text-sm font-bold text-white">
+    <div className={`flex ${szCls} ${ringCls} ${txtCls} items-center justify-center rounded-full bg-gradient-to-br from-emerald-600 to-teal-700 text-white`}>
       {initials}
     </div>
   );
@@ -154,6 +161,7 @@ export function AccountPage() {
     [name],
   );
   const orderCount = ordersQuery.isPending ? null : (ordersQuery.data?.length ?? 0);
+  const totalSpent  = ordersQuery.data?.reduce((s, o) => s + (o.total ?? 0), 0) ?? 0;
   const memberSince = u?.createdAt
     ? new Date(String(u.createdAt)).toLocaleDateString("en-US", { month: "short", year: "numeric" })
     : null;
@@ -235,49 +243,72 @@ export function AccountPage() {
           transition={{ duration: 0.3 }}
         >
           {/* Identity card */}
-          <div className="mb-4 overflow-hidden rounded-xl border border-stroke bg-card">
-            {/* Cover strip */}
-            <div className="h-12 bg-gradient-to-r from-emerald-600/25 via-teal-500/15 to-transparent" />
+          <div className="mb-4 overflow-hidden rounded-2xl border border-stroke bg-card ring-glass">
+            {/* Cover banner */}
+            <div className="relative h-16 overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-emerald-600/30 via-teal-500/15 to-transparent" />
+              <div className="absolute inset-0 dot-grid opacity-[0.3]" />
+              <div className="absolute -right-8 -top-8 size-44 rounded-full bg-emerald-500/12 blur-3xl" />
+              <div className="absolute -left-4 bottom-0 size-28 rounded-full bg-teal-600/10 blur-2xl" />
+            </div>
 
-            <div className="-mt-6 flex items-end gap-3 px-4 pb-4">
-              <div className="relative shrink-0">
-                <SidebarAvatar src={displayImage} name={name} initials={initials} />
+            {/* Avatar */}
+            <div className="-mt-10 px-4 pb-0">
+              <div className="relative w-fit">
+                <SidebarAvatar src={displayImage} name={name} initials={initials} size="lg" />
                 {isAdmin && (
-                  <span className="absolute -bottom-0.5 -right-0.5 flex size-4 items-center justify-center rounded-full bg-emerald-500 ring-2 ring-card">
-                    <ShieldIcon className="size-2.5 text-white" />
+                  <span className="absolute -bottom-0.5 -right-0.5 flex size-5 items-center justify-center rounded-full bg-emerald-500 ring-2 ring-card shadow-sm">
+                    <ShieldIcon className="size-3 text-white" />
                   </span>
                 )}
               </div>
-              <div className="min-w-0 flex-1 pb-1">
-                <p className="truncate text-sm font-semibold text-ink">{name}</p>
-                <p className="truncate text-[11px] text-ink4">{email}</p>
-              </div>
             </div>
 
-            <div className="border-t border-stroke px-4 pb-3 pt-2">
-              <div className="flex items-center gap-1.5">
-                <span className={`size-1.5 rounded-full ${isVerified ? "bg-emerald-500" : "bg-amber-500"}`} />
-                <span className={`text-[11px] font-medium ${isVerified ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}`}>
-                  {isVerified ? "Verified account" : "Email not verified"}
+            {/* Identity */}
+            <div className="px-4 pb-3 pt-2.5">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <p className="text-sm font-bold text-ink">{name}</p>
+                {isAdmin && (
+                  <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
+                    Admin
+                  </span>
+                )}
+              </div>
+              <p className="mt-0.5 truncate text-[11px] text-ink4">{email}</p>
+              <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                <span className={`inline-flex items-center gap-1 text-[11px] font-medium ${isVerified ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}`}>
+                  <span className={`size-1.5 shrink-0 rounded-full ${isVerified ? "bg-emerald-500" : "bg-amber-500 animate-pulse"}`} />
+                  {isVerified ? "Verified" : "Unverified"}
                 </span>
+                {memberSince && (
+                  <>
+                    <span className="text-[10px] text-ink4">·</span>
+                    <span className="text-[11px] text-ink4">Since {memberSince}</span>
+                  </>
+                )}
               </div>
-              {memberSince && (
-                <p className="mt-0.5 text-[10px] text-ink4">Member since {memberSince}</p>
-              )}
             </div>
 
-            {/* Stats strip */}
-            <div className="grid grid-cols-2 divide-x divide-stroke border-t border-stroke">
-              <Link to="/orders" className="flex flex-col items-center gap-0.5 py-3 transition-colors hover:bg-hover">
-                <span className="text-base font-bold tabular-nums leading-none text-ink">
+            {/* Stats — 3 columns */}
+            <div className="grid grid-cols-3 divide-x divide-stroke border-t border-stroke">
+              <Link to="/orders" className="group flex flex-col items-center gap-0.5 py-3 transition-colors hover:bg-hover">
+                <span className="text-sm font-bold tabular-nums leading-none text-ink transition-colors group-hover:text-emerald-600 dark:group-hover:text-emerald-400">
                   {orderCount === null ? "—" : orderCount}
                 </span>
                 <span className="text-[10px] text-ink4">Orders</span>
               </Link>
-              <Link to="/wishlist" className="flex flex-col items-center gap-0.5 py-3 transition-colors hover:bg-hover">
-                <span className="text-base font-bold tabular-nums leading-none text-ink">{wishlist.size}</span>
+              <Link to="/wishlist" className="group flex flex-col items-center gap-0.5 py-3 transition-colors hover:bg-hover">
+                <span className="text-sm font-bold tabular-nums leading-none text-ink transition-colors group-hover:text-red-400">
+                  {wishlist.size}
+                </span>
                 <span className="text-[10px] text-ink4">Saved</span>
               </Link>
+              <div className="flex flex-col items-center gap-0.5 py-3">
+                <span className="text-sm font-bold tabular-nums leading-none text-ink">
+                  {ordersQuery.isPending ? "—" : `$${totalSpent.toFixed(0)}`}
+                </span>
+                <span className="text-[10px] text-ink4">Spent</span>
+              </div>
             </div>
           </div>
 

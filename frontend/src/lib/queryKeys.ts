@@ -16,4 +16,7 @@ export const queryKeys = {
   variants:      (productId: string) => ["variants", productId] as const,
   questions:     (productId: string) => ["questions", productId] as const,
   priceHistory:  (productId: string) => ["priceHistory", productId] as const,
+  adminCoupons:  () => ["admin", "coupons"] as const,
+  adminContact:  () => ["admin", "contact"] as const,
+  brands:        () => ["brands"] as const,
 };

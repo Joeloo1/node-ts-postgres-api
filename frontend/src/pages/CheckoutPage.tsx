@@ -1,15 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { usePageTitle } from "../hooks/usePageTitle";
 import { ApiError, apiFetch } from "../lib/api";
 import { queryKeys } from "../lib/queryKeys";
 import { FREE_SHIPPING_THRESHOLD, FREE_SHIPPING_FLAT_RATE } from "../lib/constants";
 import * as cartService from "../services/cart";
 import * as addressService from "../services/addresses";
+import * as couponService from "../services/coupons";
+import type { CouponValidateResult } from "../services/coupons";
 import { productImageUrl } from "../lib/productImage";
+import { formatPrice } from "../lib/pricing";
 import type { Address } from "../lib/types";
 import {
   ArrowLeftIcon, ArrowRightIcon, CheckIcon, MapPinIcon,
@@ -97,6 +100,9 @@ export function CheckoutPage() {
   const queryClient = useQueryClient();
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
   const [showAddressForm, setShowAddressForm] = useState(false);
+  const [couponCode, setCouponCode] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState<CouponValidateResult | null>(null);
+  const couponInputRef = useRef<HTMLInputElement>(null);
 
   /* Fix #3 — correct address endpoint */
   const cartQuery = useQuery({
@@ -139,6 +145,15 @@ export function CheckoutPage() {
     onError: (e) => toast.error(e instanceof ApiError ? e.message : "Could not save address"),
   });
 
+  const couponMutation = useMutation({
+    mutationFn: () => couponService.validateCoupon(couponCode.trim().toUpperCase(), subtotal),
+    onSuccess: (result) => {
+      setAppliedCoupon(result);
+      toast.success(`Coupon applied — ${formatPrice(result.discount)} off`);
+    },
+    onError: (e) => toast.error(e instanceof ApiError ? e.message : "Invalid coupon code"),
+  });
+
   const checkoutMutation = useMutation({
     mutationFn: async () => {
       const res = await apiFetch<{ status: string; data: { url: string } }>(
@@ -160,8 +175,10 @@ export function CheckoutPage() {
       : i.product.price;
     return sum + price * i.quantity;
   }, 0);
-  const shipping = subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : FREE_SHIPPING_FLAT_RATE;
-  const total = subtotal + shipping;
+  const couponDiscount = appliedCoupon ? appliedCoupon.discount : 0;
+  const discountedSubtotal = subtotal - couponDiscount;
+  const shipping = discountedSubtotal >= FREE_SHIPPING_THRESHOLD ? 0 : FREE_SHIPPING_FLAT_RATE;
+  const total = discountedSubtotal + shipping;
 
   if (cartQuery.isSuccess && items.length === 0) {
     return (
@@ -341,29 +358,87 @@ export function CheckoutPage() {
           <div className="px-5 py-4 space-y-2.5 text-sm">
             <div className="flex justify-between">
               <span className="text-ink3">Subtotal</span>
-              <span className="tabular-nums font-medium text-ink">${subtotal.toFixed(2)}</span>
+              <span className="tabular-nums font-medium text-ink">{formatPrice(subtotal)}</span>
             </div>
+            <AnimatePresence>
+              {appliedCoupon && (
+                <motion.div
+                  className="flex justify-between"
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                >
+                  <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
+                    <svg className="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 14.25l6-6M9.75 9.75h.008v.008H9.75V9.75Zm4.5 4.5h.008v.008h-.008v-.008Zm-9.22 5.47A2.25 2.25 0 0 0 6.75 15.75V5.25A2.25 2.25 0 0 1 9 3h10.5A2.25 2.25 0 0 1 21.75 5.25v10.5A2.25 2.25 0 0 1 19.5 18H9a2.25 2.25 0 0 1-1.97-1.28Z" />
+                    </svg>
+                    {appliedCoupon.code}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="tabular-nums font-medium text-emerald-600 dark:text-emerald-400">
+                      -{formatPrice(appliedCoupon.discount)}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => { setAppliedCoupon(null); setCouponCode(""); }}
+                      className="text-ink4 hover:text-red-400 transition-colors"
+                      aria-label="Remove coupon"
+                    >
+                      <svg className="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
             <div className="flex justify-between">
               <span className="text-ink3">Shipping</span>
               {shipping === 0 ? (
                 <span className="font-medium text-emerald-600 dark:text-emerald-400">Free</span>
               ) : (
-                <span className="tabular-nums font-medium text-ink">${shipping.toFixed(2)}</span>
+                <span className="tabular-nums font-medium text-ink">{formatPrice(shipping)}</span>
               )}
             </div>
-            {subtotal < 50 && (
-              <p className="text-[11px] text-ink4">Add ${(50 - subtotal).toFixed(2)} more for free shipping</p>
+            {discountedSubtotal < FREE_SHIPPING_THRESHOLD && (
+              <p className="text-[11px] text-ink4">Add {formatPrice(FREE_SHIPPING_THRESHOLD - discountedSubtotal)} more for free shipping</p>
             )}
           </div>
 
-          {/* Promo codes — not yet available */}
+          {/* Coupon / promo code */}
           <div className="border-t border-stroke px-5 py-3">
-            <p className="text-[11px] text-ink4">Promo codes coming soon</p>
+            {appliedCoupon ? null : (
+              <div className="flex gap-2">
+                <input
+                  ref={couponInputRef}
+                  value={couponCode}
+                  onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                  onKeyDown={(e) => { if (e.key === "Enter" && couponCode.trim()) couponMutation.mutate(); }}
+                  placeholder="Promo code"
+                  className="flex-1 rounded-lg border border-stroke bg-input px-3 py-2 text-sm text-ink placeholder:text-ink4 focus:border-emerald-500/50 focus:outline-none focus:ring-2 focus:ring-emerald-500/15 transition-colors"
+                  autoComplete="off"
+                  spellCheck={false}
+                />
+                <button
+                  type="button"
+                  disabled={!couponCode.trim() || couponMutation.isPending}
+                  onClick={() => couponMutation.mutate()}
+                  className="shrink-0 rounded-lg border border-stroke bg-raised px-3 py-2 text-sm font-medium text-ink transition-colors hover:bg-hover disabled:opacity-40"
+                >
+                  {couponMutation.isPending ? (
+                    <svg className="size-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                    </svg>
+                  ) : "Apply"}
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center justify-between border-t border-stroke bg-raised/40 px-5 py-4">
             <span className="text-sm font-semibold text-ink">Total</span>
-            <span className="text-xl font-bold tabular-nums text-ink">${total.toFixed(2)}</span>
+            <span className="text-xl font-bold tabular-nums text-ink">{formatPrice(total)}</span>
           </div>
 
           <div className="px-5 pb-5 pt-3 space-y-3">
@@ -383,7 +458,7 @@ export function CheckoutPage() {
                 </>
               ) : (
                 <>
-                  Pay ${total.toFixed(2)} with Stripe
+                  Pay {formatPrice(total)} with Stripe
                   <ArrowRightIcon className="size-4 transition-transform group-hover:translate-x-0.5" />
                 </>
               )}

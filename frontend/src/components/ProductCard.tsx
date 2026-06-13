@@ -68,7 +68,9 @@ export function ProductCard({ product }: { product: Product }) {
 
   return (
     <>
-      <article className="group flex flex-col overflow-hidden rounded-2xl border border-stroke bg-card transition-all duration-300 hover:border-edge hover:shadow-xl hover:shadow-black/10 dark:hover:shadow-black/35 [will-change:transform]">
+      <article className="group relative flex flex-col overflow-hidden rounded-2xl border border-stroke bg-card transition-all duration-300 hover:-translate-y-0.5 hover:border-edge hover:shadow-xl hover:shadow-black/10 dark:hover:shadow-black/35 [will-change:transform]">
+        {/* Glass inner highlight */}
+        <div className="pointer-events-none absolute inset-0 z-10 rounded-2xl ring-glass" />
 
         {/* ── Image area ── */}
         <Link to={`/products/${product.product_id}`} className="relative aspect-[4/5] overflow-hidden bg-raised">

@@ -7,6 +7,7 @@ import { queryKeys } from "../lib/queryKeys";
 import * as analyticsService from "../services/analytics";
 import type { Order, OrderStatus } from "../lib/types";
 import type { RevenueDay } from "../services/analytics";
+import { useAuth } from "../context/AuthContext";
 import {
   ChartBarIcon, PackageIcon, ShieldIcon, TagIcon, UsersIcon,
 } from "../components/Icons";
@@ -22,17 +23,35 @@ const STATUS_STYLES: Record<OrderStatus, string> = {
   REFUNDED:   "bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/20",
 };
 
+function CouponIcon({ className = "size-4" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 14.25l6-6M9.75 9.75h.008v.008H9.75V9.75Zm4.5 4.5h.008v.008h-.008v-.008Zm-9.22 5.47A2.25 2.25 0 0 0 6.75 15.75V5.25A2.25 2.25 0 0 1 9 3h10.5A2.25 2.25 0 0 1 21.75 5.25v10.5A2.25 2.25 0 0 1 19.5 18H9a2.25 2.25 0 0 1-1.97-1.28Z" />
+    </svg>
+  );
+}
+
+function MailIcon({ className = "size-4" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75" />
+    </svg>
+  );
+}
+
 const NAV = [
   { to: "/admin/products",   label: "Products",   icon: PackageIcon },
   { to: "/admin/users",      label: "Users",       icon: UsersIcon },
   { to: "/admin/categories", label: "Categories",  icon: TagIcon },
   { to: "/admin/orders",     label: "Orders",      icon: ChartBarIcon },
+  { to: "/admin/coupons",    label: "Coupons",     icon: CouponIcon },
+  { to: "/admin/contact",    label: "Inbox",       icon: MailIcon },
 ];
 
 const tabClass = ({ isActive }: { isActive: boolean }) =>
   `flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-all border ${
     isActive
-      ? "bg-raised text-ink border-edge"
+      ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20 font-semibold"
       : "text-ink3 hover:bg-hover hover:text-ink border-transparent"
   }`;
 
@@ -246,11 +265,20 @@ function AdminDashboard() {
   const allOrders    = allOrdersQ.data ?? [];
   const lowStock     = lowStockQ.data ?? [];
 
+  // Trend: compare last 30 days vs previous 30 days using allOrders
+  const thirtyDaysAgo = Date.now() - 30 * 86_400_000;
+  const sixtyDaysAgo  = Date.now() - 60 * 86_400_000;
+  const prev30  = allOrders.filter(o => { const t = new Date(o.createdAt).getTime(); return t > sixtyDaysAgo && t <= thirtyDaysAgo; }).length;
+  const orderTrend: number | null = prev30 > 0 && totals
+    ? Math.round(((totals.recentOrders - prev30) / prev30) * 100)
+    : null;
+
   const statsCards = [
     {
       label: "Total revenue",
       value: totals ? `$${totals.revenue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—",
-      sub: "From paid & delivered orders",
+      sub: "Paid & delivered orders",
+      trend: null as number | null,
       icon: ChartBarIcon,
       color: "text-emerald-500",
       bg: "bg-emerald-500/10",
@@ -259,7 +287,8 @@ function AdminDashboard() {
     {
       label: "Total orders",
       value: totals ? String(totals.orders) : "—",
-      sub: totals ? `${totals.recentOrders} in the last 30 days` : "Loading…",
+      sub: totals ? `${totals.recentOrders} last 30 days` : "Loading…",
+      trend: orderTrend,
       icon: PackageIcon,
       color: "text-amber-500",
       bg: "bg-amber-500/10",
@@ -269,6 +298,7 @@ function AdminDashboard() {
       label: "Customers",
       value: totals ? String(totals.users) : "—",
       sub: "Registered accounts",
+      trend: null as number | null,
       icon: UsersIcon,
       color: "text-sky-500",
       bg: "bg-sky-500/10",
@@ -278,6 +308,7 @@ function AdminDashboard() {
       label: "Products",
       value: totals ? String(totals.products) : "—",
       sub: "In the catalog",
+      trend: null as number | null,
       icon: TagIcon,
       color: "text-violet-500",
       bg: "bg-violet-500/10",
@@ -290,45 +321,70 @@ function AdminDashboard() {
   return (
     <div className="space-y-8">
 
-      {/* Refresh toolbar */}
-      <div className="flex items-center justify-between">
-        <p className="text-xs text-ink4">
-          Updated {timeAgo(refreshedAt)}
-        </p>
-        <button
-          type="button"
-          onClick={handleRefresh}
-          disabled={anyFetching}
-          className="flex items-center gap-1.5 rounded-lg border border-stroke bg-card px-3 py-1.5 text-xs font-medium text-ink3 transition-colors hover:bg-raised hover:text-ink disabled:opacity-50"
-        >
-          <svg
-            className={`size-3.5 ${anyFetching ? "animate-spin" : ""}`}
-            fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+      {/* Toolbar: refresh + quick actions */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap gap-2">
+          {[
+            { label: "Add product", icon: PackageIcon,  to: "/admin/products" },
+            { label: "Orders",      icon: ChartBarIcon, to: "/admin/orders" },
+            { label: "Users",       icon: UsersIcon,    to: "/admin/users" },
+          ].map(({ label, icon: Icon, to }) => (
+            <Link
+              key={to}
+              to={to}
+              className="inline-flex items-center gap-2 rounded-lg border border-stroke bg-card px-3.5 py-2 text-[13px] font-medium text-ink2 transition-colors hover:bg-raised hover:text-ink"
+            >
+              <Icon className="size-3.5 text-ink4" />
+              {label}
+            </Link>
+          ))}
+        </div>
+        <div className="flex items-center gap-3">
+          <p className="text-xs text-ink4">Updated {timeAgo(refreshedAt)}</p>
+          <button
+            type="button"
+            onClick={handleRefresh}
+            disabled={anyFetching}
+            className="flex items-center gap-1.5 rounded-lg border border-stroke bg-card px-3 py-1.5 text-xs font-medium text-ink3 transition-colors hover:bg-raised hover:text-ink disabled:opacity-50"
           >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
-          </svg>
-          {anyFetching ? "Refreshing…" : "Refresh"}
-        </button>
+            <svg
+              className={`size-3.5 ${anyFetching ? "animate-spin" : ""}`}
+              fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+            </svg>
+            {anyFetching ? "Refreshing…" : "Refresh"}
+          </button>
+        </div>
       </div>
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {statsCards.map(({ label, value, sub, icon: Icon, color, bg, to }) => {
+        {statsCards.map(({ label, value, sub, trend, icon: Icon, color, bg, to }) => {
           const content = (
             <div className="space-y-3">
-              <div className={`flex size-9 items-center justify-center rounded-lg ${bg}`}>
-                <Icon className={`size-4.5 ${color}`} />
+              <div className="flex items-start justify-between">
+                <div className={`flex size-9 items-center justify-center rounded-xl ${bg}`}>
+                  <Icon className={`size-4 ${color}`} />
+                </div>
+                {trend !== null && !analyticsQ.isPending && (
+                  <span className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                    trend >= 0 ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-red-500/10 text-red-500 dark:text-red-400"
+                  }`}>
+                    {trend >= 0 ? "↑" : "↓"} {Math.abs(trend)}%
+                  </span>
+                )}
               </div>
               <div>
                 {analyticsQ.isPending ? (
                   <>
-                    <div className="mb-1 h-6 w-24 animate-shimmer rounded" />
-                    <div className="h-3 w-16 animate-shimmer rounded" />
+                    <div className="mb-1.5 h-7 w-24 animate-shimmer rounded" />
+                    <div className="h-3 w-20 animate-shimmer rounded" />
                   </>
                 ) : (
                   <>
                     <p className="text-2xl font-bold tabular-nums text-ink">{value}</p>
-                    <p className="mt-0.5 text-xs font-medium text-ink">{label}</p>
+                    <p className="mt-0.5 text-xs font-semibold text-ink3">{label}</p>
                     <p className="text-[11px] text-ink4">{sub}</p>
                   </>
                 )}
@@ -341,7 +397,7 @@ function AdminDashboard() {
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.28 }}
-              className="overflow-hidden rounded-xl border border-stroke bg-card p-5 transition-all hover:border-emerald-500/25 hover:shadow-md hover:shadow-black/5"
+              className="overflow-hidden rounded-xl border border-stroke bg-card p-5 ring-glass transition-all hover:border-emerald-500/20 hover:shadow-lg hover:shadow-black/8"
             >
               <Link to={to} className="block">{content}</Link>
             </motion.div>
@@ -564,31 +620,57 @@ function AdminDashboard() {
 
 /* ── Admin Page Shell ──────────────────────────────── */
 export function AdminPage() {
+  const { user } = useAuth();
   const location = useLocation();
   const isRoot = location.pathname === "/admin";
 
+  const adminName     = (user as Record<string, unknown> | null)?.name as string | undefined;
+  const adminInitials = adminName
+    ? adminName.split(" ").map((w: string) => w[0]).slice(0, 2).join("").toUpperCase()
+    : "A";
+
   return (
     <div className="space-y-8">
+
+      {/* Admin page header */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
-        className="flex items-start gap-3"
+        className="flex flex-wrap items-center justify-between gap-4"
       >
-        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-          <ShieldIcon className="size-5" />
+        <div className="flex items-center gap-3">
+          <div className="relative flex size-11 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 ring-glass">
+            <ShieldIcon className="size-5" />
+            <span className="absolute -right-0.5 -top-0.5 size-2.5 rounded-full border-2 border-page bg-emerald-500" />
+          </div>
+          <div>
+            <h1 className="font-display text-2xl font-bold text-ink sm:text-3xl">Admin</h1>
+            <p className="mt-0.5 text-sm text-ink4">Control centre · Northline store</p>
+          </div>
         </div>
-        <div>
-          <h1 className="font-display text-2xl font-bold text-ink sm:text-3xl">Admin</h1>
-          <p className="mt-0.5 text-sm text-ink4">Manage products, users, categories, and orders.</p>
-        </div>
+
+        {adminName && (
+          <div className="hidden items-center gap-3 rounded-xl border border-stroke bg-card px-4 py-2.5 ring-glass sm:flex">
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-600 to-teal-700 text-xs font-bold text-white shadow-sm">
+              {adminInitials}
+            </div>
+            <div>
+              <p className="text-[12px] font-semibold text-ink leading-tight">{adminName}</p>
+              <div className="flex items-center gap-1 mt-0.5">
+                <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">Administrator</span>
+              </div>
+            </div>
+          </div>
+        )}
       </motion.div>
 
       <motion.nav
         initial={{ opacity: 0, y: 6 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.28, delay: 0.07 }}
-        className="flex flex-wrap gap-2 rounded-xl border border-stroke bg-card p-2"
+        className="flex flex-wrap gap-1.5 overflow-hidden rounded-2xl border border-stroke bg-card p-2"
         aria-label="Admin sections"
       >
         {NAV.map(({ to, label, icon: Icon }) => (

@@ -177,6 +177,8 @@ export function OrderDetailPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [reordering, setReordering] = useState(false);
+  const [returnDialogOpen, setReturnDialogOpen] = useState(false);
+  const [returnReason, setReturnReason] = useState("");
 
   const orderQuery = useQuery({
     queryKey: queryKeys.order(id!),
@@ -198,6 +200,24 @@ export function OrderDetailPage() {
     },
     onError: (e) => {
       toast.error(e instanceof ApiError ? e.message : "Could not cancel order");
+    },
+  });
+
+  const returnMutation = useMutation({
+    mutationFn: async () => {
+      await apiFetch(`/api/v1/order/${id}/return`, {
+        method: "POST",
+        auth: true,
+        body: JSON.stringify({ reason: returnReason.trim() }),
+      });
+    },
+    onSuccess: () => {
+      setReturnDialogOpen(false);
+      setReturnReason("");
+      toast.success("Return request submitted. We'll be in touch within 1–2 business days.");
+    },
+    onError: (e) => {
+      toast.error(e instanceof ApiError ? e.message : "Could not submit return request");
     },
   });
 
@@ -423,16 +443,51 @@ export function OrderDetailPage() {
             </div>
 
             {canReturn && (
-              <button
-                type="button"
-                onClick={() => toast.info("Return requests can be submitted via our support team.")}
-                className="inline-flex items-center gap-2 rounded-lg border border-stroke bg-card px-3.5 py-2 text-[13px] font-medium text-ink2 transition-colors hover:bg-raised hover:text-ink"
-              >
-                <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" />
-                </svg>
-                Request return
-              </button>
+              <div className="space-y-3">
+                <button
+                  type="button"
+                  onClick={() => setReturnDialogOpen((v) => !v)}
+                  className="inline-flex items-center gap-2 rounded-lg border border-stroke bg-card px-3.5 py-2 text-[13px] font-medium text-ink2 transition-colors hover:bg-raised hover:text-ink"
+                >
+                  <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" />
+                  </svg>
+                  Request return
+                </button>
+
+                {returnDialogOpen && (
+                  <div className="rounded-xl border border-stroke bg-raised p-4 space-y-3">
+                    <p className="text-[13px] font-semibold text-ink">Return request</p>
+                    <p className="text-xs text-ink4">
+                      Describe the reason for your return. We'll review and respond within 1–2 business days.
+                    </p>
+                    <textarea
+                      value={returnReason}
+                      onChange={(e) => setReturnReason(e.target.value)}
+                      placeholder="e.g. Item arrived damaged, wrong size, changed my mind…"
+                      rows={3}
+                      className="w-full resize-none rounded-lg border border-stroke bg-card px-3 py-2 text-[13px] text-ink placeholder:text-ink4 focus:border-emerald-500/50 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => returnMutation.mutate()}
+                        disabled={!returnReason.trim() || returnMutation.isPending}
+                        className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3.5 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
+                      >
+                        {returnMutation.isPending ? "Submitting…" : "Submit return"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setReturnDialogOpen(false); setReturnReason(""); }}
+                        className="inline-flex items-center gap-2 rounded-lg border border-stroke bg-card px-3.5 py-2 text-[13px] font-medium text-ink2 transition-colors hover:bg-raised"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </div>

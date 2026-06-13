@@ -18,3 +18,11 @@ export async function verifyCheckout(sessionId: string): Promise<Order> {
   const res = await apiFetch<OrderRes>(`/api/v1/order/verify/${sessionId}`, { auth: true });
   return res.data.order;
 }
+
+export async function createReturnRequest(orderId: string, reason: string): Promise<void> {
+  await apiFetch(`/api/v1/order/${orderId}/return`, {
+    method: "POST",
+    auth: true,
+    body: JSON.stringify({ reason }),
+  });
+}

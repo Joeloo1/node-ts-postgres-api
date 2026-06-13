@@ -76,7 +76,7 @@ export const adminGetCoupon = catchAsync(
     });
     res.status(200).json({
       status: "success",
-      dat: { coupon },
+      data: { coupon },
     });
   },
 );
@@ -131,17 +131,12 @@ export const adminDeleteCoupon = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
     const id = req.params.id;
 
-    const existing = await prisma.coupon.delete({
-      where: { id },
-    });
-
+    const existing = await prisma.coupon.findUnique({ where: { id } });
     if (!existing) return next(new AppError("Coupon not found", 404));
 
-    await prisma.coupon.delete({
-      where: { id },
-    });
+    await prisma.coupon.delete({ where: { id } });
 
-    logger.info("Coupon deleted", { id: req.params.id, adminId: req.user!.id });
+    logger.info("Coupon deleted", { id, adminId: req.user!.id });
     res.status(204).json({
       status: "success",
       data: null,

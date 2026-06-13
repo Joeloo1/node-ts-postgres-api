@@ -73,13 +73,12 @@ export function AboutPage() {
         variants={stagger}
         initial="hidden"
         animate="show"
-        className="relative overflow-hidden rounded-3xl border border-stroke bg-gradient-to-br from-zinc-900 via-zinc-950 to-zinc-950 px-8 py-16 sm:px-14 sm:py-20"
+        className="relative overflow-hidden rounded-3xl border border-stroke bg-card px-8 py-16 sm:px-14 sm:py-20"
+        style={{ background: "linear-gradient(145deg, #070e09 0%, #040806 100%)" }}
       >
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_70%_60%_at_50%_-10%,rgba(16,185,129,0.12),transparent)]" />
-        <div
-          className="absolute inset-0 opacity-[0.025]"
-          style={{ backgroundImage: "radial-gradient(circle, #ffffff 1px, transparent 1px)", backgroundSize: "28px 28px" }}
-        />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_70%_60%_at_50%_-10%,rgba(16,185,129,0.14),transparent)]" />
+        <div className="absolute inset-0 dot-grid opacity-25" />
+        <div className="absolute -right-24 -bottom-24 size-64 rounded-full bg-emerald-500/10 blur-3xl" />
         <div className="relative space-y-5">
           <motion.div variants={fadeUp} className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3.5 py-1.5">
             <span className="relative flex size-2">
@@ -89,14 +88,14 @@ export function AboutPage() {
             <span className="text-xs font-semibold uppercase tracking-widest text-emerald-400">Our story</span>
           </motion.div>
 
-          <motion.h1 variants={fadeUp} className="font-display text-4xl font-bold leading-tight text-ink sm:text-5xl">
+          <motion.h1 variants={fadeUp} className="font-display text-4xl font-bold leading-tight text-white sm:text-5xl">
             Shopping that feels<br />
-            <span className="bg-gradient-to-r from-emerald-400 to-teal-300 bg-clip-text text-transparent">
-              honest & effortless.
+            <span className="text-emerald-400">
+              honest &amp; effortless.
             </span>
           </motion.h1>
 
-          <motion.p variants={fadeUp} className="max-w-xl text-lg leading-relaxed text-ink3">
+          <motion.p variants={fadeUp} className="max-w-xl text-lg leading-relaxed text-emerald-100/60">
             Northline started with a simple idea: online shopping should be clear, fast,
             and trustworthy. We curate quality essentials across electronics, home,
             fashion, and daily life — so you find what you need without the noise.

@@ -4,6 +4,7 @@ import type { Pagination, Product } from "../lib/types";
 export interface ProductsParams {
   name?: string;
   category_id?: string;
+  brand?: string;
   price_gte?: string;
   price_lte?: string;
   rating_gte?: string;
@@ -25,6 +26,7 @@ export async function getProducts(params: ProductsParams = {}) {
   if (params.limit)      qs.set("limit", String(params.limit));
   if (params.name)       qs.set("name", params.name);
   if (params.category_id) qs.set("category_id", params.category_id);
+  if (params.brand)        qs.set("brand", params.brand);
   if (params.price_gte)    qs.set("price_gte", params.price_gte);
   if (params.price_lte)    qs.set("price_lte", params.price_lte);
   if (params.rating_gte)   qs.set("rating_gte", params.rating_gte);
@@ -70,4 +72,14 @@ export async function getProductsFeed(cursor?: string, limit = 12): Promise<{ pr
   if (cursor) qs.set("cursor", cursor);
   const res = await apiFetch<FeedRes>(`/api/v1/products/feed?${qs}`);
   return { products: res.data.products, nextCursor: res.pagination.nextCursor };
+}
+
+export async function getAvailableBrands(): Promise<string[]> {
+  const qs = new URLSearchParams({ limit: "200", sortBy: "name", order: "asc" });
+  const res = await apiFetch<ProductsRes>(`/api/v1/products?${qs}`);
+  const seen = new Set<string>();
+  for (const p of res.data.products) {
+    if (p.brand) seen.add(p.brand);
+  }
+  return [...seen].sort();
 }

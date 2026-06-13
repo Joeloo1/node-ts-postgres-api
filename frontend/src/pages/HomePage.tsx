@@ -1,7 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useRef, useState, useCallback } from "react";
-import { toast } from "sonner";
-import { ApiError, apiFetch } from "../lib/api";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion, type Variants } from "framer-motion";
 import { ProductCard } from "../components/ProductCard";
@@ -17,7 +15,6 @@ import {
   ArrowRightIcon, TruckIcon, ShieldIcon, PackageIcon,
   StarIcon, SearchIcon,
 } from "../components/Icons";
-import { useCountUp } from "../hooks/useCountUp";
 import type { Product } from "../lib/types";
 
 /* ── Animation presets ─────────────────────────────────────── */
@@ -39,8 +36,11 @@ function HeroMosaicImg({ src, alt, className }: { src: string; alt: string; clas
   const [err, setErr] = useState(false);
   if (err) {
     return (
-      <div className={`w-full h-full bg-gradient-to-br from-zinc-800 to-zinc-900 flex items-center justify-center ${className ?? ""}`}>
-        <svg className="size-8 text-zinc-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <div className={`relative w-full h-full flex items-center justify-center overflow-hidden ${className ?? ""}`}
+        style={{ background: "linear-gradient(145deg, #071410 0%, #030a07 100%)" }}>
+        <div className="absolute inset-0 dot-grid opacity-20" />
+        <div className="absolute bottom-0 right-0 size-48 rounded-full bg-emerald-600/10 blur-3xl" />
+        <svg className="relative size-8 text-emerald-800/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M9 9.75h.008v.008H9V9.75z" />
         </svg>
       </div>
@@ -104,45 +104,6 @@ const trustItems = [
 ];
 
 
-const HOW_IT_WORKS = [
-  {
-    title: "Browse & discover",
-    desc: "Discover products across every category — from electronics to everyday essentials, each curated for quality.",
-    icon: "M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z",
-  },
-  {
-    title: "Checkout securely",
-    desc: "Pay with confidence using 256-bit SSL encryption and your choice of payment method.",
-    icon: "M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z",
-  },
-  {
-    title: "Fast delivery",
-    desc: "Orders ship within 24 hours. Track in real-time and enjoy free returns within 30 days.",
-    icon: "M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12",
-  },
-];
-
-const WHY_US = [
-  {
-    iconPath: "M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z",
-    title: "Quality, guaranteed",
-    desc: "Every product is hand-picked for quality. Not satisfied? Our 30-day hassle-free return policy has you covered — no questions asked.",
-    accent: "from-emerald-500 to-teal-500",
-  },
-  {
-    iconPath: "M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12",
-    title: "Fast dispatch",
-    desc: "Orders ship within 24 hours. Real-time order tracking and carrier notifications keep you in the loop from warehouse to doorstep.",
-    accent: "from-sky-500 to-blue-500",
-  },
-  {
-    iconPath: "M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z",
-    title: "Secure checkout",
-    desc: "Powered by Stripe with 256-bit SSL encryption. Pay with card, Apple Pay, or Google Pay — your financial data never touches our servers.",
-    accent: "from-violet-500 to-purple-500",
-  },
-];
-
 const BRANDS = [
   "Sony", "Apple", "Samsung", "Nike", "Adidas", "Levi's",
   "Dyson", "Bose", "Canon", "Dell", "LG", "Philips",
@@ -198,20 +159,39 @@ export function HomePage() {
   });
   const bestSellers = bestSellersData?.products;
 
+  /* Real social proof: actual top-rated product + actual best discount */
+  const topRated = bestSellers?.[0];
+  const topDeal = deals?.[0];
+
+  /* Brands actually present in the loaded catalog (static list as fallback
+     until queries resolve or if the catalog has too few distinct brands) */
+  const carriedBrands = useMemo(() => {
+    const seen = new Set<string>();
+    [products, bestSellers, deals].forEach((list) =>
+      list?.forEach((p) => { if (p.brand) seen.add(p.brand); }),
+    );
+    return seen.size >= 6 ? [...seen] : BRANDS;
+  }, [products, bestSellers, deals]);
+
   const { products: recentlyViewed, hasAny: hasRecentlyViewed } = useRecentlyViewed();
 
   return (
-    <div className="space-y-20 sm:space-y-24">
+    <div className="space-y-24 sm:space-y-28">
 
       {/* ══ HERO ══════════════════════════════════════════════ */}
       <section className="relative -mx-4 -mt-8 overflow-hidden sm:-mx-6 lg:-mx-8">
+        {/* Left-side atmosphere — mobile + desktop dark mode */}
+        <div className="absolute -left-48 top-1/2 -translate-y-1/2 size-[600px] rounded-full opacity-0 dark:opacity-100 transition-opacity bg-emerald-600/[0.06] blur-[130px]" />
+
+        {/* Right panel — desktop */}
         <div
           className="absolute inset-y-0 right-0 hidden w-[48%] lg:block"
-          style={{ background: "linear-gradient(160deg, #0a1f12 0%, #040f08 100%)" }}
+          style={{ background: "linear-gradient(160deg, #070e09 0%, #030806 100%)" }}
         >
-          <div className="absolute inset-0 opacity-[0.06]" style={{ backgroundImage: "radial-gradient(circle, white 1px, transparent 1px)", backgroundSize: "22px 22px" }} />
-          <div className="absolute -bottom-32 -right-32 size-[500px] rounded-full bg-emerald-500/15 blur-3xl" />
-          <div className="absolute -top-16 right-1/2 size-72 rounded-full bg-teal-400/8 blur-3xl" />
+          <div className="absolute inset-0 dot-grid opacity-[1]" />
+          <div className="absolute -bottom-32 -right-32 size-[600px] rounded-full bg-emerald-500/[0.18] blur-[80px]" />
+          <div className="absolute top-1/4 right-1/4 size-48 rounded-full bg-emerald-400/[0.08] blur-2xl" />
+          <div className="absolute -top-16 right-1/2 size-72 rounded-full bg-teal-400/[0.07] blur-3xl" />
         </div>
 
         <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -231,14 +211,14 @@ export function HomePage() {
                 className="flex items-center gap-3"
               >
                 <div className="h-px w-8 bg-emerald-500" />
-                <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-600 dark:text-emerald-400">Premium collection 2025</span>
+                <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-600 dark:text-emerald-400">Premium collection {new Date().getFullYear()}</span>
               </motion.div>
 
               <div className="space-y-2">
                 <h1 className="font-display text-[3.4rem] font-bold leading-[0.96] tracking-[-0.035em] text-ink sm:text-[4.5rem] lg:text-[4.8rem] xl:text-[5.5rem]">
                   Quality goods,
                   <br />
-                  <span className="bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-500 bg-clip-text text-transparent dark:from-emerald-400 dark:to-teal-300">
+                  <span className="text-emerald-600 dark:text-emerald-400">
                     thoughtfully
                     <br />
                     curated.
@@ -255,8 +235,9 @@ export function HomePage() {
               <div className="flex flex-wrap items-center gap-3">
                 <Link
                   to="/products"
-                  className="group inline-flex items-center gap-2.5 rounded-xl bg-emerald-600 px-7 py-3.5 text-[14px] font-semibold text-white shadow-lg shadow-emerald-500/25 transition-all hover:bg-emerald-500 hover:shadow-emerald-500/35 active:scale-[0.97]"
+                  className="group relative inline-flex items-center gap-2.5 overflow-hidden rounded-xl bg-emerald-600 px-7 py-3.5 text-[14px] font-semibold text-white shadow-lg shadow-emerald-500/20 transition-all hover:bg-emerald-500 hover:shadow-emerald-500/40 active:scale-[0.97]"
                 >
+                  <span className="absolute inset-0 -translate-x-full animate-[sweep_4s_ease-in-out_1s_infinite] bg-gradient-to-r from-transparent via-white/[0.12] to-transparent" />
                   Shop collection
                   <ArrowRightIcon className="size-4 transition-transform group-hover:translate-x-0.5" />
                 </Link>
@@ -270,26 +251,37 @@ export function HomePage() {
                 )}
               </div>
 
-              <div className="flex items-center gap-5 pt-1">
-                <div className="flex -space-x-2.5">
-                  {[
-                    { letter: "E", color: "bg-emerald-500" },
-                    { letter: "M", color: "bg-teal-500" },
-                    { letter: "S", color: "bg-cyan-500" },
-                    { letter: "A", color: "bg-emerald-700" },
-                  ].map(({ letter, color }, i) => (
-                    <div key={i} className={`flex size-8 items-center justify-center rounded-full border-2 border-page text-[10px] font-bold text-white ${color}`}>
-                      {letter}
+              <div className="flex flex-wrap items-center gap-4 pt-1">
+                {topRated?.rating != null && (
+                  <Link
+                    to={`/products/${topRated.product_id}`}
+                    className="group flex items-center gap-3 rounded-xl border border-stroke bg-card/70 py-1.5 pl-1.5 pr-4 transition-colors hover:border-edge"
+                  >
+                    <img
+                      src={productImageUrl(topRated)}
+                      alt={topRated.name}
+                      className="size-9 shrink-0 rounded-lg object-cover"
+                      loading="lazy"
+                    />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1">
+                        {[1, 2, 3, 4, 5].map((s) => (
+                          <StarIcon
+                            key={s}
+                            className="size-3 text-amber-400"
+                            filled={s <= Math.round(topRated.rating!)}
+                          />
+                        ))}
+                        <span className="ml-0.5 text-[11px] font-semibold tabular-nums text-ink2">
+                          {topRated.rating.toFixed(1)}
+                        </span>
+                      </div>
+                      <p className="mt-0.5 max-w-[220px] truncate text-[11px] text-ink4">
+                        Customer favourite · {topRated.name}
+                      </p>
                     </div>
-                  ))}
-                </div>
-                <div>
-                  <div className="flex items-center gap-1">
-                    {[1,2,3,4,5].map((s) => <StarIcon key={s} className="size-3 text-amber-400" filled />)}
-                  </div>
-                  <p className="text-[11px] text-ink4">Trusted by our customers</p>
-                </div>
-                <div className="h-8 w-px bg-stroke" />
+                  </Link>
+                )}
                 <div className="flex items-center gap-1.5 text-[11px] text-ink3">
                   <span className="size-1.5 animate-pulse rounded-full bg-emerald-500" />
                   Free shipping over $50
@@ -365,22 +357,40 @@ export function HomePage() {
                 </div>
               )}
 
-              {/* Floating "order delivered" notification */}
-              <motion.div
-                initial={{ opacity: 0, y: 12, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                transition={{ delay: 0.8, duration: 0.4 }}
-                className="absolute -bottom-4 -left-4 hidden lg:flex items-center gap-3 rounded-2xl border border-stroke bg-card px-4 py-3 shadow-xl shadow-black/15"
-              >
-                <div className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-emerald-500/15">
-                  <PackageIcon className="size-4 text-emerald-500" />
-                </div>
-                <div>
-                  <p className="text-[12px] font-semibold text-ink">Order delivered!</p>
-                  <p className="text-[11px] text-ink4">2 min ago · 4.9 ★ review</p>
-                </div>
-                <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
-              </motion.div>
+              {/* Floating "deal of the day" card — real top discount */}
+              {topDeal?.discount != null && topDeal.discount > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 12, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ delay: 0.8, duration: 0.4 }}
+                  className="absolute -bottom-4 -left-4 hidden lg:block"
+                >
+                  <Link
+                    to={`/products/${topDeal.product_id}`}
+                    className="flex items-center gap-3 rounded-2xl border border-stroke bg-card px-3.5 py-3 shadow-xl shadow-black/15 transition-colors hover:border-edge"
+                  >
+                    <img
+                      src={productImageUrl(topDeal)}
+                      alt={topDeal.name}
+                      className="size-10 shrink-0 rounded-xl object-cover"
+                      loading="lazy"
+                    />
+                    <div className="min-w-0">
+                      <p className="text-[12px] font-semibold text-ink">Deal of the day</p>
+                      <p className="text-[11px] text-ink4">
+                        <span className="font-bold text-red-500">−{Math.round(topDeal.discount)}%</span>
+                        {" · now "}
+                        <span className="font-semibold tabular-nums text-ink2">
+                          ${(topDeal.price * (1 - topDeal.discount / 100)).toFixed(2)}
+                        </span>
+                      </p>
+                    </div>
+                    <span className="rounded-full bg-red-500 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white">
+                      Sale
+                    </span>
+                  </Link>
+                </motion.div>
+              )}
             </motion.div>
 
           </div>
@@ -388,32 +398,37 @@ export function HomePage() {
       </section>
 
       {/* ══ BRAND STRIP ══════════════════════════════════════ */}
-      <BrandStrip />
+      <BrandStrip brands={carriedBrands} />
 
       {/* ══ TRUST BADGES ═════════════════════════════════════ */}
       <motion.div
         variants={fadeUp} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-40px" }}
-        className="grid grid-cols-2 gap-4 border-y border-stroke py-8 sm:py-10 lg:grid-cols-4"
+        className="overflow-hidden rounded-2xl border border-stroke bg-card/70 ring-glass backdrop-blur-sm"
       >
-        {trustItems.map(({ Icon, title, desc }) => (
-          <div key={title} className="flex items-start gap-3.5">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/12 dark:text-emerald-400">
-              <Icon className="size-5" />
+        <div className="grid grid-cols-2 divide-x divide-y divide-stroke lg:grid-cols-4 lg:divide-y-0">
+          {trustItems.map(({ Icon, title, desc }) => (
+            <div key={title} className="flex items-center gap-3.5 p-5 sm:p-6">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-500 dark:text-emerald-400">
+                <Icon className="size-5" />
+              </div>
+              <div>
+                <p className="text-[13px] font-semibold text-ink">{title}</p>
+                <p className="mt-0.5 text-[12px] text-ink4 leading-snug">{desc}</p>
+              </div>
             </div>
-            <div>
-              <p className="text-[13px] font-semibold text-ink">{title}</p>
-              <p className="mt-0.5 text-[12px] text-ink4 leading-snug">{desc}</p>
-            </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </motion.div>
 
       {/* ══ CATEGORIES ═══════════════════════════════════════ */}
       <motion.section variants={fadeUp} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-40px" }}>
         <div className="mb-8 flex items-end justify-between gap-4">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Collections</p>
-            <h2 className="mt-1.5 font-display text-2xl font-bold text-ink sm:text-3xl">Shop by category</h2>
+          <div className="flex items-start gap-3">
+            <div className="mt-[5px] h-6 w-0.5 shrink-0 rounded-full bg-emerald-500" />
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Collections</p>
+              <h2 className="mt-1.5 font-display text-2xl font-bold text-ink sm:text-3xl">Shop by category</h2>
+            </div>
           </div>
           <Link
             to="/products"
@@ -493,21 +508,24 @@ export function HomePage() {
       {deals && deals.length > 0 && (
         <motion.section variants={fadeUp} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-40px" }}>
           <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2.5">
-                <span className="relative flex size-2">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-60" />
-                  <span className="relative inline-flex size-2 rounded-full bg-red-500" />
-                </span>
-                <p className="text-[11px] font-bold uppercase tracking-widest text-red-500">Flash sale</p>
+            <div className="flex items-start gap-3">
+              <div className="mt-[5px] h-6 w-0.5 shrink-0 rounded-full bg-red-500" />
+              <div>
+                <div className="flex items-center gap-2.5">
+                  <span className="relative flex size-2">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-60" />
+                    <span className="relative inline-flex size-2 rounded-full bg-red-500" />
+                  </span>
+                  <p className="text-[11px] font-bold uppercase tracking-widest text-red-500">Flash sale</p>
+                </div>
+                <h2 className="mt-1.5 font-display text-2xl font-bold text-ink sm:text-3xl">Today's deals</h2>
+                <p className="mt-1 text-[13px] text-ink4">Limited quantities — while stock lasts.</p>
               </div>
-              <h2 className="mt-1.5 font-display text-2xl font-bold text-ink sm:text-3xl">Today's deals</h2>
-              <p className="mt-1 text-[13px] text-ink4">Limited quantities — while stock lasts.</p>
             </div>
             <div className="mb-1 flex flex-col items-end gap-2.5">
               <DealsCountdown />
               <Link
-                to="/products"
+                to="/deals"
                 className="group inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-stroke bg-card px-3.5 py-2 text-[13px] font-medium text-ink3 transition-all hover:border-edge hover:text-ink"
               >
                 All deals <ArrowRightIcon className="size-3.5 transition-transform group-hover:translate-x-0.5" />
@@ -559,15 +577,13 @@ export function HomePage() {
       {/* ══ BEST SELLERS ═════════════════════════════════════ */}
       <motion.section variants={fadeUp} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-40px" }}>
         <div className="mb-8 flex items-end justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2.5">
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-amber-600 dark:text-amber-400">Top picks</p>
-              <span className="rounded-full bg-amber-500/12 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">
-                🏆 Best sellers
-              </span>
+          <div className="flex items-start gap-3">
+            <div className="mt-[5px] h-6 w-0.5 shrink-0 rounded-full bg-amber-500" />
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-amber-600 dark:text-amber-400">Best sellers</p>
+              <h2 className="mt-1.5 font-display text-2xl font-bold text-ink sm:text-3xl">Most popular</h2>
+              <p className="mt-1 text-[13px] text-ink4">Our highest-rated products, ranked by customer reviews.</p>
             </div>
-            <h2 className="mt-1.5 font-display text-2xl font-bold text-ink sm:text-3xl">Most popular</h2>
-            <p className="mt-1 text-[13px] text-ink4">Our highest-rated products, loved by thousands.</p>
           </div>
           <Link
             to="/products?sortBy=rating&order=desc"
@@ -604,12 +620,15 @@ export function HomePage() {
       {/* ══ NEW ARRIVALS ═════════════════════════════════════ */}
       <motion.section variants={fadeUp} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-40px" }}>
         <div className="mb-8 flex items-end justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2.5">
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Just dropped</p>
-              <span className="rounded-full bg-emerald-500/12 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">New</span>
+          <div className="flex items-start gap-3">
+            <div className="mt-[5px] h-6 w-0.5 shrink-0 rounded-full bg-emerald-500" />
+            <div>
+              <div className="flex items-center gap-2.5">
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Just dropped</p>
+                <span className="rounded-full bg-emerald-500/12 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">New</span>
+              </div>
+              <h2 className="mt-1.5 font-display text-2xl font-bold text-ink sm:text-3xl">New arrivals</h2>
             </div>
-            <h2 className="mt-1.5 font-display text-2xl font-bold text-ink sm:text-3xl">New arrivals</h2>
           </div>
           <Link
             to="/products"
@@ -634,19 +653,16 @@ export function HomePage() {
         )}
       </motion.section>
 
-      {/* ══ HOW IT WORKS ═════════════════════════════════════ */}
-      <HowItWorksSection />
-
-      {/* ══ TESTIMONIALS ═════════════════════════════════════ */}
-      <TestimonialsSection />
-
       {/* ══ RECENTLY VIEWED ══════════════════════════════════ */}
       {hasRecentlyViewed && recentlyViewed.length > 0 && (
         <motion.section variants={fadeUp} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-40px" }}>
           <div className="mb-8 flex items-end justify-between gap-4">
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-ink4">Your history</p>
-              <h2 className="mt-1.5 font-display text-2xl font-bold text-ink sm:text-3xl">Recently viewed</h2>
+            <div className="flex items-start gap-3">
+              <div className="mt-[5px] h-6 w-0.5 shrink-0 rounded-full bg-ink4/60" />
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-ink4">Your history</p>
+                <h2 className="mt-1.5 font-display text-2xl font-bold text-ink sm:text-3xl">Recently viewed</h2>
+              </div>
             </div>
             <Link
               to="/products"
@@ -671,9 +687,6 @@ export function HomePage() {
       {/* ══ DISCOVER FEED ════════════════════════════════════ */}
       <DiscoverSection />
 
-      {/* ══ STATS ════════════════════════════════════════════ */}
-      <StatsSection />
-
       {/* ══ CTA BANNER ═══════════════════════════════════════ */}
       <motion.section
         variants={fadeUp} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-40px" }}
@@ -692,7 +705,7 @@ export function HomePage() {
             <span className="text-emerald-300">Delivered right.</span>
           </h2>
           <p className="mx-auto mt-4 max-w-sm text-[15px] leading-relaxed text-emerald-100/50">
-            Thousands of customers trust Northline for quality essentials, fast shipping, and honest pricing.
+            Quality essentials, fast dispatch, and honest pricing — backed by a 30-day, no-questions-asked return policy.
           </p>
           <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
             <Link
@@ -720,9 +733,6 @@ export function HomePage() {
           </div>
         </div>
       </motion.section>
-
-      {/* ══ NEWSLETTER ═══════════════════════════════════════ */}
-      <NewsletterSection />
     </div>
   );
 }
@@ -739,7 +749,7 @@ function HeroSearchBar({ onSearch }: { onSearch: (q: string) => void }) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex w-full max-w-md items-center gap-2 rounded-xl border border-stroke bg-card p-1.5 shadow-sm transition-shadow focus-within:border-emerald-500/40 focus-within:shadow-md"
+      className="flex w-full max-w-md items-center gap-2 rounded-xl border border-stroke bg-card/80 p-1.5 shadow-lg shadow-black/10 backdrop-blur-sm transition-all focus-within:border-emerald-500/50 focus-within:shadow-emerald-500/[0.08] dark:bg-card/60"
     >
       <SearchIcon className="ml-2 size-4 shrink-0 text-ink4" />
       <input
@@ -777,10 +787,10 @@ function DealsCountdown() {
   );
 }
 
-function BrandStrip() {
-  const brandsWithDots = BRANDS.reduce<Array<{ type: "brand" | "dot"; value: string }>>((acc, brand, i) => {
+function BrandStrip({ brands }: { brands: string[] }) {
+  const brandsWithDots = brands.reduce<Array<{ type: "brand" | "dot"; value: string }>>((acc, brand, i) => {
     acc.push({ type: "brand", value: brand });
-    if (i < BRANDS.length - 1) acc.push({ type: "dot", value: `dot-${i}` });
+    if (i < brands.length - 1) acc.push({ type: "dot", value: `dot-${i}` });
     return acc;
   }, []);
   const doubled = [...brandsWithDots, ...brandsWithDots];
@@ -854,9 +864,23 @@ function EditorialBanner() {
 
         <div className="flex shrink-0 flex-col gap-3 sm:items-end">
           <div className="rounded-2xl border border-white/10 bg-white/5 px-6 py-5 backdrop-blur-sm">
-            <p className="text-[12px] text-white/40 mb-1">Members save up to</p>
-            <p className="font-display text-4xl font-bold text-white">30<span className="text-emerald-400">%</span></p>
-            <p className="mt-1 text-[12px] text-white/40">on every order</p>
+            <div className="space-y-3.5">
+              {[
+                { Icon: TruckIcon,   title: "Free shipping",  desc: "On orders over $50" },
+                { Icon: PackageIcon, title: "30-day returns", desc: "No questions asked" },
+                { Icon: ShieldIcon,  title: "Secure checkout", desc: "256-bit SSL encryption" },
+              ].map(({ Icon, title, desc }) => (
+                <div key={title} className="flex items-center gap-3">
+                  <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15">
+                    <Icon className="size-4 text-emerald-300" />
+                  </div>
+                  <div>
+                    <p className="text-[13px] font-semibold leading-tight text-white">{title}</p>
+                    <p className="text-[11px] text-white/40">{desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
           <Link
             to="/products"
@@ -865,97 +889,12 @@ function EditorialBanner() {
             Shop the collection
             <ArrowRightIcon className="size-4 transition-transform group-hover/btn:translate-x-0.5" />
           </Link>
-          <Link to="/register" className="text-center text-[12px] text-white/40 transition-colors hover:text-white/70">
-            No account needed →
+          <Link to="/deals" className="text-center text-[12px] text-white/40 transition-colors hover:text-white/70">
+            See today's deals →
           </Link>
         </div>
       </div>
     </motion.div>
-  );
-}
-
-function HowItWorksSection() {
-  return (
-    <motion.section
-      variants={fadeUp} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-40px" }}
-      className="relative overflow-hidden rounded-3xl border border-stroke bg-card px-8 py-14 sm:px-12 sm:py-16"
-    >
-      <div className="absolute inset-0 opacity-[0.025]" style={{ backgroundImage: "linear-gradient(var(--color-stroke) 1px, transparent 1px), linear-gradient(90deg, var(--color-stroke) 1px, transparent 1px)", backgroundSize: "40px 40px" }} />
-      <div className="relative">
-        <div className="mb-14 text-center">
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Simple process</p>
-          <h2 className="mt-1.5 font-display text-2xl font-bold text-ink sm:text-3xl">Shopping made easy</h2>
-          <p className="mt-2 mx-auto max-w-sm text-[14px] text-ink4">Three steps from browsing to your doorstep.</p>
-        </div>
-        <div className="relative grid grid-cols-1 gap-10 sm:grid-cols-3 sm:gap-8">
-          <div className="absolute top-8 left-[calc(16.67%+24px)] right-[calc(16.67%+24px)] hidden h-px border-t-2 border-dashed border-stroke sm:block" />
-          {HOW_IT_WORKS.map((item, i) => (
-            <motion.div
-              key={item.title}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.42, delay: i * 0.13 }}
-              className="relative flex flex-col items-center gap-5 text-center"
-            >
-              <div className="relative z-10 flex size-16 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-600 ring-4 ring-card dark:bg-emerald-500/15 dark:text-emerald-400">
-                <svg className="size-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d={item.icon} />
-                </svg>
-                <span className="absolute -right-2 -top-2 flex size-5 items-center justify-center rounded-full bg-emerald-600 text-[9px] font-bold text-white shadow-md">
-                  {i + 1}
-                </span>
-              </div>
-              <div className="max-w-[220px]">
-                <h3 className="font-display text-[16px] font-semibold text-ink">{item.title}</h3>
-                <p className="mt-2 text-[13px] leading-relaxed text-ink4">{item.desc}</p>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-        <div className="mt-12 flex justify-center">
-          <Link
-            to="/products"
-            className="inline-flex items-center gap-2.5 rounded-xl bg-emerald-600 px-7 py-3 text-[13px] font-semibold text-white shadow-md shadow-emerald-500/20 transition-all hover:bg-emerald-500 active:scale-[0.98]"
-          >
-            Start shopping <ArrowRightIcon className="size-4" />
-          </Link>
-        </div>
-      </div>
-    </motion.section>
-  );
-}
-
-function TestimonialsSection() {
-  return (
-    <motion.section variants={fadeUp} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-40px" }}>
-      <div className="mb-10">
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Our promise</p>
-        <h2 className="mt-1.5 font-display text-2xl font-bold text-ink sm:text-3xl">Why shop with Northline</h2>
-      </div>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        {WHY_US.map((item, i) => (
-          <motion.div
-            key={item.title}
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.4, delay: i * 0.1 }}
-            className="flex flex-col gap-5 rounded-2xl border border-stroke bg-card p-6 transition-all duration-300 hover:border-edge hover:shadow-xl hover:shadow-black/6"
-          >
-            <div className={`flex size-11 items-center justify-center rounded-xl bg-gradient-to-br ${item.accent} shadow-lg`}>
-              <svg className="size-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-                <path strokeLinecap="round" strokeLinejoin="round" d={item.iconPath} />
-              </svg>
-            </div>
-            <div>
-              <p className="text-[15px] font-semibold text-ink">{item.title}</p>
-              <p className="mt-1.5 text-[13.5px] leading-[1.72] text-ink3">{item.desc}</p>
-            </div>
-          </motion.div>
-        ))}
-      </div>
-    </motion.section>
   );
 }
 
@@ -1057,178 +996,3 @@ function DiscoverSection() {
   );
 }
 
-function StatCounter({ target, display, label }: { target: number; display: (n: number) => string; label: string }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [active, setActive] = useState(false);
-  const count = useCountUp(target, 1600, active);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) { setActive(true); observer.disconnect(); } },
-      { threshold: 0.3 },
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-
-  return (
-    <div ref={ref} className="flex flex-col items-center justify-center gap-2 px-6 py-14 sm:py-16">
-      <span className="font-display text-4xl font-bold tabular-nums text-white sm:text-5xl">
-        {active ? display(count) : display(0)}
-      </span>
-      <span className="text-[12px] font-medium uppercase tracking-widest text-emerald-400/60">{label}</span>
-    </div>
-  );
-}
-
-function StatsSection() {
-  const { data: pd } = useQuery({
-    queryKey: ["stats-product-count"],
-    queryFn: () => productService.getProducts({ limit: 1 }),
-    staleTime: 10 * 60_000,
-  });
-  const { data: cd } = useQuery({
-    queryKey: queryKeys.categories(),
-    queryFn: categoryService.getCategories,
-    staleTime: 10 * 60_000,
-  });
-
-  const productTotal = pd?.pagination?.total ?? 0;
-  const categoryCount = cd?.length ?? 0;
-
-  const liveStats = [
-    { label: "Products",     target: productTotal,  display: (n: number) => n >= 1000 ? `${(n / 1000).toFixed(0)}K+` : n > 0 ? String(n) : "…" },
-    { label: "Categories",   target: categoryCount, display: (n: number) => n > 0 ? String(n) : "…" },
-    { label: "Day returns",  target: 30,            display: (n: number) => `${n}` },
-    { label: "Hour dispatch",target: 24,            display: (n: number) => `${n}h` },
-  ];
-
-  return (
-    <motion.section
-      variants={fadeUp} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-40px" }}
-      className="relative overflow-hidden rounded-3xl"
-      style={{ background: "linear-gradient(160deg, #080807 0%, #0e110d 60%, #081209 100%)" }}
-    >
-      <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: "radial-gradient(circle, white 1px, transparent 1px)", backgroundSize: "24px 24px" }} />
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 size-[600px] rounded-full bg-emerald-500/10 blur-3xl" />
-      <div className="relative">
-        <div className="border-b border-white/[0.06] px-8 py-8 text-center sm:px-12">
-          <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-emerald-400/60">By the numbers</p>
-          <h2 className="mt-1.5 font-display text-2xl font-bold text-white sm:text-3xl">Northline at a glance</h2>
-        </div>
-        <div className="grid grid-cols-2 lg:grid-cols-4">
-          {liveStats.map((s, i) => (
-            <div
-              key={s.label}
-              className={[
-                i % 2 === 0 && i < 2 ? "border-b border-white/[0.06] lg:border-b-0" : "",
-                i < 3 ? "lg:border-r lg:border-white/[0.06]" : "",
-                i % 2 === 0 ? "border-r border-white/[0.06]" : "",
-              ].join(" ")}
-            >
-              <StatCounter key={`${s.label}-${s.target}`} target={s.target} display={s.display} label={s.label} />
-            </div>
-          ))}
-        </div>
-      </div>
-    </motion.section>
-  );
-}
-
-function NewsletterSection() {
-  const [email, setEmail] = useState("");
-  const [submitted, setSubmitted] = useState(false);
-  const [loading, setLoading] = useState(false);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!email || loading) return;
-    setLoading(true);
-    try {
-      await apiFetch("/api/v1/newsletter/subscribe", {
-        method: "POST",
-        body: JSON.stringify({ email }),
-      });
-      setSubmitted(true);
-    } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Could not subscribe. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  return (
-    <motion.section
-      variants={fadeUp} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-40px" }}
-      className="overflow-hidden rounded-3xl border border-stroke bg-card"
-    >
-      {submitted ? (
-        <div className="flex flex-col items-center justify-center gap-3 px-8 py-16 text-center">
-          <div className="flex size-14 items-center justify-center rounded-2xl bg-emerald-500/12 text-emerald-500">
-            <svg className="size-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </div>
-          <h2 className="font-display text-xl font-bold text-ink">You're on the list!</h2>
-          <p className="text-sm text-ink4">We'll be in touch with the best deals and new arrivals.</p>
-        </div>
-      ) : (
-        <div className="grid lg:grid-cols-[1fr_1px_1fr]">
-          <div className="px-8 py-10 sm:px-12 lg:py-12">
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Newsletter</p>
-            <h2 className="mt-2 font-display text-2xl font-bold text-ink sm:text-3xl">Stay in the loop</h2>
-            <p className="mt-3 max-w-xs text-[15px] leading-relaxed text-ink3">
-              New arrivals, exclusive deals, and curated picks — straight to your inbox.
-            </p>
-            <ul className="mt-5 space-y-2.5">
-              {["Weekly new arrivals", "Members-only discounts", "No spam, ever"].map((item) => (
-                <li key={item} className="flex items-center gap-2.5 text-[13px] text-ink3">
-                  <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-emerald-500/12 text-emerald-600 dark:text-emerald-400">
-                    <svg className="size-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                    </svg>
-                  </span>
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </div>
-          <div className="hidden w-px bg-stroke lg:block" />
-          <div className="flex flex-col justify-center border-t border-stroke px-8 py-10 sm:px-12 lg:border-t-0 lg:py-12">
-            <h3 className="text-sm font-semibold text-ink">Subscribe for free</h3>
-            <p className="mt-1 text-xs text-ink4">No spam, ever. Unsubscribe any time.</p>
-            <form onSubmit={handleSubmit} className="mt-5 space-y-3">
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="your@email.com"
-                className="w-full rounded-lg border border-stroke bg-input px-3.5 py-2.5 text-sm text-ink placeholder:text-ink4 transition-colors focus:border-emerald-500/50 focus:outline-none focus:ring-2 focus:ring-emerald-500/15"
-              />
-              <button
-                type="submit"
-                disabled={loading}
-                className="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 active:scale-[0.99] disabled:opacity-70"
-              >
-                {loading && (
-                  <svg className="size-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-                  </svg>
-                )}
-                {loading ? "Subscribing…" : "Subscribe"}
-              </button>
-            </form>
-            <p className="mt-3 text-[11px] text-ink4">
-              By subscribing you agree to our{" "}
-              <Link to="/privacy" className="underline underline-offset-2 hover:text-ink3">Privacy Policy</Link>.
-            </p>
-          </div>
-        </div>
-      )}
-    </motion.section>
-  );
-}

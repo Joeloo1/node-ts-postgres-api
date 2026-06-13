@@ -1,10 +1,27 @@
 import multer, { FileFilterCallback } from "multer";
 import sharp from "sharp";
+import path from "path";
+import fs from "fs";
 import { Request, Response, NextFunction } from "express";
 import AppError from "../utils/AppError";
 import catchAsync from "../utils/catchAsync";
 import logger from "../config/logger";
-import { uploadToS3 } from "../config/s3";
+import { uploadToS3, isS3Configured } from "../config/s3";
+
+const PUBLIC_DIR = path.join(__dirname, "../../public");
+
+async function saveLocally(
+  buffer: Buffer,
+  subfolder: string,
+  filename: string,
+): Promise<string> {
+  const dir = path.join(PUBLIC_DIR, subfolder);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  const filepath = path.join(dir, filename);
+  fs.writeFileSync(filepath, buffer);
+  // Return just the filename — the frontend resolves the full URL via VITE_API_URL
+  return filename;
+}
 
 const multerFilter = (
   _req: Request,
@@ -39,15 +56,23 @@ export const resizeUserPhoto = catchAsync(
       return next(new AppError("User not authenticated", 401));
     }
 
-    logger.info("Processing and uploading user photo");
-    const key = `users/user-${req.user.id}-${Date.now()}.jpeg`;
+    logger.info("Processing user photo");
     const buffer = await sharp(req.file.buffer)
       .resize(500, 500)
       .toFormat("jpeg")
       .jpeg({ quality: 90 })
       .toBuffer();
 
-    req.file.filename = await uploadToS3(buffer, key);
+    const filename = `user-${req.user.id}-${Date.now()}.jpeg`;
+
+    if (isS3Configured()) {
+      logger.info("Uploading user photo to S3");
+      req.file.filename = await uploadToS3(buffer, `users/${filename}`);
+    } else {
+      logger.info("S3 not configured — saving user photo to local disk");
+      req.file.filename = await saveLocally(buffer, "users", filename);
+    }
+
     next();
   },
 );
@@ -60,16 +85,24 @@ export const resizeProductImages = catchAsync(
     const productId = req.params.id;
     if (!productId) return next(new AppError("Product id is required", 400));
 
-    logger.info(`Processing and uploading ${files.length} product image(s)`);
+    logger.info(`Processing ${files.length} product image(s)`);
+
     const urls = await Promise.all(
       files.map(async (file, idx) => {
-        const key = `products/product-${productId}-${Date.now()}-${idx + 1}.jpeg`;
+        const filename = `product-${productId}-${Date.now()}-${idx + 1}.jpeg`;
         const buffer = await sharp(file.buffer)
           .resize(1400, 1400, { fit: "inside", withoutEnlargement: true })
           .toFormat("jpeg")
           .jpeg({ quality: 88 })
           .toBuffer();
-        return uploadToS3(buffer, key);
+
+        if (isS3Configured()) {
+          logger.info(`Uploading product image ${idx + 1} to S3`);
+          return uploadToS3(buffer, `products/${filename}`);
+        } else {
+          logger.info(`S3 not configured — saving product image ${idx + 1} to local disk`);
+          return saveLocally(buffer, "products", filename);
+        }
       }),
     );
 

@@ -1,6 +1,6 @@
 import "dotenv/config";
 import { connectDB, disconnectDB } from "./config/database";
-import { connectRedis } from "./config/redis";
+import { connectRedis, disconnectRedis } from "./config/redis";
 import logger from "./config/logger";
 import app from "./app";
 import { Server } from "http";
@@ -47,9 +47,12 @@ const shutdown = async (signal: string) => {
     server.close(async () => {
       logger.info("⛔ HTTP server closed.");
       await disconnectDB();
+      await disconnectRedis();
       process.exit(0);
     });
   } else {
+    await disconnectDB();
+    await disconnectRedis();
     process.exit(0);
   }
 };
@@ -63,6 +66,7 @@ process.on("unhandledRejection", (err: Error) => {
   if (server) {
     server.close(async () => {
       await disconnectDB();
+      await disconnectRedis();
       process.exit(1);
     });
   } else {
@@ -76,6 +80,7 @@ process.on("uncaughtException", async (err: Error) => {
   logger.error(err.name, err.message);
 
   await disconnectDB();
+  await disconnectRedis();
   process.exit(1);
 });
 

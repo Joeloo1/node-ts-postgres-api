@@ -38,7 +38,9 @@ export const updateProductSchema = z.object({
 
   unit: z.string().max(50).optional(),
 
-  image: z.string().url().optional(),
+  image: z.string().optional(),
+
+  images: z.array(z.string()).optional(),
 
   discount: z.number().min(0).max(100).optional(),
 

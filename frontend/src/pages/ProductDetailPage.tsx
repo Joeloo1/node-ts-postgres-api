@@ -236,7 +236,7 @@ export function ProductDetailPage() {
     if (!el) return;
     const observer = new IntersectionObserver(
       ([entry]) => setShowStickyBar(!entry.isIntersecting),
-      { threshold: 0, rootMargin: "-70px 0px 0px 0px" },
+      { threshold: 0, rootMargin: "-120px 0px 0px 0px" },
     );
     observer.observe(el);
     return () => observer.disconnect();
@@ -267,7 +267,7 @@ export function ProductDetailPage() {
     const imgs = Array.isArray(p.images) ? p.images.filter(Boolean) : [];
     if (p.image && !imgs.includes(p.image)) imgs.unshift(p.image);
     return imgs.length ? imgs : [productImageUrl(p)];
-  }, [p?.product_id]);
+  }, [p]);
 
   const reviewMutation = useMutation({
     mutationFn: () =>
@@ -283,7 +283,12 @@ export function ProductDetailPage() {
       toast.success("Review submitted");
     },
     onError: (e) => {
-      const msg = e instanceof ApiError ? e.message : "Could not submit review";
+      const msg =
+        e instanceof ApiError && e.status === 403
+          ? "You must purchase and receive this product before leaving a review."
+          : e instanceof ApiError
+          ? e.message
+          : "Could not submit review";
       setFormError(msg);
       toast.error(msg);
     },
@@ -431,7 +436,7 @@ export function ProductDetailPage() {
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: -80, opacity: 0 }}
             transition={{ duration: 0.22, ease: [0.25, 0.1, 0.25, 1] }}
-            className="fixed top-[64px] left-0 right-0 z-30 border-b border-stroke bg-page/95 backdrop-blur-md shadow-sm"
+            className="fixed top-[64px] left-0 right-0 z-30 border-b border-stroke bg-page/95 backdrop-blur-md shadow-sm md:top-[109px]"
           >
             <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
               <div className="min-w-0 flex-1">
@@ -439,18 +444,18 @@ export function ProductDetailPage() {
                 <p className="text-xs text-ink4">${displayPrice.toFixed(2)}</p>
               </div>
               <div className="flex shrink-0 items-center gap-3">
-                {p.availability && (
+                {isAvailable && (
                   <div className="flex items-center overflow-hidden rounded-lg border border-stroke bg-input">
                     <button type="button" onClick={() => setQty((q) => Math.max(1, q - 1))} className="px-2.5 py-1.5 text-ink3 transition-colors hover:text-ink">
                       <MinusIcon className="size-3.5" />
                     </button>
                     <span className="w-8 select-none text-center text-sm font-semibold text-ink">{qty}</span>
-                    <button type="button" onClick={() => setQty((q) => Math.min(p.stock ?? 99, q + 1))} disabled={p.stock != null && qty >= p.stock} className="px-2.5 py-1.5 text-ink3 transition-colors hover:text-ink disabled:opacity-40">
+                    <button type="button" onClick={() => setQty((q) => Math.min(effectiveStock, q + 1))} disabled={qty >= effectiveStock} className="px-2.5 py-1.5 text-ink3 transition-colors hover:text-ink disabled:opacity-40">
                       <PlusIcon className="size-3.5" />
                     </button>
                   </div>
                 )}
-                {p.availability ? (
+                {isAvailable ? (
                   <>
                     <button
                       type="button"
@@ -482,6 +487,8 @@ export function ProductDetailPage() {
 
       <motion.div className="space-y-20" variants={stagger} initial="hidden" animate="show">
 
+        {/* Breadcrumb + buy area share tight spacing; big gaps separate major sections */}
+        <div className="space-y-5">
         <motion.nav variants={fadeUp} className="flex items-center gap-1.5 text-xs text-ink4" aria-label="Breadcrumb">
           <Link to="/" className="transition-colors hover:text-ink2">Home</Link>
           <ChevronRightIcon className="size-3 text-ink4" />
@@ -535,6 +542,20 @@ export function ProductDetailPage() {
               {p.brand && <p className="mt-1.5 text-sm text-ink4">by {p.brand}</p>}
             </div>
 
+            {/* Clickable rating → scrolls to reviews tab (social proof above price) */}
+            {p.rating != null && (
+              <button type="button" onClick={scrollToReviews} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+                <DisplayStars rating={p.rating} />
+                <span className="text-sm font-semibold tabular-nums text-amber-500">{p.rating.toFixed(1)}</span>
+                <span className="text-xs text-ink4">/ 5.0</span>
+                {reviewsQuery.data && (
+                  <span className="text-xs text-ink4 underline-offset-2 hover:underline">
+                    ({reviewsQuery.data.length} review{reviewsQuery.data.length !== 1 ? "s" : ""})
+                  </span>
+                )}
+              </button>
+            )}
+
             <div className="space-y-1">
               <div className="flex flex-wrap items-baseline gap-3">
                 <span className="text-3xl font-bold tabular-nums text-ink">${displayPrice.toFixed(2)}</span>
@@ -554,20 +575,8 @@ export function ProductDetailPage() {
               )}
             </div>
 
-            {/* Clickable rating → scrolls to reviews tab */}
-            {p.rating != null && (
-              <button type="button" onClick={scrollToReviews} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-                <DisplayStars rating={p.rating} />
-                <span className="text-sm font-semibold tabular-nums text-amber-500">{p.rating.toFixed(1)}</span>
-                <span className="text-xs text-ink4">/ 5.0</span>
-                {reviewsQuery.data && (
-                  <span className="text-xs text-ink4">({reviewsQuery.data.length} review{reviewsQuery.data.length !== 1 ? "s" : ""})</span>
-                )}
-              </button>
-            )}
-
             {p.description && (
-              <p className="text-[15px] leading-[1.7] text-ink3">{p.description}</p>
+              <p className="line-clamp-4 text-[15px] leading-[1.7] text-ink3">{p.description}</p>
             )}
 
             {/* Variant selector */}
@@ -587,7 +596,7 @@ export function ProductDetailPage() {
                         key={v.id}
                         type="button"
                         disabled={!v.availability}
-                        onClick={() => setSelectedVariantId(isSelected ? null : v.id)}
+                        onClick={() => { setSelectedVariantId(isSelected ? null : v.id); setQty(1); }}
                         className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-40 ${
                           isSelected
                             ? "border-emerald-500 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
@@ -697,22 +706,7 @@ export function ProductDetailPage() {
             </div>
           </div>
         </motion.div>
-
-        {/* Related products */}
-        {(relatedQuery.isPending || (relatedQuery.data && relatedQuery.data.length > 0)) && (
-          <motion.section variants={fadeUp} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-60px" }} className="border-t border-stroke pt-12">
-            <h2 className="mb-7 font-display text-2xl font-bold text-ink">You may also like</h2>
-            {relatedQuery.isPending ? (
-              <ProductSkeletonGrid count={4} />
-            ) : (
-              <motion.div className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4" variants={stagger} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-40px" }}>
-                {relatedQuery.data?.map((rp) => (
-                  <motion.div key={rp.product_id} variants={cardFade}><ProductCard product={rp} /></motion.div>
-                ))}
-              </motion.div>
-            )}
-          </motion.section>
-        )}
+        </div>
 
         {/* Overview + Reviews tabs */}
         <motion.section variants={fadeUp} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-60px" }} className="space-y-0 border-t border-stroke pt-10">
@@ -816,7 +810,17 @@ export function ProductDetailPage() {
                               {(r.user?.name ?? "C")[0].toUpperCase()}
                             </div>
                             <div>
-                              <p className="text-sm font-semibold text-ink">{r.user?.name ?? "Customer"}</p>
+                              <div className="flex items-center gap-2">
+                                <p className="text-sm font-semibold text-ink">{r.user?.name ?? "Customer"}</p>
+                                {r.verifiedPurchase && (
+                                  <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+                                    <svg className="size-2.5" fill="currentColor" viewBox="0 0 20 20">
+                                      <path fillRule="evenodd" d="M16.403 12.652a3 3 0 000-5.304 3 3 0 00-3.75-3.751 3 3 0 00-5.305 0 3 3 0 00-3.751 3.75 3 3 0 000 5.305 3 3 0 003.75 3.751 3 3 0 005.305 0 3 3 0 003.751-3.75zm-2.546-4.46a.75.75 0 00-1.214-.883l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
+                                    </svg>
+                                    Verified purchase
+                                  </span>
+                                )}
+                              </div>
                               <p className="text-[11px] text-ink4">
                                 {new Date(r.createdAt).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}
                               </p>
@@ -839,16 +843,24 @@ export function ProductDetailPage() {
                               <button
                                 type="button"
                                 onClick={() => voteMutation.mutate({ reviewId: r.id, helpful: true })}
-                                className="flex items-center gap-1 rounded-md border border-stroke px-2 py-1 text-[11px] font-medium text-ink3 transition-colors hover:border-emerald-500/40 hover:text-emerald-600"
+                                aria-label="Mark review as helpful"
+                                className="flex items-center gap-1.5 rounded-md border border-stroke px-2 py-1 text-[11px] font-medium tabular-nums text-ink3 transition-colors hover:border-emerald-500/40 hover:text-emerald-600"
                               >
-                                👍 {helpfulCount > 0 && helpfulCount}
+                                <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M6.633 10.25c.806 0 1.533-.446 2.031-1.08a9.041 9.041 0 012.861-2.4c.723-.384 1.35-.956 1.653-1.715a4.498 4.498 0 00.322-1.672V2.75a.75.75 0 01.75-.75 2.25 2.25 0 012.25 2.25c0 1.152-.26 2.243-.723 3.218-.266.558.107 1.282.725 1.282h3.126c1.026 0 1.945.694 2.054 1.715.045.422.068.85.068 1.285a11.95 11.95 0 01-2.649 7.521c-.388.482-.987.729-1.605.729H13.48c-.483 0-.964-.078-1.423-.23l-3.114-1.04a4.501 4.501 0 00-1.423-.23H5.904m1.5-9.75v9.75m-1.5-9.75H4.875c-.621 0-1.125.504-1.125 1.125v7.5c0 .621.504 1.125 1.125 1.125H5.904" />
+                                </svg>
+                                {helpfulCount > 0 && helpfulCount}
                               </button>
                               <button
                                 type="button"
                                 onClick={() => voteMutation.mutate({ reviewId: r.id, helpful: false })}
-                                className="flex items-center gap-1 rounded-md border border-stroke px-2 py-1 text-[11px] font-medium text-ink3 transition-colors hover:border-red-400/40 hover:text-red-400"
+                                aria-label="Mark review as not helpful"
+                                className="flex items-center gap-1.5 rounded-md border border-stroke px-2 py-1 text-[11px] font-medium tabular-nums text-ink3 transition-colors hover:border-red-400/40 hover:text-red-400"
                               >
-                                👎 {notHelpfulCount > 0 && notHelpfulCount}
+                                <svg className="size-3.5 rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M6.633 10.25c.806 0 1.533-.446 2.031-1.08a9.041 9.041 0 012.861-2.4c.723-.384 1.35-.956 1.653-1.715a4.498 4.498 0 00.322-1.672V2.75a.75.75 0 01.75-.75 2.25 2.25 0 012.25 2.25c0 1.152-.26 2.243-.723 3.218-.266.558.107 1.282.725 1.282h3.126c1.026 0 1.945.694 2.054 1.715.045.422.068.85.068 1.285a11.95 11.95 0 01-2.649 7.521c-.388.482-.987.729-1.605.729H13.48c-.483 0-.964-.078-1.423-.23l-3.114-1.04a4.501 4.501 0 00-1.423-.23H5.904m1.5-9.75v9.75m-1.5-9.75H4.875c-.621 0-1.125.504-1.125 1.125v7.5c0 .621.504 1.125 1.125 1.125H5.904" />
+                                </svg>
+                                {notHelpfulCount > 0 && notHelpfulCount}
                               </button>
                             </div>
                           );
@@ -1062,6 +1074,23 @@ export function ProductDetailPage() {
           </AnimatePresence>
         </motion.section>
 
+        {/* Related products — after the details, before recently viewed */}
+        {(relatedQuery.isPending || (relatedQuery.data && relatedQuery.data.length > 0)) && (
+          <motion.section variants={fadeUp} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-60px" }} className="border-t border-stroke pt-12">
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">More like this</p>
+            <h2 className="mb-7 mt-1.5 font-display text-2xl font-bold text-ink">You may also like</h2>
+            {relatedQuery.isPending ? (
+              <ProductSkeletonGrid count={4} />
+            ) : (
+              <motion.div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4" variants={stagger} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-40px" }}>
+                {relatedQuery.data?.map((rp) => (
+                  <motion.div key={rp.product_id} variants={cardFade}><ProductCard product={rp} /></motion.div>
+                ))}
+              </motion.div>
+            )}
+          </motion.section>
+        )}
+
         {/* Recently viewed */}
         {recentlyViewed.length > 0 && (
           <motion.section
@@ -1070,7 +1099,7 @@ export function ProductDetailPage() {
           >
             <h2 className="mb-7 font-display text-2xl font-bold text-ink">Recently viewed</h2>
             <motion.div
-              className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4"
+              className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4"
               variants={stagger} initial="hidden" whileInView="show" viewport={{ once: true }}
             >
               {recentlyViewed.map((rp) => (

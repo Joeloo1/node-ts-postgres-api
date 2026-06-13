@@ -1,30 +1,8 @@
-import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useDebounce } from "../hooks/useDebounce";
-import { queryKeys } from "../lib/queryKeys";
-import * as productService from "../services/products";
-import { productImageUrl } from "../lib/productImage";
-import { SearchIcon, SlidersIcon, XIcon } from "./Icons";
+import { SlidersIcon, StarIcon, XIcon } from "./Icons";
+import { PRICE_PRESETS } from "../lib/constants";
 import type { Category } from "../lib/types";
-
-/* ── Sort options ──────────────────────────────────────────── */
-const SORT_OPTIONS = [
-  { value: "createdAt:desc", label: "Newest first",       icon: "M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" },
-  { value: "price:asc",      label: "Price: low → high",  icon: "M2.25 18L9 11.25l4.5 4.5 6.75-7.5" },
-  { value: "price:desc",     label: "Price: high → low",  icon: "M2.25 6L9 12.75l4.5-4.5 6.75 7.5" },
-  { value: "rating:desc",    label: "Top rated",          icon: "M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" },
-  { value: "name:asc",       label: "Name A–Z",           icon: "M3 4.5h14.25M3 9h9.75M3 13.5h5.25m5.25-.75L17.25 9m0 0L21 12.75M17.25 9v12" },
-];
-
-/* ── Price presets ─────────────────────────────────────────── */
-const PRICE_PRESETS: [string, string, string][] = [
-  ["Under $25",   "",    "25"],
-  ["$25 – $75",   "25",  "75"],
-  ["$75 – $150",  "75",  "150"],
-  ["$150+",       "150", ""],
-];
 
 /* ── Category icons ────────────────────────────────────────── */
 const CATEGORY_ICONS: Record<string, string> = {
@@ -93,188 +71,15 @@ function FilterSection({
   );
 }
 
-/* ── Search with autocomplete ──────────────────────────────── */
-function SearchAutocomplete({
-  name, setName, search, setSearch, setPage, onDone,
-}: {
-  name: string; setName: (v: string) => void;
-  search: string; setSearch: (v: string) => void;
-  setPage: (v: number) => void; onDone?: () => void;
-}) {
-  const navigate = useNavigate();
-  const [open, setOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const debouncedName = useDebounce(name, 260);
-
-  /* "/" keyboard shortcut — focus search from anywhere on the page */
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key !== "/") return;
-      const active = document.activeElement;
-      if (
-        active instanceof HTMLInputElement ||
-        active instanceof HTMLTextAreaElement ||
-        active instanceof HTMLSelectElement
-      ) return;
-      e.preventDefault();
-      inputRef.current?.focus();
-      setOpen(true);
-    }
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, []);
-
-  const { data: suggestions, isFetching } = useQuery({
-    queryKey: queryKeys.suggestions(debouncedName),
-    queryFn: () => productService.getSuggestions(debouncedName.trim()),
-    enabled: debouncedName.trim().length >= 2,
-    staleTime: 30_000,
-  });
-
-  useEffect(() => {
-    function handler(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
-    }
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  const showDropdown = open && name.trim().length >= 2 && (isFetching || (suggestions && suggestions.length > 0));
-
-  function applySearch() {
-    setSearch(name);
-    setPage(1);
-    setOpen(false);
-    onDone?.();
-  }
-
-  return (
-    <div ref={containerRef} className="relative px-4">
-      <div className="relative">
-        <SearchIcon className="absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-ink4" />
-        <input
-          ref={inputRef}
-          value={name}
-          onChange={(e) => { setName(e.target.value); setOpen(true); }}
-          onFocus={() => { if (name.trim().length >= 2) setOpen(true); }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") applySearch();
-            if (e.key === "Escape") { setOpen(false); inputRef.current?.blur(); }
-          }}
-          className={`${inputClass} pl-9 ${name ? "pr-8" : "pr-8"}`}
-          placeholder="Search products…"
-          autoComplete="off"
-        />
-        {/* "/" shortcut hint — hidden when typing */}
-        {!name && (
-          <kbd className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 hidden select-none items-center gap-0.5 rounded border border-stroke bg-raised px-1.5 py-0.5 font-mono text-[10px] text-ink4 lg:flex">
-            /
-          </kbd>
-        )}
-        {name && (
-          <button
-            type="button"
-            onClick={() => { setName(""); setSearch(""); setPage(1); setOpen(false); }}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-ink4 transition-colors hover:text-ink2"
-            aria-label="Clear search"
-          >
-            <XIcon className="size-3.5" />
-          </button>
-        )}
-      </div>
-
-      <AnimatePresence>
-        {showDropdown && (
-          <motion.div
-            initial={{ opacity: 0, y: -6, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -6, scale: 0.98 }}
-            transition={{ duration: 0.15, ease: [0.25, 0.1, 0.25, 1] }}
-            className="absolute left-4 right-4 top-[calc(100%+6px)] z-50 overflow-hidden rounded-xl border border-stroke bg-card shadow-2xl shadow-black/20"
-          >
-            {isFetching && (!suggestions || suggestions.length === 0) ? (
-              <div className="flex items-center gap-2 px-4 py-3 text-sm text-ink4">
-                <svg className="size-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-                </svg>
-                Searching…
-              </div>
-            ) : (
-              <>
-                {suggestions?.map((p) => {
-                  const displayPrice = p.discount && p.discount > 0
-                    ? p.price * (1 - p.discount / 100)
-                    : p.price;
-                  return (
-                    <button
-                      key={p.product_id}
-                      type="button"
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        navigate(`/products/${p.product_id}`);
-                        setOpen(false);
-                      }}
-                      className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-raised"
-                    >
-                      <div className="size-10 shrink-0 overflow-hidden rounded-lg bg-raised">
-                        <img src={productImageUrl(p)} alt={p.name} className="h-full w-full object-cover" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-[13px] font-medium text-ink">{p.name}</p>
-                        <p className="mt-0.5 text-[12px] font-semibold text-emerald-600 dark:text-emerald-400">
-                          ${displayPrice.toFixed(2)}
-                        </p>
-                      </div>
-                    </button>
-                  );
-                })}
-                <button
-                  type="button"
-                  onMouseDown={(e) => { e.preventDefault(); applySearch(); }}
-                  className="flex w-full items-center gap-2 border-t border-stroke px-3 py-2.5 text-[12px] font-medium text-ink3 transition-colors hover:bg-raised"
-                >
-                  <SearchIcon className="size-3.5 shrink-0 text-ink4" />
-                  Search for &ldquo;{name}&rdquo;
-                </button>
-              </>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {name !== search && name && !open && (
-          <motion.button
-            initial={{ opacity: 0, y: -4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
-            type="button"
-            onClick={applySearch}
-            className="mt-2.5 w-full rounded-lg bg-emerald-600 py-2 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
-          >
-            Search
-          </motion.button>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
-
-/* ── Rating pills ──────────────────────────────────────────── */
-const RATING_OPTIONS: { label: string; value: string }[] = [
-  { label: "Any",   value: "" },
-  { label: "3★+",  value: "3" },
-  { label: "4★+",  value: "4" },
-  { label: "4.5★+", value: "4.5" },
+/* ── Rating rows: "N stars & up" ───────────────────────────── */
+const RATING_OPTIONS: { value: string; full: number; half: boolean }[] = [
+  { value: "4.5", full: 4, half: true },
+  { value: "4",   full: 4, half: false },
+  { value: "3",   full: 3, half: false },
 ];
 
 /* ══ FilterPanel ══════════════════════════════════════════════ */
 export interface FilterPanelProps {
-  name: string; setName: (v: string) => void;
-  search: string; setSearch: (v: string) => void;
-  sortKey: string; setSortKey: (v: string) => void;
   categoryId: string; setCategoryId: (v: string) => void;
   minPrice: string; setMinPrice: (v: string) => void;
   maxPrice: string; setMaxPrice: (v: string) => void;
@@ -286,19 +91,16 @@ export interface FilterPanelProps {
   activeFilterCount: number;
   setPage: (v: number) => void;
   clearFilters: () => void;
-  onDone?: () => void;
 }
 
 export function FilterPanel({
-  name, setName, search, setSearch,
-  sortKey, setSortKey,
   categoryId, setCategoryId,
   minPrice, setMinPrice, maxPrice, setMaxPrice,
   minRating, setMinRating,
   inStockOnly, setInStockOnly,
   onSaleOnly, setOnSaleOnly,
   categories, hasActiveFilters, activeFilterCount,
-  clearFilters, setPage, onDone,
+  clearFilters, setPage,
 }: FilterPanelProps) {
   const priceActive    = Boolean(minPrice || maxPrice);
   const ratingActive   = Boolean(minRating);
@@ -327,175 +129,6 @@ export function FilterPanel({
           </button>
         )}
       </div>
-
-      {/* ── Search ── */}
-      <FilterSection title="Search" defaultOpen={true} badge={search ? 1 : 0}>
-        <SearchAutocomplete
-          name={name} setName={setName}
-          search={search} setSearch={setSearch}
-          setPage={setPage} onDone={onDone}
-        />
-      </FilterSection>
-
-      {/* ── Sort ── */}
-      <FilterSection title="Sort by" defaultOpen={true}>
-        <div className="space-y-0.5 px-4">
-          {SORT_OPTIONS.map((opt) => {
-            const active = sortKey === opt.value;
-            return (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => { setSortKey(opt.value); setPage(1); }}
-                className={`group flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-[13px] transition-all ${
-                  active ? "bg-emerald-500/8 text-ink" : "text-ink3 hover:bg-hover hover:text-ink2"
-                }`}
-              >
-                {/* Icon */}
-                <svg className={`size-3.5 shrink-0 ${active ? "text-emerald-500" : "text-ink4"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d={opt.icon} />
-                </svg>
-                <span className={active ? "font-semibold" : ""}>{opt.label}</span>
-                {active && (
-                  <svg className="ml-auto size-3.5 shrink-0 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                  </svg>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </FilterSection>
-
-      {/* ── Price ── */}
-      <FilterSection title="Price" defaultOpen={true} badge={priceActive ? 1 : 0}>
-        {/* Preset pills */}
-        <div className="mb-3 flex flex-wrap gap-1.5 px-4">
-          {PRICE_PRESETS.map(([label, min, max]) => {
-            const isActive = minPrice === min && maxPrice === max;
-            return (
-              <button
-                key={label}
-                type="button"
-                onClick={() => { setMinPrice(min); setMaxPrice(max); setPage(1); }}
-                className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-all ${
-                  isActive
-                    ? "border-emerald-500/40 bg-emerald-500/12 text-emerald-600 dark:text-emerald-400"
-                    : "border-stroke bg-raised text-ink3 hover:border-edge hover:text-ink2"
-                }`}
-              >
-                {label}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Custom inputs */}
-        <div className="flex items-center gap-2 px-4">
-          <div className="relative flex-1">
-            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px] text-ink4">$</span>
-            <input
-              type="number" min={0}
-              value={minPrice}
-              onChange={(e) => { setMinPrice(e.target.value); setPage(1); }}
-              placeholder="Min"
-              className={`${inputClass} pl-5 text-[13px]`}
-            />
-          </div>
-          <div className="h-px w-3 shrink-0 bg-edge" />
-          <div className="relative flex-1">
-            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px] text-ink4">$</span>
-            <input
-              type="number" min={0}
-              value={maxPrice}
-              onChange={(e) => { setMaxPrice(e.target.value); setPage(1); }}
-              placeholder="Max"
-              className={`${inputClass} pl-5 text-[13px]`}
-            />
-          </div>
-          {priceActive && (
-            <button
-              type="button"
-              onClick={() => { setMinPrice(""); setMaxPrice(""); setPage(1); }}
-              className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-stroke text-ink4 transition-colors hover:border-edge hover:text-red-400"
-              aria-label="Clear price filter"
-            >
-              <XIcon className="size-3" />
-            </button>
-          )}
-        </div>
-      </FilterSection>
-
-      {/* ── Rating ── */}
-      <FilterSection title="Rating" defaultOpen={true} badge={ratingActive ? 1 : 0}>
-        <div className="flex flex-wrap gap-1.5 px-4">
-          {RATING_OPTIONS.map((opt) => {
-            const active = minRating === opt.value;
-            return (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => { setMinRating(opt.value); setPage(1); }}
-                className={`flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-all ${
-                  active
-                    ? "border-amber-500/40 bg-amber-500/12 text-amber-600 dark:text-amber-400"
-                    : "border-stroke bg-raised text-ink3 hover:border-edge hover:text-ink2"
-                }`}
-              >
-                {opt.value && <span className="text-amber-400">★</span>}
-                {opt.label}
-              </button>
-            );
-          })}
-        </div>
-      </FilterSection>
-
-      {/* ── Quick toggles ── */}
-      <FilterSection title="Availability" defaultOpen={true} badge={(inStockOnly ? 1 : 0) + (onSaleOnly ? 1 : 0)}>
-        <div className="space-y-2 px-4">
-          {/* In stock only */}
-          <button
-            type="button"
-            role="switch"
-            aria-checked={inStockOnly}
-            onClick={() => { setInStockOnly(!inStockOnly); setPage(1); }}
-            className="flex w-full items-center justify-between rounded-lg px-2.5 py-2 transition-colors hover:bg-hover"
-          >
-            <div className="flex items-center gap-2.5">
-              <div className={`flex size-6 shrink-0 items-center justify-center rounded-md transition-colors ${inStockOnly ? "bg-emerald-500/15" : "bg-raised"}`}>
-                <svg className={`size-3.5 ${inStockOnly ? "text-emerald-500" : "text-ink4"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <span className={`text-[13px] ${inStockOnly ? "font-semibold text-ink" : "text-ink3"}`}>In stock only</span>
-            </div>
-            <div className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${inStockOnly ? "bg-emerald-500" : "bg-edge"}`}>
-              <span className={`absolute top-0.5 size-4 rounded-full bg-white shadow-sm transition-all ${inStockOnly ? "left-4" : "left-0.5"}`} />
-            </div>
-          </button>
-
-          {/* On sale only */}
-          <button
-            type="button"
-            role="switch"
-            aria-checked={onSaleOnly}
-            onClick={() => { setOnSaleOnly(!onSaleOnly); setPage(1); }}
-            className="flex w-full items-center justify-between rounded-lg px-2.5 py-2 transition-colors hover:bg-hover"
-          >
-            <div className="flex items-center gap-2.5">
-              <div className={`flex size-6 shrink-0 items-center justify-center rounded-md transition-colors ${onSaleOnly ? "bg-rose-500/15" : "bg-raised"}`}>
-                <svg className={`size-3.5 ${onSaleOnly ? "text-rose-500" : "text-ink4"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3zM6 6h.008v.008H6V6z" />
-                </svg>
-              </div>
-              <span className={`text-[13px] ${onSaleOnly ? "font-semibold text-ink" : "text-ink3"}`}>On sale only</span>
-            </div>
-            <div className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${onSaleOnly ? "bg-rose-500" : "bg-edge"}`}>
-              <span className={`absolute top-0.5 size-4 rounded-full bg-white shadow-sm transition-all ${onSaleOnly ? "left-4" : "left-0.5"}`} />
-            </div>
-          </button>
-        </div>
-      </FilterSection>
 
       {/* ── Category ── */}
       <FilterSection title="Category" defaultOpen={true} badge={categoryActive ? 1 : 0}>
@@ -564,6 +197,165 @@ export function FilterPanel({
             })}
           </div>
         ) : null}
+      </FilterSection>
+
+      {/* ── Price ── */}
+      <FilterSection title="Price" defaultOpen={true} badge={priceActive ? 1 : 0}>
+        {/* Preset pills */}
+        <div className="mb-3 flex flex-wrap gap-1.5 px-4">
+          {PRICE_PRESETS.map(([label, min, max]) => {
+            const isActive = minPrice === min && maxPrice === max;
+            return (
+              <button
+                key={label}
+                type="button"
+                onClick={() => { setMinPrice(min); setMaxPrice(max); setPage(1); }}
+                className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-all ${
+                  isActive
+                    ? "border-emerald-500/40 bg-emerald-500/12 text-emerald-600 dark:text-emerald-400"
+                    : "border-stroke bg-raised text-ink3 hover:border-edge hover:text-ink2"
+                }`}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Custom inputs */}
+        <div className="flex items-center gap-2 px-4">
+          <div className="relative flex-1">
+            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px] text-ink4">$</span>
+            <input
+              type="number" min={0}
+              value={minPrice}
+              onChange={(e) => { setMinPrice(e.target.value); setPage(1); }}
+              placeholder="Min"
+              className={`${inputClass} pl-5 text-[13px]`}
+            />
+          </div>
+          <div className="h-px w-3 shrink-0 bg-edge" />
+          <div className="relative flex-1">
+            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px] text-ink4">$</span>
+            <input
+              type="number" min={0}
+              value={maxPrice}
+              onChange={(e) => { setMaxPrice(e.target.value); setPage(1); }}
+              placeholder="Max"
+              className={`${inputClass} pl-5 text-[13px]`}
+            />
+          </div>
+          {priceActive && (
+            <button
+              type="button"
+              onClick={() => { setMinPrice(""); setMaxPrice(""); setPage(1); }}
+              className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-stroke text-ink4 transition-colors hover:border-edge hover:text-red-400"
+              aria-label="Clear price filter"
+            >
+              <XIcon className="size-3" />
+            </button>
+          )}
+        </div>
+      </FilterSection>
+
+      {/* ── Rating ── */}
+      <FilterSection title="Rating" defaultOpen={ratingActive} badge={ratingActive ? 1 : 0}>
+        <div className="space-y-0.5 px-3">
+          <button
+            type="button"
+            onClick={() => { setMinRating(""); setPage(1); }}
+            className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] transition-all ${
+              !minRating ? "bg-emerald-500/8 font-semibold text-ink" : "text-ink3 hover:bg-hover hover:text-ink2"
+            }`}
+          >
+            Any rating
+            {!minRating && (
+              <svg className="ml-auto size-3.5 shrink-0 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+              </svg>
+            )}
+          </button>
+          {RATING_OPTIONS.map(({ value, full, half }) => {
+            const active = minRating === value;
+            return (
+              <button
+                key={value}
+                type="button"
+                onClick={() => { setMinRating(value); setPage(1); }}
+                className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] transition-all ${
+                  active ? "bg-amber-500/10 font-semibold text-ink" : "text-ink3 hover:bg-hover hover:text-ink2"
+                }`}
+              >
+                <span className="flex items-center gap-0.5">
+                  {[1, 2, 3, 4, 5].map((i) => {
+                    const isFull = i <= full;
+                    const isHalf = half && i === full + 1;
+                    return (
+                      <StarIcon
+                        key={i}
+                        className={`size-3.5 ${isFull ? "text-amber-400" : isHalf ? "text-amber-400/50" : "text-ink4/40"}`}
+                        filled={isFull || isHalf}
+                      />
+                    );
+                  })}
+                </span>
+                <span>&amp; up</span>
+                {active && (
+                  <svg className="ml-auto size-3.5 shrink-0 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                  </svg>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </FilterSection>
+
+      {/* ── Quick toggles ── */}
+      <FilterSection title="Availability" defaultOpen={inStockOnly || onSaleOnly} badge={(inStockOnly ? 1 : 0) + (onSaleOnly ? 1 : 0)}>
+        <div className="space-y-2 px-4">
+          {/* In stock only */}
+          <button
+            type="button"
+            role="switch"
+            aria-checked={inStockOnly}
+            onClick={() => { setInStockOnly(!inStockOnly); setPage(1); }}
+            className="flex w-full items-center justify-between rounded-lg px-2.5 py-2 transition-colors hover:bg-hover"
+          >
+            <div className="flex items-center gap-2.5">
+              <div className={`flex size-6 shrink-0 items-center justify-center rounded-md transition-colors ${inStockOnly ? "bg-emerald-500/15" : "bg-raised"}`}>
+                <svg className={`size-3.5 ${inStockOnly ? "text-emerald-500" : "text-ink4"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <span className={`text-[13px] ${inStockOnly ? "font-semibold text-ink" : "text-ink3"}`}>In stock only</span>
+            </div>
+            <div className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${inStockOnly ? "bg-emerald-500" : "bg-edge"}`}>
+              <span className={`absolute top-0.5 size-4 rounded-full bg-white shadow-sm transition-all ${inStockOnly ? "left-4" : "left-0.5"}`} />
+            </div>
+          </button>
+
+          {/* On sale only */}
+          <button
+            type="button"
+            role="switch"
+            aria-checked={onSaleOnly}
+            onClick={() => { setOnSaleOnly(!onSaleOnly); setPage(1); }}
+            className="flex w-full items-center justify-between rounded-lg px-2.5 py-2 transition-colors hover:bg-hover"
+          >
+            <div className="flex items-center gap-2.5">
+              <div className={`flex size-6 shrink-0 items-center justify-center rounded-md transition-colors ${onSaleOnly ? "bg-rose-500/15" : "bg-raised"}`}>
+                <svg className={`size-3.5 ${onSaleOnly ? "text-rose-500" : "text-ink4"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3zM6 6h.008v.008H6V6z" />
+                </svg>
+              </div>
+              <span className={`text-[13px] ${onSaleOnly ? "font-semibold text-ink" : "text-ink3"}`}>On sale only</span>
+            </div>
+            <div className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${onSaleOnly ? "bg-rose-500" : "bg-edge"}`}>
+              <span className={`absolute top-0.5 size-4 rounded-full bg-white shadow-sm transition-all ${onSaleOnly ? "left-4" : "left-0.5"}`} />
+            </div>
+          </button>
+        </div>
       </FilterSection>
     </div>
   );

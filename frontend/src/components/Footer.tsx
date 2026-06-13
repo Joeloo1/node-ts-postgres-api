@@ -1,6 +1,76 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
+import { toast } from "sonner";
 import { Logo } from "./Logo";
 import { useAuth } from "../context/AuthContext";
+import { ApiError, apiFetch } from "../lib/api";
+import { CheckIcon, MailIcon } from "./Icons";
+
+function FooterNewsletter() {
+  const [email, setEmail] = useState("");
+  const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!email || loading) return;
+    setLoading(true);
+    try {
+      await apiFetch("/api/v1/newsletter/subscribe", {
+        method: "POST",
+        body: JSON.stringify({ email }),
+      });
+      setSubmitted(true);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Could not subscribe. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-5 border-b border-stroke py-10 lg:flex-row lg:items-center lg:justify-between">
+      <div className="flex items-start gap-3.5">
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/12 dark:text-emerald-400">
+          <MailIcon className="size-5" />
+        </div>
+        <div>
+          <p className="font-display text-[15px] font-semibold text-ink">Get 10% off your first order</p>
+          <p className="mt-0.5 text-[13px] text-ink4">New arrivals and members-only deals. No spam, ever.</p>
+        </div>
+      </div>
+
+      {submitted ? (
+        <div className="flex items-center gap-2.5 rounded-xl border border-emerald-500/25 bg-emerald-500/8 px-5 py-3 text-[13px] font-medium text-emerald-700 dark:text-emerald-400">
+          <CheckIcon className="size-4" />
+          You're on the list — welcome aboard!
+        </div>
+      ) : (
+        <form
+          onSubmit={handleSubmit}
+          className="flex w-full max-w-md items-center gap-2 rounded-xl border border-stroke bg-card p-1.5 transition-colors focus-within:border-emerald-500/40"
+        >
+          <input
+            type="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="Enter your email"
+            aria-label="Email address"
+            className="min-w-0 flex-1 bg-transparent px-2.5 text-[14px] text-ink placeholder:text-ink4 focus:outline-none"
+          />
+          <button
+            type="submit"
+            disabled={loading}
+            className="shrink-0 rounded-lg bg-emerald-600 px-4 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-emerald-500 active:scale-[0.97] disabled:opacity-60"
+          >
+            {loading ? "Subscribing…" : "Subscribe"}
+          </button>
+        </form>
+      )}
+    </div>
+  );
+}
 
 export function Footer() {
   const { token } = useAuth();
@@ -9,6 +79,8 @@ export function Footer() {
   return (
     <footer className="mt-24 border-t border-stroke bg-page">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+
+        <FooterNewsletter />
 
         <div className="grid gap-12 py-14 lg:grid-cols-[1.6fr_1fr_1fr_1fr]">
 
@@ -85,6 +157,7 @@ export function Footer() {
               <li><Link to="/about" className="text-sm text-ink4 transition-colors hover:text-ink">About</Link></li>
               <li><Link to="/contact" className="text-sm text-ink4 transition-colors hover:text-ink">Contact</Link></li>
               <li><Link to="/faq" className="text-sm text-ink4 transition-colors hover:text-ink">FAQ</Link></li>
+              <li><Link to="/shipping-returns" className="text-sm text-ink4 transition-colors hover:text-ink">Shipping &amp; Returns</Link></li>
               <li><Link to="/terms" className="text-sm text-ink4 transition-colors hover:text-ink">Terms of service</Link></li>
               <li><Link to="/privacy" className="text-sm text-ink4 transition-colors hover:text-ink">Privacy policy</Link></li>
             </ul>
@@ -141,9 +214,10 @@ export function Footer() {
           </div>
 
           <div className="flex items-center gap-4">
-            <Link to="/terms"   className="text-[12px] text-ink4 transition-colors hover:text-ink3">Terms</Link>
-            <Link to="/privacy" className="text-[12px] text-ink4 transition-colors hover:text-ink3">Privacy</Link>
-            <Link to="/contact" className="text-[12px] text-ink4 transition-colors hover:text-ink3">Contact</Link>
+            <Link to="/terms"             className="text-[12px] text-ink4 transition-colors hover:text-ink3">Terms</Link>
+            <Link to="/privacy"           className="text-[12px] text-ink4 transition-colors hover:text-ink3">Privacy</Link>
+            <Link to="/shipping-returns"  className="text-[12px] text-ink4 transition-colors hover:text-ink3">Shipping</Link>
+            <Link to="/contact"           className="text-[12px] text-ink4 transition-colors hover:text-ink3">Contact</Link>
           </div>
         </div>
       </div>

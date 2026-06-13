@@ -26,7 +26,7 @@ export function AnnouncementBar() {
   const msg = MESSAGES[idx];
 
   return (
-    <div className="relative z-50 overflow-hidden bg-emerald-700 px-10 py-2.5 text-center text-[12px] font-medium text-white dark:bg-emerald-800">
+    <div className="relative z-50 overflow-hidden bg-emerald-950 px-10 py-2.5 text-center text-[12px] font-medium text-emerald-200">
       <AnimatePresence mode="wait" initial={false}>
         <motion.span
           key={idx}
@@ -40,7 +40,7 @@ export function AnnouncementBar() {
           {msg.cta && msg.to && (
             <Link
               to={msg.to}
-              className="underline underline-offset-2 opacity-80 hover:opacity-100 transition-opacity"
+              className="font-semibold underline underline-offset-2 decoration-emerald-500/50 hover:decoration-emerald-400 opacity-90 hover:opacity-100 transition-opacity"
             >
               {msg.cta}
             </Link>

@@ -29,7 +29,14 @@ export function Layout() {
   }, []);
 
   return (
-    <div className="flex min-h-screen flex-col bg-page">
+    <div className="relative flex min-h-screen flex-col bg-page">
+      {/* Ambient depth orbs — dark mode only */}
+      <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+        <div className="absolute right-[-18%] top-[-8%] size-[800px] rounded-full opacity-0 dark:opacity-100 transition-opacity duration-700 bg-emerald-600/[0.042] blur-[160px]" />
+        <div className="absolute left-[-12%] top-[38%] size-[600px] rounded-full opacity-0 dark:opacity-100 transition-opacity duration-700 bg-emerald-500/[0.028] blur-[140px]" />
+        <div className="absolute bottom-[5%] right-[22%] size-[450px] rounded-full opacity-0 dark:opacity-100 transition-opacity duration-700 bg-teal-400/[0.02] blur-[120px]" />
+      </div>
+
       <a href="#main-content" className="skip-link">Skip to content</a>
       <AnnouncementBar />
       <Navbar onCartOpen={() => setCartOpen(true)} />

@@ -105,6 +105,7 @@ export type Review = {
   rating: number;
   content: string | null;
   userId: string;
+  verifiedPurchase?: boolean;
   user?: { id: string; name: string; email: string };
   votes?: { helpful: boolean }[];
   createdAt: string;

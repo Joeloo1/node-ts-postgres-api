@@ -84,11 +84,14 @@ export function SearchPage() {
 
   usePageTitle(query ? `"${query}" — Search` : "Search");
 
-  useEffect(() => {
-    const q = searchParams.get("q") ?? "";
-    setInputValue(q);
-    setQuery(q);
-  }, [searchParams.get("q")]);
+  /* Adopt URL changes (back/forward, external links) during render */
+  const urlQuery = searchParams.get("q") ?? "";
+  const [lastUrlQuery, setLastUrlQuery] = useState(urlQuery);
+  if (urlQuery !== lastUrlQuery) {
+    setLastUrlQuery(urlQuery);
+    setInputValue(urlQuery);
+    setQuery(urlQuery);
+  }
 
   const { data, isPending } = useQuery({
     queryKey: queryKeys.search(query),
@@ -273,7 +276,7 @@ export function SearchPage() {
               </button>
             </div>
           ) : (
-            <motion.div key={query} className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-3" variants={stagger} initial="hidden" animate="show">
+            <motion.div key={query} className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4" variants={stagger} initial="hidden" animate="show">
               {products.map((p) => (
                 <motion.div key={p.product_id} variants={cardFade}>
                   <ProductCard product={p} />

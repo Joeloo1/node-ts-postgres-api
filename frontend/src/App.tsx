@@ -45,8 +45,12 @@ const AdminProductsPage   = lazy(() => import("./pages/admin/AdminProductsPage")
 const AdminUsersPage      = lazy(() => import("./pages/admin/AdminUsersPage").then((m) => ({ default: m.AdminUsersPage })));
 const AdminCategoriesPage = lazy(() => import("./pages/admin/AdminCategoriesPage").then((m) => ({ default: m.AdminCategoriesPage })));
 const AdminOrdersPage     = lazy(() => import("./pages/admin/AdminOrdersPage").then((m) => ({ default: m.AdminOrdersPage })));
+const AdminCouponsPage    = lazy(() => import("./pages/admin/AdminCouponsPage").then((m) => ({ default: m.AdminCouponsPage })));
+const AdminContactPage    = lazy(() => import("./pages/admin/AdminContactPage").then((m) => ({ default: m.AdminContactPage })));
 const DealsPage           = lazy(() => import("./pages/DealsPage").then((m) => ({ default: m.DealsPage })));
 const FAQPage             = lazy(() => import("./pages/FAQPage").then((m) => ({ default: m.FAQPage })));
+const ShippingReturnsPage = lazy(() => import("./pages/ShippingReturnsPage").then((m) => ({ default: m.ShippingReturnsPage })));
+const UnsubscribePage     = lazy(() => import("./pages/UnsubscribePage").then((m) => ({ default: m.UnsubscribePage })));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -106,6 +110,8 @@ export default function App() {
                     <Route path="faq" element={<FAQPage />} />
                     <Route path="terms" element={<TermsPage />} />
                     <Route path="privacy" element={<PrivacyPage />} />
+                    <Route path="shipping-returns" element={<ShippingReturnsPage />} />
+                    <Route path="unsubscribe" element={<UnsubscribePage />} />
                     <Route path="wishlist" element={<WishlistPage />} />
                     <Route path="forgot-password" element={<ForgotPasswordPage />} />
                     <Route path="reset-password/:token" element={<ResetPasswordPage />} />
@@ -130,6 +136,8 @@ export default function App() {
                       <Route path="users" element={<AdminUsersPage />} />
                       <Route path="categories" element={<AdminCategoriesPage />} />
                       <Route path="orders" element={<AdminOrdersPage />} />
+                      <Route path="coupons" element={<AdminCouponsPage />} />
+                      <Route path="contact" element={<AdminContactPage />} />
                     </Route>
 
                     <Route path="403" element={<ForbiddenPage />} />

@@ -288,9 +288,14 @@ export const updateProduct = catchAsync(
     }
 
     logger.info("Updating product");
+    // When the images array is explicitly set, sync the main image with images[0]
+    const updateData: Record<string, unknown> = { ...data };
+    if (data.images !== undefined && data.image === undefined) {
+      updateData.image = data.images[0] ?? null;
+    }
     const product = await prisma.products.update({
       where: { product_id: productId },
-      data,
+      data: updateData as any,
       include: productCategoryInclude,
     });
 

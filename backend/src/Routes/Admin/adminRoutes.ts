@@ -50,7 +50,7 @@ router
   .get(adminGetCoupon)
   .post(validateBody(createCouponSchema), adminCreateCoupon);
 router
-  .route("/coupons")
+  .route("/coupons/:id")
   .patch(validateBody(updateCouponSchema), adminUpdateCoupon)
   .delete(adminDeleteCoupon);
 router.get("/returns", adminGetReturn);

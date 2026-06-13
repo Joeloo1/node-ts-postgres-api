@@ -60,3 +60,12 @@ export const connectRedis = async () => {
     throw err;
   }
 };
+
+export const disconnectRedis = async (): Promise<void> => {
+  try {
+    await client.quit();
+    logger.info("Redis connection closed");
+  } catch (err) {
+    logger.error("Error closing Redis connection", err);
+  }
+};

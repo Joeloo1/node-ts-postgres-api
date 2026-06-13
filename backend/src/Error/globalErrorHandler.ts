@@ -173,8 +173,11 @@ export const globalErrorHandler = (
     error = handlePostgresForeignKeyViolationError();
   } else if (err.code === "23502") {
     error = handlePostgresNotNullViolationError(err);
+  } else if (err.isOperational) {
+    // AppError or any operational error — pass through as-is
+    error = err as unknown as AppError;
   } else {
-    // Unknown or unexpected error
+    // Truly unexpected error — don't leak internals
     logger.error("Unexpected error", err);
     error = new AppError("Something went wrong", 500);
   }

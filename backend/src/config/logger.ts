@@ -36,7 +36,9 @@ const level = () => {
 };
 
 const withRequestId = winston.format((info) => {
-  info.requestId = requestContext.getStore()?.requestId ?? "-";
+  const store = requestContext.getStore();
+  info.requestId = store?.requestId ?? "-";
+  if (store?.userId) info.userId = store.userId;
   return info;
 });
 
@@ -60,22 +62,29 @@ const fileFormat = combine(
   json(),
 );
 
-// Create Transport
+// On Render (and most PaaS) the filesystem is ephemeral — file transports would be lost
+// on every deploy. Console output is captured by the platform's log aggregation instead.
+const isRenderOrCI = !!(process.env.RENDER || process.env.CI);
+
 const transports: winston.transport[] = [
   new winston.transports.Console({ format: consoleFormat }),
-  new winston.transports.File({
-    filename: path.join(logDir, "error.log"),
-    level: "error",
-    format: fileFormat,
-    maxsize: 5242880,
-    maxFiles: 5,
-  }),
-  new winston.transports.File({
-    filename: path.join(logDir, "combine.log"),
-    format: fileFormat,
-    maxsize: 5242880,
-    maxFiles: 5,
-  }),
+  ...(!isRenderOrCI
+    ? [
+        new winston.transports.File({
+          filename: path.join(logDir, "error.log"),
+          level: "error",
+          format: fileFormat,
+          maxsize: 5242880,
+          maxFiles: 5,
+        }),
+        new winston.transports.File({
+          filename: path.join(logDir, "combine.log"),
+          format: fileFormat,
+          maxsize: 5242880,
+          maxFiles: 5,
+        }),
+      ]
+    : []),
 ];
 
 const logger = winston.createLogger({
@@ -84,16 +93,26 @@ const logger = winston.createLogger({
   transports,
   exitOnError: false,
   exceptionHandlers: [
-    new winston.transports.File({
-      filename: path.join(logDir, "exceptions.logs"),
-      format: fileFormat,
-    }),
+    new winston.transports.Console({ format: consoleFormat }),
+    ...(!isRenderOrCI
+      ? [
+          new winston.transports.File({
+            filename: path.join(logDir, "exceptions.log"),
+            format: fileFormat,
+          }),
+        ]
+      : []),
   ],
   rejectionHandlers: [
-    new winston.transports.File({
-      filename: path.join(logDir, "rejections.log"),
-      format: fileFormat,
-    }),
+    new winston.transports.Console({ format: consoleFormat }),
+    ...(!isRenderOrCI
+      ? [
+          new winston.transports.File({
+            filename: path.join(logDir, "rejections.log"),
+            format: fileFormat,
+          }),
+        ]
+      : []),
   ],
 });
 

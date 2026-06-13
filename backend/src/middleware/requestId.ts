@@ -7,6 +7,11 @@ interface RequestContext {
   userId?: string;
 }
 
+export const setContextUserId = (userId: string) => {
+  const store = requestContext.getStore();
+  if (store) store.userId = userId;
+};
+
 export const requestContext = new AsyncLocalStorage<RequestContext>();
 
 export const requestIdMiddleware = (

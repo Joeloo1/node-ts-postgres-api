@@ -15,6 +15,7 @@ import { signAccessToken, signRefreshToken } from "../utils/jwt";
 import { prisma } from "../config/database";
 // import sendMail from "../utils/email";
 import logger from "../config/logger";
+import { setContextUserId } from "../middleware/requestId";
 import { Role } from "../types/role.types";
 import { JwtPayload } from "../types/auth.types";
 import { UserRole } from "@prisma/client";
@@ -385,6 +386,7 @@ export const Protect = catchAsync(
       );
     }
     req.user = currentUser;
+    setContextUserId(currentUser.id);
     next();
   },
 );

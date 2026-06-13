@@ -166,7 +166,7 @@ app.use("/api/v1/users/signup", authLimiter);
 app.use("/api/v1/users/forgotPassword", passwordResetLimiter);
 app.use("/api/v1/users/resetPassword", passwordResetLimiter);
 app.use("/api/v1/newsletter/subscribe", newsletterLimiter);
-app.use("/api/v1/contract", contactLimiter);
+app.use("/api/v1/contact", contactLimiter);
 
 app.use("/api", Limiter as any);
 

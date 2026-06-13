@@ -10,16 +10,29 @@ import { addToCartSchema, updateCartItemSchema } from "../Schema/cartSchema";
 export const addItemToCart = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
     const userId = req.user!.id;
-    const { product_id, quantity } = addToCartSchema.parse(req.body);
-    logger.info("User adding items to cart", { userId, product_id, quantity });
+    const { product_id, quantity, variantId } = addToCartSchema.parse(req.body);
+    logger.info("User adding items to cart", { userId, product_id, quantity, variantId });
 
     const product = await prisma.products.findUnique({
       where: { product_id },
+      include: { variants: true },
     });
 
     if (!product) {
       logger.warn("Product not found", { userId, product_id });
       return next(new AppError("Product not found", 404));
+    }
+
+    // Validate variant if provided
+    let variant = null;
+    if (variantId) {
+      variant = product.variants.find((v) => v.id === variantId) ?? null;
+      if (!variant) {
+        return next(new AppError("Variant not found for this product", 404));
+      }
+      if (!variant.availability) {
+        return next(new AppError("This variant is currently unavailable", 400));
+      }
     }
 
     await prisma.$transaction(async (tx) => {
@@ -29,14 +42,20 @@ export const addItemToCart = catchAsync(
         create: { userId },
       });
 
+      // Match on both product and variant so different variants are separate line items
       const existingItem = await tx.cartItem.findFirst({
-        where: { cartId: cart.id, product_id },
+        where: {
+          cartId: cart.id,
+          product_id,
+          variantId: variantId ?? null,
+        },
       });
 
       const newTotal = (existingItem?.quantity ?? 0) + quantity;
-      if (product.stock < newTotal) {
+      const availableStock = variant ? variant.stock : product.stock;
+      if (availableStock < newTotal) {
         throw new AppError(
-          `Only ${product.stock} unit${product.stock === 1 ? "" : "s"} available`,
+          `Only ${availableStock} unit${availableStock === 1 ? "" : "s"} available`,
           400,
         );
       }
@@ -48,7 +67,7 @@ export const addItemToCart = catchAsync(
         });
       } else {
         await tx.cartItem.create({
-          data: { cartId: cart.id, product_id, quantity },
+          data: { cartId: cart.id, product_id, quantity, variantId: variantId ?? null },
         });
       }
     });
@@ -57,6 +76,7 @@ export const addItemToCart = catchAsync(
       userId,
       product_id,
       quantity,
+      variantId,
     });
     res.status(201).json({
       status: "success",

@@ -11,7 +11,6 @@ import {
 } from "../Schema/orderSchema";
 import { emailQueue } from "../jobs/emailQueue";
 import { logAudit } from "../utils/audit";
-import { applyCoupon } from "./couponController";
 
 const ORDER_STATUS_COPY: Partial<
   Record<OrderStatus, { label: string; message: string }>
@@ -49,6 +48,7 @@ export const createOrder = catchAsync(
       const productIds = items.map((item) => item.product_id);
       const products = await tx.products.findMany({
         where: { product_id: { in: productIds } },
+        include: { variants: true },
       });
 
       const productMap = new Map(products.map((p) => [p.product_id, p]));
@@ -57,46 +57,99 @@ export const createOrder = catchAsync(
         product_id: string;
         quantity: number;
         price: number;
+        variantId?: string;
+        variantName?: string;
       }[] = [];
 
       for (const item of items) {
         const product = productMap.get(item.product_id);
         if (!product)
           throw new AppError(`Product not found: ${item.product_id}`, 404);
-        if (product.stock < item.quantity) {
+
+        // Resolve variant if provided
+        let variant = null;
+        if (item.variantId) {
+          variant = product.variants.find((v) => v.id === item.variantId) ?? null;
+          if (!variant)
+            throw new AppError(`Variant not found for product: ${product.name}`, 404);
+          if (!variant.availability)
+            throw new AppError(`Variant "${variant.name}" is unavailable`, 400);
+        }
+
+        const availableStock = variant ? variant.stock : product.stock;
+        if (availableStock < item.quantity) {
           throw new AppError(
-            `Insufficient stock for "${product.name}". Available: ${product.stock}`,
+            `Insufficient stock for "${product.name}"${variant ? ` (${variant.name})` : ""}. Available: ${availableStock}`,
             400,
           );
         }
 
-        await tx.products.update({
-          where: { product_id: item.product_id },
-          data: { stock: { decrement: item.quantity } },
-        });
+        // Decrement stock on the right record
+        if (variant) {
+          await tx.productVariant.update({
+            where: { id: variant.id },
+            data: { stock: { decrement: item.quantity } },
+          });
+        } else {
+          await tx.products.update({
+            where: { product_id: item.product_id },
+            data: { stock: { decrement: item.quantity } },
+          });
+        }
 
-        calculatedTotal += product.price * item.quantity;
+        // Apply product-level discount + variant price modifier
+        const discountMultiplier = product.discount
+          ? 1 - product.discount / 100
+          : 1;
+        const basePrice = product.price + (variant?.priceModifier ?? 0);
+        const linePrice = Math.round(basePrice * discountMultiplier * 100) / 100;
+
+        calculatedTotal += linePrice * item.quantity;
         orderItemsData.push({
           product_id: item.product_id,
           quantity: item.quantity,
-          price: product.price,
+          price: linePrice,
+          ...(variant && { variantId: variant.id, variantName: variant.name }),
         });
       }
+
+      // Apply coupon discount inside the transaction so it's atomic
+      let discountAmount = 0;
+      if (couponCode) {
+        const coupon = await tx.coupon.findUnique({
+          where: { code: couponCode.toUpperCase() },
+        });
+        if (
+          coupon &&
+          coupon.active &&
+          (!coupon.expiresAt || coupon.expiresAt > new Date()) &&
+          (coupon.maxUses === null || coupon.usedCount < coupon.maxUses) &&
+          (coupon.minOrderTotal === null || calculatedTotal >= coupon.minOrderTotal)
+        ) {
+          discountAmount =
+            coupon.type === "PERCENTAGE"
+              ? (calculatedTotal * coupon.value) / 100
+              : Math.min(coupon.value, calculatedTotal);
+          await tx.coupon.update({
+            where: { code: coupon.code },
+            data: { usedCount: { increment: 1 } },
+          });
+        }
+      }
+
+      const finalTotal =
+        Math.round(Math.max(0, calculatedTotal - discountAmount) * 100) / 100;
 
       return tx.order.create({
         data: {
           userId,
-          total: calculatedTotal,
+          total: finalTotal,
           status: "PENDING",
           items: { create: orderItemsData },
         },
         include: { items: true },
       });
     });
-
-    if (couponCode) {
-      await applyCoupon(couponCode);
-    }
 
     logger.info(`Order ${order.id} created by user ${userId}`);
     res.status(201).json({
@@ -110,11 +163,12 @@ export const createOrder = catchAsync(
 export const checkoutFromCart = catchAsync(
   async (req: Request, res: Response, _next: NextFunction) => {
     const userId = req.user!.id;
+    const { couponCode } = req.body as { couponCode?: string };
 
     const order = await prisma.$transaction(async (tx) => {
       const cart = await tx.cart.findUnique({
         where: { userId },
-        include: { items: { include: { product: true } } },
+        include: { items: { include: { product: true, variant: true } } },
       });
 
       if (!cart || cart.items.length === 0) {
@@ -126,34 +180,82 @@ export const checkoutFromCart = catchAsync(
         product_id: string;
         quantity: number;
         price: number;
+        variantId?: string;
+        variantName?: string;
       }[] = [];
 
       for (const item of cart.items) {
         const product = item.product;
-        if (product.stock < item.quantity) {
+        const variant = item.variant;
+
+        const availableStock = variant ? variant.stock : product.stock;
+        if (availableStock < item.quantity) {
           throw new AppError(
-            `Insufficient stock for "${product.name}". Available: ${product.stock}`,
+            `Insufficient stock for "${product.name}"${variant ? ` (${variant.name})` : ""}. Available: ${availableStock}`,
             400,
           );
         }
 
-        await tx.products.update({
-          where: { product_id: item.product_id },
-          data: { stock: { decrement: item.quantity } },
-        });
+        // Decrement stock on the right record
+        if (variant) {
+          await tx.productVariant.update({
+            where: { id: variant.id },
+            data: { stock: { decrement: item.quantity } },
+          });
+        } else {
+          await tx.products.update({
+            where: { product_id: item.product_id },
+            data: { stock: { decrement: item.quantity } },
+          });
+        }
 
-        calculatedTotal += product.price * item.quantity;
+        // Apply product-level discount + variant price modifier
+        const discountMultiplier = product.discount
+          ? 1 - product.discount / 100
+          : 1;
+        const basePrice = product.price + (variant?.priceModifier ?? 0);
+        const linePrice = Math.round(basePrice * discountMultiplier * 100) / 100;
+
+        calculatedTotal += linePrice * item.quantity;
         orderItemsData.push({
           product_id: item.product_id,
           quantity: item.quantity,
-          price: product.price,
+          price: linePrice,
+          ...(variant && { variantId: variant.id, variantName: variant.name }),
         });
       }
+
+      // Apply coupon discount inside the transaction so it's atomic
+      let discountAmount = 0;
+      if (couponCode) {
+        const coupon = await tx.coupon.findUnique({
+          where: { code: couponCode.toUpperCase() },
+        });
+        if (
+          coupon &&
+          coupon.active &&
+          (!coupon.expiresAt || coupon.expiresAt > new Date()) &&
+          (coupon.maxUses === null || coupon.usedCount < coupon.maxUses) &&
+          (coupon.minOrderTotal === null || calculatedTotal >= coupon.minOrderTotal)
+        ) {
+          discountAmount =
+            coupon.type === "PERCENTAGE"
+              ? (calculatedTotal * coupon.value) / 100
+              : Math.min(coupon.value, calculatedTotal);
+          await tx.coupon.update({
+            where: { code: coupon.code },
+            data: { usedCount: { increment: 1 } },
+          });
+        }
+      }
+
+      const finalTotal =
+        Math.round(Math.max(0, calculatedTotal - discountAmount) * 100) / 100;
 
       const newOrder = await tx.order.create({
         data: {
           userId,
-          total: calculatedTotal,
+          total: finalTotal,
           status: "PENDING",
           items: { create: orderItemsData },
         },
@@ -165,11 +267,6 @@ export const checkoutFromCart = catchAsync(
 
       return newOrder;
     });
-
-    const { couponCode: cartCouponCode } = req.body as { couponCode?: string };
-    if (cartCouponCode) {
-      await applyCoupon(cartCouponCode);
-    }
 
     logger.info(`Order ${order.id} created from cart by user ${userId}`);
     res.status(201).json({

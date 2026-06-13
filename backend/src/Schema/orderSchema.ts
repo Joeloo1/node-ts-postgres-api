@@ -7,6 +7,7 @@ export const orderItemSchema = z.object({
     .number()
     .int({ message: "quantity must be an integer" })
     .positive({ message: "quantity must be greater than 0" }),
+  variantId: z.string().uuid().optional(),
 });
 
 export const createOrderSchema = z.object({

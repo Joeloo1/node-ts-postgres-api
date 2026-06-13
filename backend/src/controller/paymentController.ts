@@ -21,10 +21,11 @@ export const createCheckoutSession = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
     const userId = req.user!.id;
     const clientUrl = process.env.CLIENT_URL ?? "http://localhost:5173";
+    const { couponCode } = req.body as { couponCode?: string };
 
     const cart = await prisma.cart.findUnique({
       where: { userId },
-      include: { items: { include: { product: true } } },
+      include: { items: { include: { product: true, variant: true } } },
     });
 
     if (!cart || cart.items.length === 0)
@@ -32,33 +33,88 @@ export const createCheckoutSession = catchAsync(
 
     // Validate stock before sending the user to Stripe
     for (const item of cart.items) {
-      if (item.product.stock < item.quantity) {
+      const availableStock = item.variant ? item.variant.stock : item.product.stock;
+      if (availableStock < item.quantity) {
         return next(
           new AppError(
-            `Insufficient stock for "${item.product.name}". Only ${item.product.stock} left.`,
+            `Insufficient stock for "${item.product.name}"${item.variant ? ` (${item.variant.name})` : ""}. Only ${availableStock} left.`,
             400,
           ),
         );
       }
     }
 
-    // Build Stripe line items from the cart
-    const lineItems = cart.items.map((item) => ({
-      price_data: {
-        currency: "usd",
-        product_data: {
-          name: item.product.name,
-          ...(item.product.image && { images: [item.product.image] }),
+    // Build Stripe line items with product-level discounts and variant price modifiers applied
+    const lineItems = cart.items.map((item) => {
+      const discountMultiplier = item.product.discount
+        ? 1 - item.product.discount / 100
+        : 1;
+      const basePrice = item.product.price + (item.variant?.priceModifier ?? 0);
+      const unitAmount = Math.round(basePrice * discountMultiplier * 100);
+      const displayName = item.variant
+        ? `${item.product.name} — ${item.variant.name}`
+        : item.product.name;
+      return {
+        price_data: {
+          currency: "usd",
+          product_data: {
+            name: displayName,
+            // Only pass absolute URLs — local /public paths are not reachable by Stripe
+            ...(item.product.image?.startsWith("http") && {
+              images: [item.product.image],
+            }),
+          },
+          unit_amount: unitAmount,
         },
-        unit_amount: Math.round(item.product.price * 100),
-      },
-      quantity: item.quantity,
-    }));
+        quantity: item.quantity,
+      };
+    });
+
+    // Validate coupon and create a one-time Stripe coupon if applicable
+    let stripeDiscounts: { coupon: string }[] | undefined;
+    let validCouponCode: string | undefined;
+
+    if (couponCode) {
+      const subtotal = cart.items.reduce((sum, item) => {
+        const m = item.product.discount ? 1 - item.product.discount / 100 : 1;
+        const base = item.product.price + (item.variant?.priceModifier ?? 0);
+        return sum + base * m * item.quantity;
+      }, 0);
+
+      const coupon = await prisma.coupon.findUnique({
+        where: { code: couponCode.toUpperCase() },
+      });
+
+      if (
+        coupon &&
+        coupon.active &&
+        (!coupon.expiresAt || coupon.expiresAt > new Date()) &&
+        (coupon.maxUses === null || coupon.usedCount < coupon.maxUses) &&
+        (coupon.minOrderTotal === null || subtotal >= coupon.minOrderTotal)
+      ) {
+        // Create a one-time Stripe coupon object so Stripe shows the correct total
+        const stripeCoupon = await getStripe().coupons.create(
+          coupon.type === "PERCENTAGE"
+            ? { percent_off: coupon.value, duration: "once" }
+            : {
+                amount_off: Math.round(coupon.value * 100),
+                currency: "usd",
+                duration: "once",
+              },
+        );
+        stripeDiscounts = [{ coupon: stripeCoupon.id }];
+        validCouponCode = coupon.code;
+      }
+    }
 
     const session = await getStripe().checkout.sessions.create({
       mode: "payment",
       line_items: lineItems,
-      metadata: { userId },
+      metadata: {
+        userId,
+        ...(validCouponCode && { couponCode: validCouponCode }),
+      },
+      ...(stripeDiscounts && { discounts: stripeDiscounts }),
       // Stripe injects the session ID into the path — frontend reads it via useParams
       success_url: `${clientUrl}/orders/confirmation/{CHECKOUT_SESSION_ID}`,
       cancel_url: `${clientUrl}/cart`,
@@ -68,6 +124,7 @@ export const createCheckoutSession = catchAsync(
       userId,
       sessionId: session.id,
       amount: session.amount_total,
+      coupon: validCouponCode,
     });
 
     res.status(200).json({
@@ -77,7 +134,11 @@ export const createCheckoutSession = catchAsync(
   },
 );
 
-const fulfillCartOrder = async (userId: string, sessionId: string) => {
+const fulfillCartOrder = async (
+  userId: string,
+  sessionId: string,
+  couponCode?: string,
+) => {
   return prisma.$transaction(async (tx) => {
     // Idempotency check — if this session was already fulfilled, return the existing order
     const existing = await tx.order.findUnique({
@@ -94,7 +155,7 @@ const fulfillCartOrder = async (userId: string, sessionId: string) => {
 
     const cart = await tx.cart.findUnique({
       where: { userId },
-      include: { items: { include: { product: true } } },
+      include: { items: { include: { product: true, variant: true } } },
     });
 
     if (!cart || cart.items.length === 0) return null;
@@ -104,32 +165,78 @@ const fulfillCartOrder = async (userId: string, sessionId: string) => {
       product_id: string;
       quantity: number;
       price: number;
+      variantId?: string;
+      variantName?: string;
     }[] = [];
 
     for (const item of cart.items) {
-      if (item.product.stock < item.quantity) {
+      const { product, variant } = item;
+      const availableStock = variant ? variant.stock : product.stock;
+      if (availableStock < item.quantity) {
         throw new Error(
-          `Insufficient stock for "${item.product.name}" at fulfilment time`,
+          `Insufficient stock for "${product.name}"${variant ? ` (${variant.name})` : ""} at fulfilment time`,
         );
       }
 
-      await tx.products.update({
-        where: { product_id: item.product_id },
-        data: { stock: { decrement: item.quantity } },
-      });
+      // Decrement stock on the right record
+      if (variant) {
+        await tx.productVariant.update({
+          where: { id: variant.id },
+          data: { stock: { decrement: item.quantity } },
+        });
+      } else {
+        await tx.products.update({
+          where: { product_id: item.product_id },
+          data: { stock: { decrement: item.quantity } },
+        });
+      }
 
-      calculatedTotal += item.product.price * item.quantity;
+      // Apply product-level discount + variant price modifier (mirrors createCheckoutSession)
+      const discountMultiplier = product.discount
+        ? 1 - product.discount / 100
+        : 1;
+      const basePrice = product.price + (variant?.priceModifier ?? 0);
+      const linePrice = Math.round(basePrice * discountMultiplier * 100) / 100;
+
+      calculatedTotal += linePrice * item.quantity;
       orderItemsData.push({
         product_id: item.product_id,
         quantity: item.quantity,
-        price: item.product.price,
+        price: linePrice,
+        ...(variant && { variantId: variant.id, variantName: variant.name }),
       });
     }
+
+    // Apply coupon discount atomically — same logic as createOrder
+    let discountAmount = 0;
+    if (couponCode) {
+      const coupon = await tx.coupon.findUnique({
+        where: { code: couponCode.toUpperCase() },
+      });
+      if (
+        coupon &&
+        coupon.active &&
+        (!coupon.expiresAt || coupon.expiresAt > new Date()) &&
+        (coupon.maxUses === null || coupon.usedCount < coupon.maxUses)
+      ) {
+        discountAmount =
+          coupon.type === "PERCENTAGE"
+            ? (calculatedTotal * coupon.value) / 100
+            : Math.min(coupon.value, calculatedTotal);
+        await tx.coupon.update({
+          where: { code: coupon.code },
+          data: { usedCount: { increment: 1 } },
+        });
+      }
+    }
+
+    const finalTotal =
+      Math.round(Math.max(0, calculatedTotal - discountAmount) * 100) / 100;
 
     const order = await tx.order.create({
       data: {
         userId,
-        total: calculatedTotal,
+        total: finalTotal,
         status: "PAID",
         stripeSessionId: sessionId,
         items: { create: orderItemsData },
@@ -183,8 +290,10 @@ export const stripeWebhook = async (req: Request, res: Response) => {
       return res.status(200).json({ received: true });
     }
 
+    const couponCodeMeta = session.metadata?.couponCode;
+
     try {
-      const order = await fulfillCartOrder(userId, session.id);
+      const order = await fulfillCartOrder(userId, session.id, couponCodeMeta);
       if (order) {
         logger.info("Order fulfilled via Stripe Checkout", {
           userId,
@@ -240,9 +349,10 @@ export const verifyCheckoutSession = catchAsync(
     // Try to fulfill the cart — idempotent.
     // If the webhook already ran, the cart is empty and this returns null.
     // If the webhook hasn't run yet (local dev, slow delivery), we fulfill here.
+    const couponCodeMeta = session.metadata?.couponCode ?? undefined;
     let order = null;
     try {
-      order = await fulfillCartOrder(userId, sessionId);
+      order = await fulfillCartOrder(userId, sessionId, couponCodeMeta);
     } catch (err) {
       logger.warn(
         "verifyCheckoutSession fulfillment failed — looking for existing order",

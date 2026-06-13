@@ -1,67 +1,72 @@
 import { Link } from "react-router-dom";
 
-/**
- * Northline brand mark — the "north arrow N".
- * The N's final upstroke ends in an arrowhead pointing north, so the
- * mark literally spells the brand: North (arrow) + line (single stroke).
- * Self-contained gradient so it renders identically on any background.
- */
-export function LogoMark({ className = "size-6" }: { className?: string }) {
+/** Standalone icon mark — forest green bg, mist N, emerald accent bar. */
+export function LogoMark({ className = "h-8 w-auto" }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 32 32" fill="none" aria-hidden="true">
-      <defs>
-        <linearGradient id="nl-mark-grad" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#10b981" />
-          <stop offset="1" stopColor="#047857" />
-        </linearGradient>
-      </defs>
-      <rect width="32" height="32" rx="8" fill="url(#nl-mark-grad)" />
-      <path
-        d="M6.5 24V9.5L21.5 24V9.5"
-        stroke="white"
-        strokeWidth="3"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M17.5 13.5L21.5 9.5L25.5 13.5"
-        stroke="white"
-        strokeWidth="3"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+    <svg className={className} viewBox="0 0 52 56" aria-hidden="true">
+      <rect width="52" height="52" rx="11" fill="#14532d" />
+      <rect x="13" y="12" width="7" height="28" rx="1.5" fill="#f5f7f5" />
+      <rect x="32" y="12" width="7" height="28" rx="1.5" fill="#f5f7f5" />
+      <polygon points="13,12 20,12 39,40 32,40" fill="#f5f7f5" />
+      <rect x="32" y="44" width="20" height="8" rx="4" fill="#22c55e" />
     </svg>
   );
 }
 
 type LogoProps = {
   to?: string;
-  /** White variant for dark backgrounds */
+  /** true  = light variant for dark backgrounds (default — site is dark-themed)
+   *  false = dark variant for light backgrounds */
   light?: boolean;
   className?: string;
-  /** Hide the wordmark — mark only */
+  /** Show icon mark only, no wordmark */
   markOnly?: boolean;
 };
 
-export function Logo({ to = "/", light = false, markOnly = false, className = "" }: LogoProps) {
+export function Logo({
+  to = "/",
+  light = true,
+  markOnly = false,
+  className = "",
+}: LogoProps) {
   return (
     <Link
       to={to}
       className={`group inline-flex items-center gap-2.5 ${className}`}
       aria-label="Northline home"
     >
-      <LogoMark className="size-[26px] transition-transform duration-300 group-hover:-translate-y-0.5" />
+      {light ? (
+        /* Light variant — emerald bg icon, dark marks */
+        <svg
+          viewBox="0 0 52 56"
+          className="h-8 w-auto shrink-0 transition-transform duration-300 group-hover:-translate-y-0.5"
+          aria-hidden="true"
+        >
+          <rect width="52" height="52" rx="11" fill="#22c55e" />
+          <rect x="13" y="12" width="7" height="28" rx="1.5" fill="#0d1f12" />
+          <rect x="32" y="12" width="7" height="28" rx="1.5" fill="#0d1f12" />
+          <polygon points="13,12 20,12 39,40 32,40" fill="#0d1f12" />
+          <rect x="32" y="44" width="20" height="8" rx="4" fill="#0d1f12" opacity="0.35" />
+        </svg>
+      ) : (
+        /* Dark variant — forest green bg icon, mist marks */
+        <svg
+          viewBox="0 0 52 56"
+          className="h-8 w-auto shrink-0 transition-transform duration-300 group-hover:-translate-y-0.5"
+          aria-hidden="true"
+        >
+          <rect width="52" height="52" rx="11" fill="#14532d" />
+          <rect x="13" y="12" width="7" height="28" rx="1.5" fill="#f5f7f5" />
+          <rect x="32" y="12" width="7" height="28" rx="1.5" fill="#f5f7f5" />
+          <polygon points="13,12 20,12 39,40 32,40" fill="#f5f7f5" />
+          <rect x="32" y="44" width="20" height="8" rx="4" fill="#22c55e" />
+        </svg>
+      )}
 
       {!markOnly && (
-        <span
-          className={`font-display text-[16px] font-bold leading-none tracking-[-0.02em] ${
-            light ? "text-white" : "text-ink"
-          }`}
-        >
-          North
-          <span className={light ? "text-emerald-300" : "text-emerald-600 dark:text-emerald-400"}>
-            line
-          </span>
+        <span className="font-display text-[17px] font-bold leading-none tracking-[-0.02em]">
+          <span className={light ? "text-[#e8f5ee]" : "text-[#14532d]"}>North</span>
+          <span className="text-[#22c55e]">line</span>
         </span>
       )}
     </Link>

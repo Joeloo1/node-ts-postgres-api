@@ -42,12 +42,14 @@ const ORDER_STATUS_COPY: Partial<
 export const createOrder = catchAsync(
   async (req: Request, res: Response, _next: NextFunction) => {
     const userId = req.user!.id;
-    const { items, couponCode } = createOrderSchema.parse(req.body);
+    const { items, couponCode, shippingAddress } = createOrderSchema.parse(
+      req.body,
+    );
 
     const order = await prisma.$transaction(async (tx) => {
       const productIds = items.map((item) => item.product_id);
       const products = await tx.products.findMany({
-        where: { product_id: { in: productIds } },
+        where: { product_id: { in: productIds }, deletedAt: null },
         include: { variants: true },
       });
 
@@ -69,9 +71,13 @@ export const createOrder = catchAsync(
         // Resolve variant if provided
         let variant = null;
         if (item.variantId) {
-          variant = product.variants.find((v) => v.id === item.variantId) ?? null;
+          variant =
+            product.variants.find((v) => v.id === item.variantId) ?? null;
           if (!variant)
-            throw new AppError(`Variant not found for product: ${product.name}`, 404);
+            throw new AppError(
+              `Variant not found for product: ${product.name}`,
+              404,
+            );
           if (!variant.availability)
             throw new AppError(`Variant "${variant.name}" is unavailable`, 400);
         }
@@ -102,7 +108,8 @@ export const createOrder = catchAsync(
           ? 1 - product.discount / 100
           : 1;
         const basePrice = product.price + (variant?.priceModifier ?? 0);
-        const linePrice = Math.round(basePrice * discountMultiplier * 100) / 100;
+        const linePrice =
+          Math.round(basePrice * discountMultiplier * 100) / 100;
 
         calculatedTotal += linePrice * item.quantity;
         orderItemsData.push({
@@ -115,6 +122,7 @@ export const createOrder = catchAsync(
 
       // Apply coupon discount inside the transaction so it's atomic
       let discountAmount = 0;
+      let resolvedCouponCode: string | null = null;
       if (couponCode) {
         const coupon = await tx.coupon.findUnique({
           where: { code: couponCode.toUpperCase() },
@@ -124,12 +132,14 @@ export const createOrder = catchAsync(
           coupon.active &&
           (!coupon.expiresAt || coupon.expiresAt > new Date()) &&
           (coupon.maxUses === null || coupon.usedCount < coupon.maxUses) &&
-          (coupon.minOrderTotal === null || calculatedTotal >= coupon.minOrderTotal)
+          (coupon.minOrderTotal === null ||
+            calculatedTotal >= coupon.minOrderTotal)
         ) {
           discountAmount =
             coupon.type === "PERCENTAGE"
               ? (calculatedTotal * coupon.value) / 100
               : Math.min(coupon.value, calculatedTotal);
+          resolvedCouponCode = coupon.code;
           await tx.coupon.update({
             where: { code: coupon.code },
             data: { usedCount: { increment: 1 } },
@@ -144,6 +154,14 @@ export const createOrder = catchAsync(
         data: {
           userId,
           total: finalTotal,
+          discountAmount: Math.round(discountAmount * 100) / 100,
+          couponCode: resolvedCouponCode,
+          shippingName: shippingAddress?.name,
+          shippingStreet: shippingAddress?.street,
+          shippingCity: shippingAddress?.city,
+          shippingState: shippingAddress?.state,
+          shippingZip: shippingAddress?.zip,
+          shippingCountry: shippingAddress?.country,
           status: "PENDING",
           items: { create: orderItemsData },
         },
@@ -151,7 +169,11 @@ export const createOrder = catchAsync(
       });
     });
 
-    logger.info(`Order ${order.id} created by user ${userId}`);
+    logger.info(`Order ${order.id} created by user ${userId}`, {
+      total: order.total,
+      discountAmount: order.discountAmount,
+      couponCode: order.couponCode,
+    });
     res.status(201).json({
       status: "success",
       data: { order },
@@ -214,7 +236,8 @@ export const checkoutFromCart = catchAsync(
           ? 1 - product.discount / 100
           : 1;
         const basePrice = product.price + (variant?.priceModifier ?? 0);
-        const linePrice = Math.round(basePrice * discountMultiplier * 100) / 100;
+        const linePrice =
+          Math.round(basePrice * discountMultiplier * 100) / 100;
 
         calculatedTotal += linePrice * item.quantity;
         orderItemsData.push({
@@ -227,6 +250,7 @@ export const checkoutFromCart = catchAsync(
 
       // Apply coupon discount inside the transaction so it's atomic
       let discountAmount = 0;
+      let resolvedCouponCode: string | null = null;
       if (couponCode) {
         const coupon = await tx.coupon.findUnique({
           where: { code: couponCode.toUpperCase() },
@@ -236,12 +260,14 @@ export const checkoutFromCart = catchAsync(
           coupon.active &&
           (!coupon.expiresAt || coupon.expiresAt > new Date()) &&
           (coupon.maxUses === null || coupon.usedCount < coupon.maxUses) &&
-          (coupon.minOrderTotal === null || calculatedTotal >= coupon.minOrderTotal)
+          (coupon.minOrderTotal === null ||
+            calculatedTotal >= coupon.minOrderTotal)
         ) {
           discountAmount =
             coupon.type === "PERCENTAGE"
               ? (calculatedTotal * coupon.value) / 100
               : Math.min(coupon.value, calculatedTotal);
+          resolvedCouponCode = coupon.code;
           await tx.coupon.update({
             where: { code: coupon.code },
             data: { usedCount: { increment: 1 } },
@@ -256,6 +282,8 @@ export const checkoutFromCart = catchAsync(
         data: {
           userId,
           total: finalTotal,
+          discountAmount: Math.round(discountAmount * 100) / 100,
+          couponCode: resolvedCouponCode,
           status: "PENDING",
           items: { create: orderItemsData },
         },
@@ -279,23 +307,35 @@ export const checkoutFromCart = catchAsync(
 //  Get My Order
 export const getMyOrder = catchAsync(
   async (req: Request, res: Response, _next: NextFunction) => {
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(20, Math.max(1, Number(req.query.limit) || 10));
+    const skip = (page - 1) * limit;
+
     logger.info(`Fetching orders for user ID: ${req.user!.id}`);
-    const orders = await prisma.order.findMany({
-      where: { userId: req.user!.id },
-      orderBy: { createdAt: "desc" },
-      include: {
-        items: {
-          include: {
-            product: { select: { name: true, image: true, images: true } },
+    const [orders, total] = await Promise.all([
+      prisma.order.findMany({
+        where: { userId: req.user!.id },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+        include: {
+          items: {
+            include: {
+              product: { select: { name: true, image: true, images: true } },
+            },
           },
         },
-      },
-    });
+      }),
+      prisma.order.count({ where: { userId: req.user!.id } }),
+    ]);
 
     logger.info("Orders fetched successfully");
     res.status(200).json({
       status: "success",
       results: orders.length,
+      total,
+      totalPages: Math.ceil(total / limit),
+      page,
       data: {
         orders,
       },
@@ -345,16 +385,20 @@ export const getOrderById = catchAsync(
 // update Order (only Admin)
 export const updateOrder = catchAsync(
   async (req: Request, res: Response, _next: NextFunction) => {
-    const { status } = updateOrderStatusSchema.parse(req.body);
+    const { status, trackingNumber } = updateOrderStatusSchema.parse(req.body);
 
     const before = await prisma.order.findUnique({
       where: { id: req.params.id },
-      select: { status: true },
+      select: { status: true, trackingNumber: true },
     });
 
     const order = await prisma.order.update({
       where: { id: req.params.id },
-      data: { status },
+      data: {
+        status,
+        ...(trackingNumber && { trackingNumber }),
+        ...(status === OrderStatus.SHIPPED && { shippedAt: new Date() }),
+      },
       include: {
         user: {
           select: {
@@ -377,6 +421,7 @@ export const updateOrder = catchAsync(
           orderId: order.id.slice(0, 8).toUpperCase(),
           statusLabel: copy.label,
           statusMessage: copy.message,
+          trackingNumber: order.trackingNumber ?? null,
         },
       });
     }
@@ -386,12 +431,16 @@ export const updateOrder = catchAsync(
       action: "UPDATE_ORDER_STATUS",
       entityType: "Order",
       entityId: order.id,
-      before: { status: before?.status },
-      after: { status: order.status },
+      before: {
+        status: before?.status,
+        trackingNumber: before?.trackingNumber,
+      },
+      after: { status: order.status, trackingNumber: order.trackingNumber },
     });
 
     logger.info(
       `Order ${order.id} status updated: ${before?.status} → ${order.status}`,
+      { trackingNumber: order.trackingNumber },
     );
     res.status(200).json({
       status: "success",

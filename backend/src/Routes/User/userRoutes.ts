@@ -1,4 +1,6 @@
 import express from "express";
+import path from "path";
+import fs from "fs";
 
 import {
   login,
@@ -19,6 +21,7 @@ import {
   uploadUserPhoto,
   resizeUserPhoto,
 } from "../../middleware/uploadMiddleware";
+import AppError from "../../utils/AppError";
 
 const router = express.Router();
 
@@ -39,5 +42,15 @@ router.patch("/updateMyPassword", updatePassword);
 router.patch("/updateMe", uploadUserPhoto, resizeUserPhoto, updateMe);
 router.get("/me", getMe);
 router.delete("/deleteMe", deleteMe);
+
+router.get("/profile-image/:filename", (req, res, next) => {
+  const { filename } = req.params;
+  if (filename.includes("..") || filename.includes("/")) {
+    return next(new AppError("Invalid filename", 400));
+  }
+  const filePath = path.join(__dirname, "../../../public/users", filename);
+  if (!fs.existsSync(filePath)) return next(new AppError("Image not found", 404));
+  res.sendFile(filePath);
+});
 
 export default router;

@@ -9,6 +9,20 @@ import "./jobs/emailQueue";
 const port = process.env.PORT || 3000;
 let server: Server;
 
+const REQUIRED_ENV = [
+  "DATABASE_URL",
+  "REDIS_URL",
+  "JWT_SECRET",
+  "JWT_REFRESH_SECRET",
+  "CSRF_SECRET",
+];
+for (const key of REQUIRED_ENV) {
+  if (!process.env[key]) {
+    console.error(`Missing required environment variable: ${key}`);
+    process.exit(1);
+  }
+}
+
 const startServer = async () => {
   try {
     logger.info("Connecting to database...");

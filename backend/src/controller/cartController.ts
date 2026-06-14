@@ -11,16 +11,25 @@ export const addItemToCart = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
     const userId = req.user!.id;
     const { product_id, quantity, variantId } = addToCartSchema.parse(req.body);
-    logger.info("User adding items to cart", { userId, product_id, quantity, variantId });
+    logger.info("User adding items to cart", {
+      userId,
+      product_id,
+      quantity,
+      variantId,
+    });
 
-    const product = await prisma.products.findUnique({
-      where: { product_id },
+    const product = await prisma.products.findFirst({
+      where: { product_id, deletedAt: null },
       include: { variants: true },
     });
 
     if (!product) {
       logger.warn("Product not found", { userId, product_id });
       return next(new AppError("Product not found", 404));
+    }
+
+    if (!product.availability) {
+      return next(new AppError("This product is currently unavailable", 400));
     }
 
     // Validate variant if provided
@@ -67,7 +76,12 @@ export const addItemToCart = catchAsync(
         });
       } else {
         await tx.cartItem.create({
-          data: { cartId: cart.id, product_id, quantity, variantId: variantId ?? null },
+          data: {
+            cartId: cart.id,
+            product_id,
+            quantity,
+            variantId: variantId ?? null,
+          },
         });
       }
     });

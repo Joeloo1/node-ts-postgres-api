@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import catchAsync from "../utils/catchAsync";
 import AppError from "../utils/AppError";
-import { createReviewSchema } from "../Schema/reviewsSchema";
+import { createReviewSchema, updateReviewSchema } from "../Schema/reviewsSchema";
 import { prisma } from "../config/database";
 import logger from "../config/logger";
 import { client as redis, scanDel } from "../config/redis";
@@ -103,7 +103,11 @@ export const createReview = catchAsync(
 // Update review
 export const updateReview = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
-    const { content, rating } = req.body;
+    const parsed = updateReviewSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return next(new AppError(parsed.error.issues[0].message, 400));
+    }
+    const { content, rating } = parsed.data;
     const review = await prisma.review.findUnique({
       where: { id: req.params.id },
     });

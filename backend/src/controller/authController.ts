@@ -79,8 +79,21 @@ export const signup = catchAsync(
       where: { email: user.email },
     });
     if (exitingUser) {
-      logger.warn("User already exists in database", { email: user.email });
-      return next(new AppError("User with this email already exists", 400));
+      logger.warn("Signup attempt for existing email — sending silent notification", { email: user.email });
+      try {
+        await emailQueue.add("send-email", {
+          email: user.email,
+          subject: "Sign-in attempt to Northline",
+          template: "alreadyRegistered",
+          templateData: { loginUrl: `${process.env.CLIENT_URL}/login` },
+        });
+      } catch {
+        // swallow — don't reveal whether the queue failed
+      }
+      return res.status(201).json({
+        status: "success",
+        message: "If this email is new, your account has been created.",
+      });
     }
 
     user.password = await hashPassword(user.password);

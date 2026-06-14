@@ -20,14 +20,30 @@ const REDIS_TTL = 3600;
 const getProductKey = (id: string) => `product:${id}`;
 
 // Sort keys so query param order never produces a different cache key
+const ALLOWED_CACHE_PARAMS = new Set([
+  "page",
+  "limit",
+  "sort",
+  "order",
+  "category_id",
+  "minPrice",
+  "maxPrice",
+  "availability",
+  "fields",
+  "includeImages",
+  "brand",
+  "search",
+]);
+
 const getProductsQueryKey = (query: Record<string, unknown>) => {
-  const sorted = Object.keys(query)
+  const filtered = Object.keys(query)
+    .filter((k) => ALLOWED_CACHE_PARAMS.has(k))
     .sort()
     .reduce<Record<string, unknown>>((acc, k) => {
       acc[k] = query[k];
       return acc;
     }, {});
-  return `products:list:${JSON.stringify(sorted)}`;
+  return `products:list:${JSON.stringify(filtered)}`;
 };
 
 const productCategoryInclude = {
@@ -142,7 +158,7 @@ export const getAllProducts = catchAsync(
 
     logger.info("Fetching all Products");
     // Build query components
-    const where = buildWhereClause(filters);
+    const where = { ...buildWhereClause(filters), deletedAt: null };
     const orderBy = buildOrderByClause(filters);
     const select = buildSelectClause(filters.fields, {
       includeImages: filters.includeImages,
@@ -233,8 +249,8 @@ export const getProduct = catchAsync(
     }
 
     logger.info(`Fetching Product by ID: ${productId}`);
-    const product = await prisma.products.findUnique({
-      where: { product_id: productId },
+    const product = await prisma.products.findFirst({
+      where: { product_id: productId, deletedAt: null },
       include: productCategoryInclude,
     });
 
@@ -263,8 +279,8 @@ export const updateProduct = catchAsync(
     const productId = req.params.id;
     const data = updateProductSchema.parse(req.body);
 
-    const existingProduct = await prisma.products.findUnique({
-      where: { product_id: productId },
+    const existingProduct = await prisma.products.findFirst({
+      where: { product_id: productId, deletedAt: null },
     });
 
     if (!existingProduct) {
@@ -343,8 +359,8 @@ export const deleteProduct = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
     const productId = req.params.id;
 
-    const existingProduct = await prisma.products.findUnique({
-      where: { product_id: productId },
+    const existingProduct = await prisma.products.findFirst({
+      where: { product_id: productId, deletedAt: null },
     });
 
     if (!existingProduct) {
@@ -352,9 +368,10 @@ export const deleteProduct = catchAsync(
       return next(new AppError(`Product with ID: ${productId} not found`, 404));
     }
 
-    logger.info(`Deleting product with ID: ${productId}`);
-    await prisma.products.delete({
+    logger.info(`Soft-deleting product with ID: ${productId}`);
+    await prisma.products.update({
       where: { product_id: productId },
+      data: { deletedAt: new Date(), availability: false },
     });
 
     await logAudit({
@@ -387,8 +404,8 @@ export const addProductImages = catchAsync(
       );
     }
 
-    const product = await prisma.products.findUnique({
-      where: { product_id: productId },
+    const product = await prisma.products.findFirst({
+      where: { product_id: productId, deletedAt: null },
     });
 
     if (!product) {
@@ -437,6 +454,7 @@ export const getProductsFeed = catchAsync(
             skip: 1,
           }
         : {}),
+      where: { deletedAt: null },
       orderBy: { createdAt: "desc" },
       select: {
         product_id: true,

@@ -15,6 +15,16 @@ export const createOrderSchema = z.object({
     .array(orderItemSchema)
     .min(1, { message: "Order must contain at least one item" }),
   couponCode: z.string().optional(),
+  shippingAddress: z
+    .object({
+      name: z.string().min(1),
+      street: z.string().min(1),
+      city: z.string().min(1),
+      state: z.string().optional(),
+      zip: z.string().optional(),
+      country: z.string().min(1),
+    })
+    .optional(),
 });
 
 export const updateProductSchema = z.object({
@@ -34,4 +44,5 @@ export const updateOrderStatusSchema = z.object({
   status: z.nativeEnum(OrderStatus, {
     message: `status must be one of: ${Object.values(OrderStatus).join(", ")}`,
   }),
+  trackingNumber: z.string().min(1).optional(),
 });

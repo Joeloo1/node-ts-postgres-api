@@ -9,10 +9,14 @@ export const createReviewSchema = z.object({
 });
 
 // update reviews
-export const updateReviewSchema = z.object({
-  content: sanitizedString(z.string().max(2000)).optional(),
-  rating: z.number().min(1).max(5),
-});
+export const updateReviewSchema = z
+  .object({
+    content: sanitizedString(z.string().max(2000)).optional(),
+    rating: z.number().min(1).max(5),
+  })
+  .refine((d) => d.content !== undefined || d.rating !== undefined, {
+    message: "Provide content or rating",
+  });
 
 // Reviews ID
 export const reviewIdShema = z.object({

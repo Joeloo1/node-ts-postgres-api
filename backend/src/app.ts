@@ -8,6 +8,7 @@ import path from "path";
 import RedisStore from "rate-limit-redis";
 import compression from "compression";
 import timeout from "connect-timeout";
+import { doubleCsrf } from "csrf-csrf";
 
 import productRoutes from "./Routes/User/productRoutes";
 import categoryRoutes from "./Routes/User/categoriesRoutes";
@@ -72,9 +73,15 @@ app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 app.use(cookieParser());
 app.use("/public", express.static(path.join(__dirname, "../public")));
 
-if (process.env.NODE_ENV === "development") {
-  app.use(morgan("dev"));
-}
+const morganFormat =
+  process.env.NODE_ENV === "production"
+    ? ":remote-addr - :method :url :status :res[content-length] - :response-time ms"
+    : "dev";
+app.use(
+  morgan(morganFormat, {
+    stream: { write: (msg) => logger.http(msg.trim()) },
+  }),
+);
 
 app.use(requestIdMiddleware);
 
@@ -161,6 +168,23 @@ const newsletterLimiter = rateLimit({
   },
 });
 
+const isProd = process.env.NODE_ENV === "production";
+
+const { generateCsrfToken, doubleCsrfProtection } = doubleCsrf({
+  getSecret: () => process.env.CSRF_SECRET!,
+  // Ties the CSRF token to the current JWT session — rotates automatically on login/logout
+  getSessionIdentifier: (req: Request) => req.cookies?.jwt ?? req.ip ?? "",
+  cookieName: "x-csrf-token",
+  cookieOptions: { sameSite: "lax", secure: isProd, httpOnly: true },
+  size: 64,
+});
+
+app.use("/api/v1/csrf-token", (req, res) => {
+  res.json({ csrfToken: generateCsrfToken(req, res) });
+});
+
+app.use(doubleCsrfProtection);
+
 app.use("/api/v1/users/login", authLimiter);
 app.use("/api/v1/users/signup", authLimiter);
 app.use("/api/v1/users/forgotPassword", passwordResetLimiter);
@@ -180,7 +204,8 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   });
   res.on("finish", () => {
     const ms = Date.now() - start;
-    const logFn = res.statusCode >= 500 ? "error" : res.statusCode >= 400 ? "warn" : "http";
+    const logFn =
+      res.statusCode >= 500 ? "error" : res.statusCode >= 400 ? "warn" : "http";
     logger[logFn]("Request completed", {
       method: req.method,
       path: req.path,

@@ -42,8 +42,8 @@ export const createVariant = catchAsync(
     const { id: productId } = req.params;
     const data = createVariantSchema.parse(req.body);
 
-    const product = await prisma.products.findUnique({
-      where: { product_id: productId },
+    const product = await prisma.products.findFirst({
+      where: { product_id: productId, deletedAt: null },
     });
 
     if (!product) return next(new AppError("Product not found", 404));

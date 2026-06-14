@@ -10,8 +10,8 @@ export const subscribeStockNotify = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
     const { email, product_id } = stockNotifySchema.parse(req.body);
 
-    const product = await prisma.products.findUnique({
-      where: { product_id },
+    const product = await prisma.products.findFirst({
+      where: { product_id, deletedAt: null },
     });
 
     if (!product) return next(new AppError("Product not found", 404));

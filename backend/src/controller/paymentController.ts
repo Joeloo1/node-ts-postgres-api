@@ -239,6 +239,8 @@ const fulfillCartOrder = async (
         total: finalTotal,
         status: "PAID",
         stripeSessionId: sessionId,
+        discountAmount,
+        ...(couponCode && discountAmount > 0 && { couponCode }),
         items: { create: orderItemsData },
       },
       include: { items: true },

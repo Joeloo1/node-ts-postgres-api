@@ -80,6 +80,7 @@ model Products {
   category_id  Int?
   createdAt    DateTime  @default(now()) @db.Timestamp(6)
   updatedAt    DateTime  @updatedAt @db.Timestamp(6)
+  deletedAt    DateTime?
   category     Category? @relation(fields: [category_id], references: [category_id])
   reviews      Review[]
   cartItems    CartItem[]
@@ -96,6 +97,7 @@ model Products {
   @@index([rating])
   @@index([availability])
   @@index([category_id, createdAt(sort: Desc)])
+  @@index([deletedAt])
 }
 
 model User {
@@ -148,6 +150,18 @@ model Order {
 
   status       OrderStatus  @default(PENDING)
   total        Float
+  shippingName    String?
+  shippingStreet  String?
+  shippingCity    String?
+  shippingState   String?
+  shippingZip     String?
+  shippingCountry String?
+  trackingNumber  String?
+  shippingLabel   String?
+  shippedAt       DateTime?
+
+  discountAmount Float     @default(0)
+  couponCode   String?
 
   items        OrderItem[]
 
@@ -206,6 +220,8 @@ model CartItem {
   quantity   Int
   createdAt  DateTime        @default(now())
   updatedAt  DateTime        @updatedAt
+
+  @@index([cartId])
 }
 
 model Review {
@@ -236,6 +252,7 @@ model ReviewVote {
 
   @@unique([userId, reviewId])
   @@index([reviewId])
+  @@index([userId])
 }
 
 model ProductVariant {

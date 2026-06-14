@@ -10,8 +10,6 @@ import { client as redis, scanDel } from "../config/redis";
 
 const REDIS_TTL = 3600;
 const getUserKey = (id: string) => `user:${id}`;
-const getUserQueryKey = (query: any) => `users:list:${JSON.stringify(query)}`;
-
 const clearUserCache = async () => {
   await scanDel("users:list:*");
 };
@@ -22,37 +20,32 @@ const clearUserCache = async () => {
 // get all the user
 export const getAllUsers = catchAsync(
   async (req: Request, res: Response, _next: NextFunction) => {
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
+    const skip = (page - 1) * limit;
     const includeInactive = req.query.includeInactive === "true";
-    const cacheKey = getUserQueryKey(req.query);
-
-    // check redis
-    const cachedUsers = await redis.get(cacheKey);
-    if (cachedUsers) {
-      const parsed = JSON.parse(cachedUsers);
-      const users = Array.isArray(parsed) ? parsed : [];
-      logger.info(`Serving users from cache`);
-      return res.status(200).json({
-        status: "success",
-        source: "cache",
-        results: users.length,
-        data: { users },
-      });
-    }
-
-    logger.info("Admin fetching all users");
     const where = includeInactive ? {} : { active: true };
-    const users = await prisma.user.findMany({ where });
-    const safeUsers = users.map(sanitizeUser);
 
-    await redis.setEx(cacheKey, REDIS_TTL, JSON.stringify(safeUsers));
+    logger.info("Admin fetching all users", { page, limit, includeInactive });
+
+    const [users, total] = await Promise.all([
+      prisma.user.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: "desc" },
+      }),
+      prisma.user.count({ where }),
+    ]);
 
     logger.info(`Fetched ${users.length} users successfully`);
     res.status(200).json({
       status: "success",
-      results: safeUsers.length,
-      data: {
-        users: safeUsers,
-      },
+      results: users.length,
+      total,
+      totalPages: Math.ceil(total / limit),
+      page,
+      data: { users: users.map(sanitizeUser) },
     });
   },
 );
@@ -134,6 +127,7 @@ export const updateUser = catchAsync(
     });
 
     await redis.del(getUserKey(updatedUser.id));
+    await redis.del(`auth:user:${updatedUser.id}`);
     await clearUserCache();
 
     logger.info(`User with ID: ${req.params.id} update successfully`);

@@ -31,6 +31,9 @@ export const getDashboardStats = catchAsync(
       totalUsers,
       totalProducts,
       recentOrders,
+      avgOrderValueResult,
+      lowStockProducts,
+      ordersByStatus,
       topProducts,
       revenueByDay,
     ] = await Promise.all([
@@ -43,12 +46,28 @@ export const getDashboardStats = catchAsync(
       // Total users — Prisma count
       prisma.user.count(),
 
-      // Total products — Prisma count
-      prisma.products.count(),
+      // Total products (excluding soft-deleted)
+      prisma.products.count({ where: { deletedAt: null } }),
 
       // Orders in the last 30 days — Prisma findMany
       prisma.order.count({ where: { createdAt: { gte: thirtyDaysAgo } } }),
 
+      prisma.order.aggregate({
+        where: { status: { in: PAID_STATUSES } },
+        _avg: { total: true },
+      }),
+
+      prisma.products.findMany({
+        where: { stock: { lte: 5 }, availability: true, deletedAt: null },
+        select: { product_id: true, name: true, stock: true, image: true },
+        orderBy: { stock: "asc" },
+        take: 10,
+      }),
+
+      prisma.order.groupBy({
+        by: ["status"],
+        _count: { id: true },
+      }),
       // Top 5 products by units sold — Prisma groupBy (no raw SQL needed)
       prisma.orderItem.groupBy({
         by: ["product_id"],
@@ -98,13 +117,23 @@ export const getDashboardStats = catchAsync(
           recentOrders,
           users: totalUsers,
           products: totalProducts,
+          avgOrderValue: avgOrderValueResult._avg.total ?? 0,
         },
         revenueByDay,
         topProducts: enrichedTopProducts,
+        lowStockProducts,
+        ordersByStatus: ordersByStatus.map((s) => ({
+          status: s.status,
+          count: s._count.id,
+        })),
       },
     };
 
-    await redis.setEx(DASHBOARD_CACHE_KEY, DASHBOARD_TTL, JSON.stringify(responseData));
+    await redis.setEx(
+      DASHBOARD_CACHE_KEY,
+      DASHBOARD_TTL,
+      JSON.stringify(responseData),
+    );
 
     logger.info("Admin fetched dashboard analytics");
     res.status(200).json(responseData);

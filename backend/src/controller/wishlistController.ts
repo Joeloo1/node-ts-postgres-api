@@ -52,8 +52,8 @@ export const addToWishlist = catchAsync(
 
     if (!product_id) return next(new AppError("product_id is required", 400));
 
-    const product = await prisma.products.findUnique({
-      where: { product_id },
+    const product = await prisma.products.findFirst({
+      where: { product_id, deletedAt: null },
     });
 
     if (!product) return next(new AppError("Product not found", 404));

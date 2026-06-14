@@ -45,7 +45,7 @@ export const scanDel = async (pattern: string): Promise<void> => {
     const pageKeys = Array.isArray(page) ? page : [page];
     keys.push(...pageKeys);
   }
-  if (keys.length > 0) await Promise.all(keys.map((k) => rc.del(k)));
+  if (keys.length > 0) await rc.unlink(keys);
 };
 
 export const connectRedis = async () => {

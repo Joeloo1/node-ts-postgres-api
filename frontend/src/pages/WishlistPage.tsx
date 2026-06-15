@@ -25,7 +25,7 @@ type SortKey = "default" | "price-asc" | "price-desc" | "rating";
 
 export function WishlistPage() {
   usePageTitle("Wishlist");
-  const { wishlist, toggle, clearAll } = useWishlist();
+  const { wishlist, clearAll } = useWishlist();
   const ids = [...wishlist];
   const [sortKey, setSortKey] = useState<SortKey>("default");
 

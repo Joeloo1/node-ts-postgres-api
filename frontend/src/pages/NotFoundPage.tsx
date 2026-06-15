@@ -14,8 +14,8 @@ export function NotFoundPage() {
           404
         </p>
         <div className="absolute inset-0 flex items-center justify-center">
-          <div className="flex size-20 items-center justify-center rounded-2xl border border-emerald-500/20 bg-emerald-500/10 text-emerald-500 sm:size-24">
-            <SearchIcon className="size-9 sm:size-11" />
+          <div className="flex size-24 items-center justify-center rounded-2xl border border-emerald-500/20 bg-emerald-500/10 text-emerald-500 sm:size-28">
+            <SearchIcon className="size-12 sm:size-14" />
           </div>
         </div>
       </div>

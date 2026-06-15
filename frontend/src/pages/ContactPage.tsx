@@ -149,8 +149,8 @@ export function ContactPage() {
             <div className="space-y-4 px-5 py-4">
               {info.map(({ icon: Icon, label, value, href }) => (
                 <div key={label} className="flex items-start gap-3">
-                  <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                    <Icon className="size-4" />
+                  <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                    <Icon className="size-6" />
                   </div>
                   <div>
                     <p className="text-[10px] font-semibold uppercase tracking-widest text-ink4">{label}</p>

@@ -121,8 +121,8 @@ export function DealsPage() {
         <ProductSkeletonGrid count={8} />
       ) : deals.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24 text-center">
-          <div className="flex size-16 items-center justify-center rounded-2xl bg-raised">
-            <TagIcon className="size-8 text-ink4" />
+          <div className="flex size-24 items-center justify-center rounded-2xl bg-raised">
+            <TagIcon className="size-12 text-ink4" />
           </div>
           <p className="mt-5 text-lg font-semibold text-ink">No active deals</p>
           <p className="mt-1 text-sm text-ink4">New deals are added regularly — check back soon.</p>

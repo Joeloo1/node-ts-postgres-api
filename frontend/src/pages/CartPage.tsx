@@ -256,8 +256,8 @@ export function CartPage() {
   if (items.length === 0) {
     const emptyHeader = (
       <div className="flex flex-col items-center justify-center rounded-2xl border border-stroke bg-card py-16 text-center">
-        <div className="flex size-16 items-center justify-center rounded-2xl bg-raised text-ink4">
-          <PackageIcon className="size-8" />
+        <div className="flex size-24 items-center justify-center rounded-2xl bg-raised text-ink4">
+          <PackageIcon className="size-12" />
         </div>
         <h1 className="mt-5 font-display text-2xl font-bold text-ink">Your cart is empty</h1>
         <p className="mt-2 text-sm text-ink4">

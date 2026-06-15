@@ -160,8 +160,8 @@ export function AboutPage() {
               variants={fadeUp}
               className="group flex gap-4 rounded-2xl border border-stroke bg-card p-5 transition-all hover:border-edge hover:bg-raised"
             >
-              <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400 transition-colors group-hover:bg-emerald-700/20">
-                <Icon className="size-4" />
+              <div className="mt-0.5 flex size-12 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400 transition-colors group-hover:bg-emerald-700/20">
+                <Icon className="size-6" />
               </div>
               <div>
                 <p className="font-semibold text-ink">{title}</p>

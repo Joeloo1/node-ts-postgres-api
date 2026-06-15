@@ -31,8 +31,8 @@ function FooterNewsletter() {
   return (
     <div className="flex flex-col gap-5 border-b border-stroke py-10 lg:flex-row lg:items-center lg:justify-between">
       <div className="flex items-start gap-3.5">
-        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/12 dark:text-emerald-400">
-          <MailIcon className="size-5" />
+        <div className="flex size-13 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/12 dark:text-emerald-400">
+          <MailIcon className="size-7" />
         </div>
         <div>
           <p className="font-display text-[15px] font-semibold text-ink">Get 10% off your first order</p>
@@ -111,9 +111,9 @@ export function Footer() {
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label={label}
-                  className="flex size-8 items-center justify-center rounded-lg border border-stroke text-ink4 transition-colors hover:border-edge hover:text-ink2"
+                  className="flex size-10 items-center justify-center rounded-lg border border-stroke text-ink4 transition-colors hover:border-edge hover:text-ink2"
                 >
-                  <svg className="size-3.5" viewBox="0 0 24 24" fill="currentColor">
+                  <svg className="size-4" viewBox="0 0 24 24" fill="currentColor">
                     <path d={icon} />
                   </svg>
                 </a>

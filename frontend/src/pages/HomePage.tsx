@@ -215,7 +215,7 @@ export function HomePage() {
               </motion.div>
 
               <div className="space-y-2">
-                <h1 className="font-display text-[3.4rem] font-bold leading-[0.96] tracking-[-0.035em] text-ink sm:text-[4.5rem] lg:text-[4.8rem] xl:text-[5.5rem]">
+                <h1 className="font-display text-[2.2rem] font-bold leading-[1.0] tracking-[-0.03em] text-ink sm:text-[2.8rem] lg:text-[3.2rem] xl:text-[3.6rem]">
                   Quality goods,
                   <br />
                   <span className="text-emerald-600 dark:text-emerald-400">
@@ -699,7 +699,7 @@ export function HomePage() {
         <div className="absolute inset-0 -translate-x-full animate-[sweep_7s_ease-in-out_3s_infinite] bg-gradient-to-r from-transparent via-white/[0.04] to-transparent" />
         <div className="relative px-8 py-16 text-center sm:px-16 sm:py-20">
           <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-400/70">Northline promise</p>
-          <h2 className="mx-auto mt-3 max-w-lg font-display text-3xl font-bold leading-[1.12] text-white sm:text-4xl lg:text-[2.6rem]">
+          <h2 className="mx-auto mt-3 max-w-lg font-display text-2xl font-bold leading-[1.12] text-white sm:text-3xl lg:text-[2rem]">
             Every order. Every time.
             <br />
             <span className="text-emerald-300">Delivered right.</span>
@@ -843,7 +843,7 @@ function EditorialBanner() {
             <div className="h-px w-6 bg-emerald-400/60" />
             <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-400/70">Featured collection</span>
           </div>
-          <h2 className="font-display text-3xl font-bold leading-[1.1] text-white sm:text-4xl">
+          <h2 className="font-display text-2xl font-bold leading-[1.1] text-white sm:text-3xl">
             Essentials for
             <br />
             <span className="bg-gradient-to-r from-emerald-300 to-teal-300 bg-clip-text text-transparent">

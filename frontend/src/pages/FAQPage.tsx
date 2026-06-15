@@ -163,7 +163,7 @@ export function FAQPage() {
         className="space-y-3"
       >
         <p className="text-[11px] font-semibold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Help centre</p>
-        <h1 className="font-display text-4xl font-bold text-ink sm:text-5xl">Frequently asked<br />questions</h1>
+        <h1 className="font-display text-2xl font-bold text-ink sm:text-3xl">Frequently asked<br />questions</h1>
         <p className="text-[15px] leading-relaxed text-ink3">
           Can't find what you're looking for?{" "}
           <Link to="/contact" className="font-medium text-emerald-600 underline underline-offset-2 hover:text-emerald-500 dark:text-emerald-400">

@@ -88,7 +88,7 @@ export function AboutPage() {
             <span className="text-xs font-semibold uppercase tracking-widest text-emerald-400">Our story</span>
           </motion.div>
 
-          <motion.h1 variants={fadeUp} className="font-display text-4xl font-bold leading-tight text-white sm:text-5xl">
+          <motion.h1 variants={fadeUp} className="font-display text-2xl font-bold leading-tight text-white sm:text-3xl">
             Shopping that feels<br />
             <span className="text-emerald-400">
               honest &amp; effortless.

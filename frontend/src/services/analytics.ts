@@ -12,6 +12,19 @@ export interface TopProduct {
   unitsSold: number;
 }
 
+export interface LowStockProduct {
+  product_id: string;
+  name: string;
+  stock: number | null;
+  price: number;
+  image: string | null;
+}
+
+export interface OrdersByStatus {
+  status: string;
+  count: number;
+}
+
 export interface DashboardStats {
   totals: {
     revenue: number;
@@ -19,9 +32,12 @@ export interface DashboardStats {
     recentOrders: number;
     users: number;
     products: number;
+    avgOrderValue: number;
   };
   revenueByDay: RevenueDay[];
   topProducts: TopProduct[];
+  lowStockProducts: LowStockProduct[];
+  ordersByStatus: OrdersByStatus[];
 }
 
 type DashboardRes = { status: string; data: DashboardStats };

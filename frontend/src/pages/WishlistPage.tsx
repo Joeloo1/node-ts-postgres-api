@@ -25,7 +25,7 @@ type SortKey = "default" | "price-asc" | "price-desc" | "rating";
 
 export function WishlistPage() {
   usePageTitle("Wishlist");
-  const { wishlist, toggle } = useWishlist();
+  const { wishlist, toggle, clearAll } = useWishlist();
   const ids = [...wishlist];
   const [sortKey, setSortKey] = useState<SortKey>("default");
 
@@ -59,7 +59,7 @@ export function WishlistPage() {
           <HeartIcon className="size-9 text-ink4" />
         </div>
         <div>
-          <h1 className="font-display text-2xl font-bold text-ink">Your wishlist is empty</h1>
+          <h1 className="font-display text-xl font-bold text-ink">Your wishlist is empty</h1>
           <p className="mt-2 text-ink4">Save items you love and come back to them anytime.</p>
         </div>
         <Link to="/products" className="rounded-xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-700">
@@ -98,7 +98,7 @@ export function WishlistPage() {
           )}
 
           <ConfirmButton
-            onConfirm={() => ids.forEach((id) => toggle(id))}
+            onConfirm={clearAll}
             message="Clear all saved items?"
             confirmLabel="Yes, clear"
             className="rounded-lg border border-edge px-3 py-2 text-sm text-ink3 hover:border-edge hover:text-ink2 transition-colors"

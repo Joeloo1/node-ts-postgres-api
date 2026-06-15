@@ -55,8 +55,8 @@ export function WishlistPage() {
   if (ids.length === 0) {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center gap-6 text-center">
-        <div className="flex size-20 items-center justify-center rounded-3xl bg-raised border border-stroke">
-          <HeartIcon className="size-9 text-ink4" />
+        <div className="flex size-24 items-center justify-center rounded-3xl bg-raised border border-stroke">
+          <HeartIcon className="size-12 text-ink4" />
         </div>
         <div>
           <h1 className="font-display text-xl font-bold text-ink">Your wishlist is empty</h1>

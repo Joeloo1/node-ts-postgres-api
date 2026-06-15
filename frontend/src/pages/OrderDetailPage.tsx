@@ -92,8 +92,8 @@ function OrderTimeline({ status, createdAt }: { status: string; createdAt: strin
       <div className={`flex items-center gap-3 rounded-2xl border px-5 py-4 ${
         status === "CANCELLED" ? "border-edge/40 bg-well/50" : "border-blue-500/15 bg-blue-500/5"
       }`}>
-        <div className={`flex size-9 shrink-0 items-center justify-center rounded-full ${status === "CANCELLED" ? "bg-raised" : "bg-blue-500/10"}`}>
-          <svg className={`size-4 ${status === "CANCELLED" ? "text-ink4" : "text-blue-400"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <div className={`flex size-12 shrink-0 items-center justify-center rounded-full ${status === "CANCELLED" ? "bg-raised" : "bg-blue-500/10"}`}>
+          <svg className={`size-6 ${status === "CANCELLED" ? "text-ink4" : "text-blue-400"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d={
               status === "CANCELLED"
                 ? "M6 18L18 6M6 6l12 12"
@@ -264,8 +264,8 @@ export function OrderDetailPage() {
   if (orderQuery.isError || !orderQuery.data) {
     return (
       <div className="flex flex-col items-center justify-center rounded-2xl border border-stroke bg-card py-24 text-center">
-        <div className="flex size-14 items-center justify-center rounded-2xl bg-raised text-ink4">
-          <PackageIcon className="size-7" />
+        <div className="flex size-24 items-center justify-center rounded-2xl bg-raised text-ink4">
+          <PackageIcon className="size-12" />
         </div>
         <p className="mt-5 font-semibold text-ink">Order not found</p>
         <p className="mt-1 text-sm text-ink4">This order doesn't exist or you don't have access to it.</p>
@@ -399,8 +399,8 @@ export function OrderDetailPage() {
             </div>
           ) : (
             <div className="flex flex-col items-center gap-3 px-5 py-6 text-center">
-              <div className="flex size-10 items-center justify-center rounded-full bg-violet-500/10">
-                <TruckIcon className="size-5 text-violet-500" />
+              <div className="flex size-14 items-center justify-center rounded-full bg-violet-500/10">
+                <TruckIcon className="size-7 text-violet-500" />
               </div>
               <p className="text-sm font-medium text-ink">Your package is on its way</p>
               <p className="text-xs text-ink4">

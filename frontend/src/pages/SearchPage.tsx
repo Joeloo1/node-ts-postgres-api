@@ -268,8 +268,10 @@ export function SearchPage() {
             <ProductSkeletonGrid3 count={12} />
           ) : products.length === 0 ? (
             <div className="rounded-xl border border-stroke bg-card py-20 text-center">
-              <SearchIcon className="mx-auto size-10 text-ink4" />
-              <p className="mt-4 font-semibold text-ink">Nothing found for "{query}"</p>
+              <div className="flex size-24 items-center justify-center rounded-3xl border border-stroke bg-raised text-ink4 mx-auto">
+                <SearchIcon className="size-12" />
+              </div>
+              <p className="mt-6 font-semibold text-ink">Nothing found for "{query}"</p>
               <p className="mt-1 text-sm text-ink4">Try different keywords or browse our categories.</p>
               <button type="button" onClick={() => { setInputValue(""); submit(""); }} className="mt-6 rounded-lg border border-stroke px-5 py-2 text-sm font-semibold text-ink2 transition-colors hover:bg-raised">
                 Clear search

@@ -407,9 +407,9 @@ export function HomePage() {
       >
         <div className="grid grid-cols-2 divide-x divide-y divide-stroke lg:grid-cols-4 lg:divide-y-0">
           {trustItems.map(({ Icon, title, desc }) => (
-            <div key={title} className="flex items-center gap-3.5 p-5 sm:p-6">
-              <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-500 dark:text-emerald-400">
-                <Icon className="size-5" />
+            <div key={title} className="flex items-center gap-4 p-5 sm:p-6">
+              <div className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-500 dark:text-emerald-400">
+                <Icon className="size-7" />
               </div>
               <div>
                 <p className="text-[13px] font-semibold text-ink">{title}</p>
@@ -458,8 +458,8 @@ export function HomePage() {
                     style={{ background: `linear-gradient(145deg, ${g.from}, ${g.to})` }}
                   >
                     <div className="absolute -right-4 -top-4 size-20 rounded-full blur-2xl opacity-25" style={{ background: g.glow }} />
-                    <div className={`flex size-9 items-center justify-center rounded-xl ${g.iconBgClass}`}>
-                      <CategoryIcon name={cat.name} className={`size-4 ${g.textClass}`} />
+                    <div className={`flex size-11 items-center justify-center rounded-xl ${g.iconBgClass}`}>
+                      <CategoryIcon name={cat.name} className={`size-6 ${g.textClass}`} />
                     </div>
                     <div className="flex items-end justify-between gap-1 mt-3">
                       <span className={`text-[12px] font-semibold leading-tight ${g.textClass}`}>{cat.name}</span>
@@ -488,8 +488,8 @@ export function HomePage() {
                       style={{ background: `linear-gradient(145deg, ${g.from}, ${g.to})` }}
                     >
                       <div className="absolute -right-6 -top-6 size-28 rounded-full opacity-20 blur-2xl transition-opacity duration-300 group-hover:opacity-40" style={{ background: g.glow }} />
-                      <div className={`relative flex size-10 items-center justify-center rounded-xl ${g.iconBgClass}`}>
-                        <CategoryIcon name={cat.name} className={`size-5 ${g.textClass}`} />
+                      <div className={`relative flex size-13 items-center justify-center rounded-xl ${g.iconBgClass}`}>
+                        <CategoryIcon name={cat.name} className={`size-7 ${g.textClass}`} />
                       </div>
                       <div className="relative flex items-end justify-between gap-2 mt-5">
                         <span className={`text-[13px] font-semibold leading-tight ${g.textClass}`}>{cat.name}</span>
@@ -871,8 +871,8 @@ function EditorialBanner() {
                 { Icon: ShieldIcon,  title: "Secure checkout", desc: "256-bit SSL encryption" },
               ].map(({ Icon, title, desc }) => (
                 <div key={title} className="flex items-center gap-3">
-                  <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15">
-                    <Icon className="size-4 text-emerald-300" />
+                  <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-emerald-500/15">
+                    <Icon className="size-6 text-emerald-300" />
                   </div>
                   <div>
                     <p className="text-[13px] font-semibold leading-tight text-white">{title}</p>

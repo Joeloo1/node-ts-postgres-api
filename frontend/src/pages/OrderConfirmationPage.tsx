@@ -94,9 +94,9 @@ export function OrderConfirmationPage() {
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
           transition={{ delay: 0.15, type: "spring", stiffness: 200, damping: 15 }}
-          className="mx-auto mb-5 flex size-20 items-center justify-center rounded-full bg-emerald-500/15"
+          className="mx-auto mb-5 flex size-24 items-center justify-center rounded-full bg-emerald-500/15"
         >
-          <CheckCircleIcon className="size-10 text-emerald-500" />
+          <CheckCircleIcon className="size-12 text-emerald-500" />
         </motion.div>
         <h1 className="font-display text-3xl font-bold text-ink">Payment confirmed!</h1>
         <p className="mt-2 text-ink3">

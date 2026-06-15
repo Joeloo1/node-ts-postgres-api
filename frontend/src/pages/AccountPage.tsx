@@ -75,7 +75,7 @@ function SettingsLink({
   if (external) {
     return (
       <Link to={to} className={`${cls} text-ink3 hover:bg-hover hover:text-ink`}>
-        <Icon className="size-4 shrink-0" />
+        <Icon className="size-5 shrink-0" />
         <span className="flex-1">{label}</span>
         {badge !== undefined && badge > 0 && (
           <span className="rounded-full bg-raised px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-ink3">
@@ -102,7 +102,7 @@ function SettingsLink({
     >
       {({ isActive }) => (
         <>
-          <Icon className={`size-4 shrink-0 ${isActive ? "text-emerald-600 dark:text-emerald-400" : ""}`} />
+          <Icon className={`size-5 shrink-0 ${isActive ? "text-emerald-600 dark:text-emerald-400" : ""}`} />
           <span className="flex-1">{label}</span>
           {badge !== undefined && badge > 0 && (
             <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums ${
@@ -332,8 +332,8 @@ export function AccountPage() {
                 className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-ink3 transition-all hover:bg-hover hover:text-ink"
               >
                 {theme === "dark"
-                  ? <SunIcon className="size-4 shrink-0" />
-                  : <MoonIcon className="size-4 shrink-0" />
+                  ? <SunIcon className="size-5 shrink-0" />
+                  : <MoonIcon className="size-5 shrink-0" />
                 }
                 <span className="flex-1 text-left">
                   {theme === "dark" ? "Light mode" : "Dark mode"}
@@ -379,7 +379,7 @@ export function AccountPage() {
                   }`
                 }
               >
-                <Icon className="size-4" />
+                <Icon className="size-5" />
                 {label}
               </NavLink>
             ))}

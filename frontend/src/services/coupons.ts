@@ -22,7 +22,7 @@ export type Coupon = {
 };
 
 type ValidateRes = { status: string; data: { coupon: CouponValidateResult } };
-type AdminListRes = { status: string; dat: { coupon: Coupon[] } };
+type AdminListRes = { status: string; data: { coupon: Coupon[] } };
 type AdminOneRes  = { status: string; data: { coupon: Coupon } };
 
 export async function validateCoupon(code: string, orderTotal: number): Promise<CouponValidateResult> {
@@ -36,8 +36,7 @@ export async function validateCoupon(code: string, orderTotal: number): Promise<
 
 export async function adminListCoupons(): Promise<Coupon[]> {
   const res = await apiFetch<AdminListRes>("/api/v1/admin/coupons", { auth: true });
-  // backend has a typo: `dat` not `data`
-  return res.dat?.coupon ?? [];
+  return res.data?.coupon ?? [];
 }
 
 export type CreateCouponInput = {

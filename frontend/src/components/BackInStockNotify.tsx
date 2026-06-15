@@ -13,9 +13,9 @@ export function BackInStockNotify({ productId, productName }: { productId: strin
     if (!email) return;
     setLoading(true);
     try {
-      await apiFetch(`/api/v1/products/${productId}/notify`, {
+      await apiFetch("/api/v1/stock-notify", {
         method: "POST",
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, product_id: productId }),
       });
       setSubmitted(true);
       toast.success(`We'll notify you when ${productName} is back in stock!`);

@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useMemo, useState, type FormEvent } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -105,7 +105,6 @@ const section = {
 
 export function AccountSecurityPage() {
   usePageTitle("Security");
-  const queryClient = useQueryClient();
 
   // ── Password form ────────────────────────────────────────────────
   const [currentPassword, setCurrentPassword] = useState("");
@@ -158,63 +157,8 @@ export function AccountSecurityPage() {
     staleTime: 60_000,
   });
 
-  // ── 2FA ──────────────────────────────────────────────────────────
-  type TwoFAStep = "idle" | "setup" | "disable";
-  const [twoFAStep, setTwoFAStep]       = useState<TwoFAStep>("idle");
-  const [twoFACode, setTwoFACode]       = useState("");
-  const [setupData, setSetupData]       = useState<{ qrCode: string; secret: string } | null>(null);
-
-  const twoFAStatusQuery = useQuery({
-    queryKey: ["2fa-status"],
-    queryFn: async () => {
-      const res = await apiFetch<{ status: string; data: { enabled: boolean } }>(
-        "/api/v1/users/2fa/status", { auth: true },
-      );
-      return res.data.enabled;
-    },
-    staleTime: 30_000,
-  });
-
-  const twoFASetup = useMutation({
-    mutationFn: async () => {
-      const res = await apiFetch<{ status: string; data: { qrCode: string; secret: string } }>(
-        "/api/v1/users/2fa/setup", { auth: true },
-      );
-      return res.data;
-    },
-    onSuccess: (data) => { setSetupData(data); setTwoFAStep("setup"); setTwoFACode(""); },
-    onError: (e) => toast.error(e instanceof ApiError ? e.message : "Could not start 2FA setup"),
-  });
-
-  const twoFAVerify = useMutation({
-    mutationFn: async () => {
-      await apiFetch("/api/v1/users/2fa/verify", {
-        method: "POST", auth: true,
-        body: JSON.stringify({ token: twoFACode }),
-      });
-    },
-    onSuccess: () => {
-      toast.success("Two-factor authentication enabled.");
-      setTwoFAStep("idle"); setTwoFACode(""); setSetupData(null);
-      queryClient.invalidateQueries({ queryKey: ["2fa-status"] });
-    },
-    onError: (e) => toast.error(e instanceof ApiError ? e.message : "Invalid code — try again"),
-  });
-
-  const twoFADisable = useMutation({
-    mutationFn: async () => {
-      await apiFetch("/api/v1/users/2fa/disable", {
-        method: "POST", auth: true,
-        body: JSON.stringify({ token: twoFACode }),
-      });
-    },
-    onSuccess: () => {
-      toast.success("Two-factor authentication disabled.");
-      setTwoFAStep("idle"); setTwoFACode("");
-      queryClient.invalidateQueries({ queryKey: ["2fa-status"] });
-    },
-    onError: (e) => toast.error(e instanceof ApiError ? e.message : "Invalid code — try again"),
-  });
+  // 2FA — not yet implemented in the backend
+  const FEATURE_2FA = false;
 
   function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -445,183 +389,40 @@ export function AccountSecurityPage() {
         </div>
       </motion.section>
 
-      {/* Two-factor authentication */}
-      <motion.section
-        custom={2} variants={section} initial="hidden" animate="show"
-        className="overflow-hidden rounded-2xl border border-stroke bg-card"
-      >
-        <div className="flex items-start justify-between gap-4 px-6 py-5">
-          <div>
-            <h2 className="text-sm font-semibold text-ink">Two-factor authentication</h2>
-            <p className="mt-0.5 text-xs text-ink4">
-              Add an extra layer of security with a one-time code on each sign-in.
-            </p>
-          </div>
-          {twoFAStatusQuery.data === true && twoFAStep === "idle" && (
-            <span className="flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/8 px-2.5 py-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
-              <span className="size-1.5 rounded-full bg-emerald-500" />
-              Enabled
+      {/* Two-factor authentication — coming soon */}
+      {FEATURE_2FA === false && (
+        <motion.section
+          custom={2} variants={section} initial="hidden" animate="show"
+          className="overflow-hidden rounded-2xl border border-stroke bg-card"
+        >
+          <div className="flex items-start justify-between gap-4 px-6 py-5">
+            <div>
+              <h2 className="text-sm font-semibold text-ink">Two-factor authentication</h2>
+              <p className="mt-0.5 text-xs text-ink4">
+                Add an extra layer of security with a one-time code on each sign-in.
+              </p>
+            </div>
+            <span className="shrink-0 rounded-full border border-stroke bg-raised px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-ink4">
+              Coming soon
             </span>
-          )}
-        </div>
-
-        <div className="border-t border-stroke px-6 py-5">
-          {/* Setup step: QR + code entry */}
-          <AnimatePresence mode="wait">
-            {twoFAStep === "setup" && setupData ? (
-              <motion.div
-                key="setup"
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -6 }}
-                className="space-y-5"
-              >
-                <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
-                  <img
-                    src={setupData.qrCode}
-                    alt="2FA QR code"
-                    className="size-36 shrink-0 rounded-xl border border-stroke bg-white p-1"
-                  />
-                  <div className="space-y-3">
-                    <div>
-                      <p className="text-sm font-medium text-ink">Scan with your authenticator app</p>
-                      <p className="mt-1 text-xs text-ink4">Use Google Authenticator, Authy, or any TOTP app. Then enter the 6-digit code below.</p>
-                    </div>
-                    <div className="rounded-lg border border-stroke bg-well/50 px-3 py-2">
-                      <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-widest text-ink4">Manual entry key</p>
-                      <p className="break-all font-mono text-xs text-ink3">{setupData.secret}</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="max-w-xs">
-                  <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-widest text-ink4">Verification code</label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={6}
-                    placeholder="000000"
-                    value={twoFACode}
-                    onChange={(e) => setTwoFACode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                    className={`${inputClass} tracking-[0.3em] text-center font-mono`}
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => { setTwoFAStep("idle"); setSetupData(null); setTwoFACode(""); }}
-                    className="rounded-lg border border-stroke px-4 py-2 text-sm font-medium text-ink3 transition-colors hover:bg-raised"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => twoFAVerify.mutate()}
-                    disabled={twoFACode.length !== 6 || twoFAVerify.isPending}
-                    className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
-                  >
-                    {twoFAVerify.isPending && (
-                      <svg className="size-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-                      </svg>
-                    )}
-                    {twoFAVerify.isPending ? "Verifying…" : "Enable 2FA"}
-                  </button>
-                </div>
-              </motion.div>
-            ) : twoFAStep === "disable" ? (
-              <motion.div
-                key="disable"
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -6 }}
-                className="space-y-4"
-              >
-                <p className="text-sm text-ink3">Enter your current authenticator code to disable 2FA.</p>
-                <div className="max-w-xs">
-                  <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-widest text-ink4">Verification code</label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={6}
-                    placeholder="000000"
-                    value={twoFACode}
-                    onChange={(e) => setTwoFACode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                    className={`${inputClass} tracking-[0.3em] text-center font-mono`}
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => { setTwoFAStep("idle"); setTwoFACode(""); }}
-                    className="rounded-lg border border-stroke px-4 py-2 text-sm font-medium text-ink3 transition-colors hover:bg-raised"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => twoFADisable.mutate()}
-                    disabled={twoFACode.length !== 6 || twoFADisable.isPending}
-                    className="inline-flex items-center gap-2 rounded-lg border border-red-500/25 bg-red-500/8 px-4 py-2 text-sm font-semibold text-red-600 transition-colors hover:bg-red-500/15 disabled:opacity-50 dark:text-red-400"
-                  >
-                    {twoFADisable.isPending ? "Disabling…" : "Disable 2FA"}
-                  </button>
-                </div>
-              </motion.div>
-            ) : (
-              <motion.div
-                key="idle"
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -6 }}
-                className="flex items-center justify-between gap-4"
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`flex size-9 shrink-0 items-center justify-center rounded-xl border ${twoFAStatusQuery.data ? "border-emerald-500/20 bg-emerald-500/8" : "border-stroke bg-raised"}`}>
-                    <svg className={`size-4 ${twoFAStatusQuery.data ? "text-emerald-600 dark:text-emerald-400" : "text-ink4"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-ink">Authenticator app</p>
-                    <p className="mt-0.5 text-xs text-ink4">
-                      {twoFAStatusQuery.data
-                        ? "Your account is protected with TOTP."
-                        : "Use Google Authenticator, Authy, or any TOTP app."}
-                    </p>
-                  </div>
-                </div>
-                {twoFAStatusQuery.isPending ? (
-                  <div className="h-8 w-20 animate-pulse rounded-lg bg-well" />
-                ) : twoFAStatusQuery.data ? (
-                  <button
-                    type="button"
-                    onClick={() => { setTwoFAStep("disable"); setTwoFACode(""); }}
-                    className="rounded-lg border border-red-500/20 bg-red-500/8 px-3.5 py-2 text-xs font-semibold text-red-600 transition-colors hover:bg-red-500/15 dark:text-red-400"
-                  >
-                    Disable
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => twoFASetup.mutate()}
-                    disabled={twoFASetup.isPending}
-                    className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3.5 py-2 text-xs font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
-                  >
-                    {twoFASetup.isPending && (
-                      <svg className="size-3 animate-spin" viewBox="0 0 24 24" fill="none">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-                      </svg>
-                    )}
-                    {twoFASetup.isPending ? "Loading…" : "Enable 2FA"}
-                  </button>
-                )}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      </motion.section>
+          </div>
+          <div className="border-t border-stroke px-6 py-5">
+            <div className="flex items-center gap-3">
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-stroke bg-raised">
+                <svg className="size-4 text-ink4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-ink">Authenticator app (TOTP)</p>
+                <p className="mt-0.5 text-xs text-ink4">
+                  We're working on 2FA support. It will be available in a future update.
+                </p>
+              </div>
+            </div>
+          </div>
+        </motion.section>
+      )}
 
     </div>
   );

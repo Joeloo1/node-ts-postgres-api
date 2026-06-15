@@ -65,7 +65,7 @@ export function DealsPage() {
               <div className="h-px w-8 bg-red-400" />
               <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-red-400">Limited time offers</span>
             </div>
-            <h1 className="font-display text-4xl font-bold text-white sm:text-5xl lg:text-6xl">
+            <h1 className="font-display text-2xl font-bold text-white sm:text-3xl lg:text-[2.2rem]">
               Deals &amp; Offers
             </h1>
             <p className="mt-4 max-w-lg text-[16px] leading-[1.75] text-white/60">

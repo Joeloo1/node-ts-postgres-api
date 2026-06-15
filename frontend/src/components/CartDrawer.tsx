@@ -158,8 +158,8 @@ export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => vo
                 </div>
               ) : items.length === 0 ? (
                 <div className="flex flex-col items-center justify-center gap-4 px-8 py-16 text-center">
-                  <div className="flex size-16 items-center justify-center rounded-full bg-raised">
-                    <CartIcon className="size-7 text-ink4" />
+                  <div className="flex size-20 items-center justify-center rounded-full bg-raised">
+                    <CartIcon className="size-10 text-ink4" />
                   </div>
                   <div>
                     <p className="font-semibold text-ink">Your cart is empty</p>

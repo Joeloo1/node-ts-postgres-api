@@ -183,8 +183,8 @@ export function FAQPage() {
           transition={{ duration: 0.4, delay: si * 0.05 }}
         >
           <div className="mb-6 flex items-center gap-3">
-            <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10">
-              <svg className="size-4.5 text-emerald-600 dark:text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+            <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10">
+              <svg className="size-6 text-emerald-600 dark:text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
                 <path strokeLinecap="round" strokeLinejoin="round" d={section.icon} />
               </svg>
             </div>

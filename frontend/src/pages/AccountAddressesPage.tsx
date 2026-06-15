@@ -227,8 +227,8 @@ export function AccountAddressesPage() {
         <div className="divide-y divide-stroke">
           {addresses.length === 0 && !showAddForm ? (
             <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
-              <div className="flex size-12 items-center justify-center rounded-2xl bg-well text-ink4">
-                <MapPinIcon className="size-6" />
+              <div className="flex size-20 items-center justify-center rounded-2xl bg-well text-ink4">
+                <MapPinIcon className="size-10" />
               </div>
               <div>
                 <p className="text-sm font-medium text-ink">No saved addresses</p>
@@ -346,8 +346,8 @@ export function AccountAddressesPage() {
                     /* Address display */
                     <div className="flex flex-wrap items-start justify-between gap-4 px-6 py-4">
                       <div className="flex items-start gap-3">
-                        <div className={`mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg text-ink3 ${a.isDefault ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-well"}`}>
-                          <MapPinIcon className="size-4" />
+                        <div className={`mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-lg text-ink3 ${a.isDefault ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-well"}`}>
+                          <MapPinIcon className="size-5" />
                         </div>
                         <div className="text-sm">
                           <div className="flex items-center gap-2">

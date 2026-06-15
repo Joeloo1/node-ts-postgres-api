@@ -89,8 +89,8 @@ export function OrdersPage() {
           <h1 className="mt-1.5 font-display text-2xl font-bold text-ink sm:text-3xl">Your orders</h1>
         </div>
         <div className="flex flex-col items-center justify-center rounded-2xl border border-stroke bg-card py-24 text-center">
-          <div className="flex size-16 items-center justify-center rounded-2xl bg-raised text-ink4">
-            <PackageIcon className="size-7" />
+          <div className="flex size-24 items-center justify-center rounded-3xl bg-raised text-ink4">
+            <PackageIcon className="size-12" />
           </div>
           <h2 className="mt-5 text-base font-semibold text-ink">No orders yet</h2>
           <p className="mt-1.5 text-sm text-ink4">When you place your first order, it will show up here.</p>

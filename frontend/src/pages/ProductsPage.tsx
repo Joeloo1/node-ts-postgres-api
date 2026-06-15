@@ -1039,8 +1039,8 @@ function EmptyState({
       animate={{ opacity: 1, y: 0 }}
       className="flex flex-col items-center rounded-2xl border border-stroke bg-card py-20 text-center"
     >
-      <div className="flex size-16 items-center justify-center rounded-2xl bg-raised text-ink4">
-        <FilterIcon className="size-7" />
+      <div className="flex size-24 items-center justify-center rounded-2xl bg-raised text-ink4">
+        <FilterIcon className="size-12" />
       </div>
       <h3 className="mt-5 font-display text-lg font-bold text-ink">
         {search ? `No results for "${search}"` : categoryName ? `Nothing in ${categoryName} yet` : "No products found"}

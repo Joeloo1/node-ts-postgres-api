@@ -128,7 +128,7 @@ export function ProductCard({ product }: { product: Product }) {
                 : "bg-white/90 text-ink3 hover:bg-red-500 hover:text-white dark:bg-card/90"
             }`}
           >
-            <HeartIcon className="size-3.5" filled={isWishlisted} />
+            <HeartIcon className="size-4.5" filled={isWishlisted} />
           </button>
         </Link>
 
@@ -235,7 +235,7 @@ export function ProductCard({ product }: { product: Product }) {
                     </>
                   ) : (
                     <>
-                      <CartIcon className="size-3.5" />
+                      <CartIcon className="size-4" />
                       Add
                     </>
                   )}

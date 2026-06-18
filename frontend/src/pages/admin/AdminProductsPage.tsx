@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useRef, useState, type DragEvent, type FormEvent } from "react";
+import { Helmet } from "react-helmet-async";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { ApiError, apiFetch } from "../../lib/api";
@@ -325,7 +326,15 @@ export function AdminProductsPage() {
     }`;
 
   return (
-    <section className="overflow-hidden rounded-2xl border border-stroke bg-card">
+    <>
+      <Helmet>
+        <title>Products — Admin · Northline</title>
+        <meta name="description" content="Manage Northline product catalogue. Add, edit, and remove products from the admin panel." />
+        <meta property="og:title" content="Products — Admin · Northline" />
+        <meta property="og:type" content="website" />
+        <meta property="og:site_name" content="Northline" />
+      </Helmet>
+      <section className="overflow-hidden rounded-2xl border border-stroke bg-card">
 
       {/* ── Header + tabs ─────────────────────────────── */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-stroke px-6 py-4">
@@ -998,5 +1007,6 @@ export function AdminProductsPage() {
 
       </AnimatePresence>
     </section>
+    </>
   );
 }

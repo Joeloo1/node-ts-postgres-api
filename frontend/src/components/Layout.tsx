@@ -9,6 +9,8 @@ import { BottomNav } from "./BottomNav";
 import { CartDrawer } from "./CartDrawer";
 import { AnnouncementBar } from "./AnnouncementBar";
 import { ChevronUpIcon } from "./Icons";
+import { CookieConsent } from "./CookieConsent";
+import { CompareBar } from "./CompareBar";
 import { useEffect } from "react";
 
 export function Layout() {
@@ -62,13 +64,13 @@ export function Layout() {
       <AnimatePresence>
         {showTop && (
           <motion.button
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 6 }}
-            transition={{ duration: 0.16 }}
+            initial={{ opacity: 0, scale: 0.85 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.85 }}
+            transition={{ duration: 0.18, ease: [0.34, 1.56, 0.64, 1] }}
             type="button"
             onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-            className="fixed bottom-6 right-6 z-50 flex size-10 items-center justify-center rounded-xl border border-stroke bg-card text-ink3 shadow-lg transition-colors hover:border-edge hover:text-ink"
+            className="fixed bottom-20 right-5 z-50 flex size-10 items-center justify-center rounded-xl border border-emerald-500/25 bg-card text-emerald-600 shadow-lg shadow-emerald-500/10 transition-all hover:border-emerald-500/40 hover:bg-emerald-500 hover:text-white hover:shadow-emerald-500/25 active:scale-[0.93] dark:text-emerald-400 md:bottom-6 md:right-6"
             aria-label="Back to top"
           >
             <ChevronUpIcon className="size-4" />
@@ -76,6 +78,8 @@ export function Layout() {
         )}
       </AnimatePresence>
 
+      <CompareBar />
+      <CookieConsent />
       <BottomNav onCartOpen={() => setCartOpen(true)} />
 
       <Footer />

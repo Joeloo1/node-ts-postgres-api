@@ -860,7 +860,7 @@ export function ProductsPage() {
               <AnimatePresence mode="wait">
                 <motion.div
                   key={`${baseQueryString}-${viewMode}`}
-                  className={viewMode === "grid" ? "grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4" : "flex flex-col gap-2.5"}
+                  className={viewMode === "grid" ? "grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5" : "flex flex-col gap-2.5"}
                   variants={stagger}
                   initial="hidden"
                   animate="show"
@@ -908,7 +908,7 @@ export function ProductsPage() {
 
               {/* Skeleton rows when fetching next page */}
               {isFetchingNextPage && (
-                <div ref={sentinelRef} className={viewMode === "grid" ? "grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4 mt-3" : "flex flex-col gap-2.5 mt-2"}>
+                <div ref={sentinelRef} className={viewMode === "grid" ? "grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 mt-3" : "flex flex-col gap-2.5 mt-2"}>
                   {Array.from({ length: viewMode === "grid" ? 8 : 3 }).map((_, i) => (
                     viewMode === "grid" ? (
                       <div key={i} className="flex flex-col overflow-hidden rounded-xl border border-stroke bg-card">

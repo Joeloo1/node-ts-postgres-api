@@ -469,8 +469,11 @@ export function ProductDetailPage() {
                       type="button"
                       disabled={addItem.isPending || buyingNow}
                       onClick={handleAddToCart}
-                      className={`shrink-0 rounded-xl px-5 py-2 text-sm font-semibold text-white transition-all disabled:opacity-50 ${addedToCart ? "bg-emerald-700" : "bg-emerald-600 hover:bg-emerald-700"}`}
+                      className={`relative shrink-0 overflow-hidden rounded-xl px-5 py-2 text-sm font-semibold text-white shadow-sm transition-all disabled:opacity-50 ${addedToCart ? "bg-emerald-500 shadow-emerald-500/20" : "bg-emerald-600 shadow-emerald-600/20 hover:bg-emerald-500 hover:shadow-emerald-500/30"}`}
                     >
+                      {!addedToCart && !addItem.isPending && !buyingNow && (
+                        <span className="absolute inset-0 -translate-x-full animate-[sweep_5s_ease-in-out_2s_infinite] bg-gradient-to-r from-transparent via-white/[0.12] to-transparent" />
+                      )}
                       {addedToCart ? "Added ✓" : addItem.isPending && !buyingNow ? "Adding…" : "Add to cart"}
                     </button>
                   </>
@@ -496,7 +499,7 @@ export function ProductDetailPage() {
           {categoryName && p.category_id && (
             <>
               <ChevronRightIcon className="size-3 text-ink4" />
-              <Link to={`/products?category_id=${p.category_id}`} className="transition-colors hover:text-ink2">
+              <Link to={`/categories/${p.category_id}`} className="transition-colors hover:text-ink2">
                 {categoryName}
               </Link>
             </>
@@ -526,7 +529,8 @@ export function ProductDetailPage() {
                 </span>
               )}
               {p.stock !== undefined && p.stock > 0 && p.stock < 10 && (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-0.5 text-xs font-semibold text-amber-700 dark:text-amber-400">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/15 px-2.5 py-0.5 text-xs font-bold text-amber-700 dark:text-amber-400">
+                  <span className="size-1.5 rounded-full bg-amber-500 animate-pulse" />
                   Only {p.stock} left
                 </span>
               )}
@@ -642,10 +646,13 @@ export function ProductDetailPage() {
                       type="button"
                       disabled={!isAvailable || addItem.isPending || buyingNow}
                       onClick={handleAddToCart}
-                      className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold text-white transition-all disabled:opacity-50 sm:flex-none ${
-                        addedToCart ? "bg-emerald-700" : "bg-emerald-600 hover:bg-emerald-700 hover:shadow-lg hover:shadow-emerald-500/15"
+                      className={`relative flex flex-1 items-center justify-center gap-2 overflow-hidden rounded-xl px-6 py-3 text-sm font-semibold text-white shadow-lg transition-all active:scale-[0.97] disabled:opacity-50 sm:flex-none ${
+                        addedToCart ? "bg-emerald-500 shadow-emerald-500/25" : "bg-emerald-600 shadow-emerald-600/20 hover:bg-emerald-500 hover:shadow-emerald-500/35"
                       }`}
                     >
+                      {!addedToCart && !addItem.isPending && (
+                        <span className="absolute inset-0 -translate-x-full animate-[sweep_5s_ease-in-out_2s_infinite] bg-gradient-to-r from-transparent via-white/[0.12] to-transparent" />
+                      )}
                       {addedToCart ? <><CheckIcon className="size-4" />Added to cart</> : addItem.isPending && !buyingNow ? "Adding…" : <><CartIcon className="size-4" />Add to cart</>}
                     </button>
                     {isAvailable && (
@@ -694,7 +701,7 @@ export function ProductDetailPage() {
             </div>
 
             {/* Merged share button — UI fix #12 */}
-            <ShareProduct name={p.name} />
+            <ShareProduct name={p.name} price={`$${displayPrice.toFixed(2)}`} />
 
             <div className="grid grid-cols-2 gap-2.5 border-t border-stroke pt-5">
               {trustBadges.map(({ icon: Icon, text }) => (

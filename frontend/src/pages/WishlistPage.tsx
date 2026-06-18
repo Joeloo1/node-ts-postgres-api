@@ -1,6 +1,7 @@
 import { useQueries } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { Helmet } from "react-helmet-async";
 import { motion, type Variants } from "framer-motion";
 import { useWishlist } from "../context/WishlistContext";
 import { ConfirmButton } from "../components/ConfirmButton";
@@ -10,6 +11,7 @@ import * as productService from "../services/products";
 import { ProductCard } from "../components/ProductCard";
 import { ProductSkeleton } from "../components/ProductSkeleton";
 import { HeartIcon } from "../components/Icons";
+import { BackInStockNotify } from "../components/BackInStockNotify";
 import type { Product } from "../lib/types";
 
 const container: Variants = {
@@ -54,31 +56,79 @@ export function WishlistPage() {
 
   if (ids.length === 0) {
     return (
-      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-6 text-center">
-        <div className="flex size-24 items-center justify-center rounded-3xl bg-raised border border-stroke">
-          <HeartIcon className="size-12 text-ink4" />
+      <>
+        <Helmet>
+          <title>Wishlist — Northline</title>
+          <meta name="description" content="View your saved Northline items and get notified when out-of-stock products are available again." />
+          <meta property="og:title" content="Wishlist — Northline" />
+          <meta property="og:description" content="View your saved Northline items." />
+          <meta property="og:type" content="website" />
+          <meta property="og:site_name" content="Northline" />
+        </Helmet>
+        <div className="flex min-h-[60vh] flex-col items-center justify-center gap-6 text-center">
+          <div className="flex size-24 items-center justify-center rounded-3xl border border-red-500/20 bg-gradient-to-br from-red-500/10 to-rose-500/5 text-red-400 shadow-lg shadow-red-500/10">
+            <HeartIcon className="size-12" filled />
+          </div>
+          <div className="space-y-1.5">
+            <h1 className="font-display text-xl font-bold text-ink">Your wishlist is empty</h1>
+            <p className="text-sm text-ink4">Start saving items you love and come back to them anytime.</p>
+            <p className="text-xs text-ink4">You'll also get notified when saved items go back in stock.</p>
+          </div>
+          <Link
+            to="/products"
+            className="relative overflow-hidden rounded-xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white shadow-md shadow-emerald-600/20 transition-all hover:bg-emerald-500 hover:shadow-emerald-500/30 active:scale-[0.97]"
+          >
+            <span className="absolute inset-0 -translate-x-full animate-[sweep_5s_ease-in-out_2s_infinite] bg-gradient-to-r from-transparent via-white/[0.12] to-transparent" />
+            Browse products
+          </Link>
         </div>
-        <div>
-          <h1 className="font-display text-xl font-bold text-ink">Your wishlist is empty</h1>
-          <p className="mt-2 text-ink4">Save items you love and come back to them anytime.</p>
-        </div>
-        <Link to="/products" className="rounded-xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-700">
-          Browse products
-        </Link>
-      </div>
+      </>
     );
   }
 
+  // Compute price total from loaded products
+  const priceTotal = rawProducts.reduce((sum, p) => {
+    const price = p.discount && p.discount > 0 ? p.price * (1 - p.discount / 100) : p.price;
+    return sum + price;
+  }, 0);
+
   return (
-    <div className="space-y-8">
+    <>
+      <Helmet>
+        <title>Wishlist — Northline</title>
+        <meta name="description" content="View your saved Northline items and get notified when out-of-stock products are available again." />
+        <meta property="og:title" content="Wishlist — Northline" />
+        <meta property="og:description" content="View your saved Northline items." />
+        <meta property="og:type" content="website" />
+        <meta property="og:site_name" content="Northline" />
+      </Helmet>
+      <div className="space-y-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="font-display text-3xl font-bold text-ink">Wishlist</h1>
-          <p className="mt-1 text-ink4">{ids.length} saved {ids.length === 1 ? "item" : "items"}</p>
+          <div className="flex items-center">
+            <div className="h-6 w-0.5 rounded-full bg-emerald-500 mr-3" />
+            <h1 className="font-display text-3xl font-bold text-ink">Wishlist</h1>
+          </div>
+          {/* Stats row */}
+          <div className="mt-1.5 flex items-center gap-3 text-sm text-ink4">
+            <span>
+              <span className="font-semibold text-ink">{ids.length}</span>{" "}
+              {ids.length === 1 ? "item" : "items"} saved
+            </span>
+            {!isLoading && rawProducts.length > 0 && (
+              <>
+                <span className="text-ink4/40">·</span>
+                <span>
+                  Total value{" "}
+                  <span className="font-semibold text-ink">${priceTotal.toFixed(2)}</span>
+                </span>
+              </>
+            )}
+          </div>
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Sort — Fix #10 */}
+          {/* Sort dropdown */}
           {!isLoading && products.length > 1 && (
             <div className="relative">
               <select
@@ -126,11 +176,17 @@ export function WishlistPage() {
                 <div className={oos ? "opacity-50 pointer-events-none select-none" : ""}>
                   <ProductCard product={product} />
                 </div>
+                {oos && (
+                  <div className="mt-2">
+                    <BackInStockNotify productId={product.product_id} productName={product.name} />
+                  </div>
+                )}
               </motion.div>
             );
           })}
         </motion.div>
       )}
     </div>
+    </>
   );
 }

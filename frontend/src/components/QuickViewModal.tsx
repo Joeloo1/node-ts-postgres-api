@@ -202,8 +202,11 @@ export function QuickViewModal({ product, open, onClose }: Props) {
                       type="button"
                       disabled={!product.availability || addItem.isPending}
                       onClick={handleAddToCart}
-                      className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-600 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
+                      className="relative flex flex-1 items-center justify-center gap-2 overflow-hidden rounded-xl bg-emerald-600 py-2.5 text-sm font-semibold text-white shadow-md shadow-emerald-600/20 transition-all hover:bg-emerald-500 hover:shadow-emerald-500/30 active:scale-[0.97] disabled:opacity-50"
                     >
+                      {!addItem.isPending && product.availability && (
+                        <span className="absolute inset-0 -translate-x-full animate-[sweep_5s_ease-in-out_2s_infinite] bg-gradient-to-r from-transparent via-white/[0.12] to-transparent" />
+                      )}
                       <CartIcon className="size-4" />
                       {addItem.isPending ? "Adding…" : "Add to cart"}
                     </button>

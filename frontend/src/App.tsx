@@ -9,6 +9,7 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AuthProvider } from "./context/AuthContext";
 import { WishlistProvider } from "./context/WishlistContext";
 import { ThemeProvider, useTheme } from "./context/ThemeContext";
+import { CompareProvider } from "./context/CompareContext";
 import { Spinner } from "./components/Spinner";
 import { RouteProgressBar } from "./components/RouteProgressBar";
 
@@ -51,6 +52,20 @@ const DealsPage           = lazy(() => import("./pages/DealsPage").then((m) => (
 const FAQPage             = lazy(() => import("./pages/FAQPage").then((m) => ({ default: m.FAQPage })));
 const ShippingReturnsPage = lazy(() => import("./pages/ShippingReturnsPage").then((m) => ({ default: m.ShippingReturnsPage })));
 const UnsubscribePage     = lazy(() => import("./pages/UnsubscribePage").then((m) => ({ default: m.UnsubscribePage })));
+const BestSellersPage     = lazy(() => import("./pages/BestSellersPage").then((m) => ({ default: m.BestSellersPage })));
+const NewArrivalsPage     = lazy(() => import("./pages/NewArrivalsPage").then((m) => ({ default: m.NewArrivalsPage })));
+const CategoryPage        = lazy(() => import("./pages/CategoryPage").then((m) => ({ default: m.CategoryPage })));
+const TrackOrderPage      = lazy(() => import("./pages/TrackOrderPage").then((m) => ({ default: m.TrackOrderPage })));
+const ComparisonPage      = lazy(() => import("./pages/ComparisonPage").then((m) => ({ default: m.ComparisonPage })));
+const GiftCardsPage       = lazy(() => import("./pages/GiftCardsPage").then((m) => ({ default: m.GiftCardsPage })));
+const BlogPage            = lazy(() => import("./pages/BlogPage").then((m) => ({ default: m.BlogPage })));
+const BlogPostPage        = lazy(() => import("./pages/BlogPostPage").then((m) => ({ default: m.BlogPostPage })));
+const AdminReviewsPage    = lazy(() => import("./pages/admin/AdminReviewsPage").then((m) => ({ default: m.AdminReviewsPage })));
+const AdminAnalyticsPage  = lazy(() => import("./pages/admin/AdminAnalyticsPage").then((m) => ({ default: m.AdminAnalyticsPage })));
+const AdminReturnsPage    = lazy(() => import("./pages/admin/AdminReturnsPage").then((m) => ({ default: m.AdminReturnsPage })));
+const LoyaltyPage         = lazy(() => import("./pages/LoyaltyPage").then((m) => ({ default: m.LoyaltyPage })));
+const SitemapPage         = lazy(() => import("./pages/SitemapPage").then((m) => ({ default: m.SitemapPage })));
+const OfflinePage         = lazy(() => import("./pages/OfflinePage").then((m) => ({ default: m.OfflinePage })));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -89,6 +104,7 @@ export default function App() {
       <ThemeProvider>
         <AuthProvider>
           <WishlistProvider>
+            <CompareProvider>
             <BrowserRouter>
               <RouteProgressBar />
               <ThemedToaster />
@@ -113,6 +129,17 @@ export default function App() {
                     <Route path="shipping-returns" element={<ShippingReturnsPage />} />
                     <Route path="unsubscribe" element={<UnsubscribePage />} />
                     <Route path="wishlist" element={<WishlistPage />} />
+                    <Route path="best-sellers" element={<BestSellersPage />} />
+                    <Route path="new-arrivals" element={<NewArrivalsPage />} />
+                    <Route path="categories/:id" element={<CategoryPage />} />
+                    <Route path="track-order" element={<TrackOrderPage />} />
+                    <Route path="compare" element={<ComparisonPage />} />
+                    <Route path="gift-cards" element={<GiftCardsPage />} />
+                    <Route path="blog" element={<BlogPage />} />
+                    <Route path="blog/:slug" element={<BlogPostPage />} />
+                    <Route path="loyalty" element={<LoyaltyPage />} />
+                    <Route path="sitemap" element={<SitemapPage />} />
+                    <Route path="offline" element={<OfflinePage />} />
                     <Route path="forgot-password" element={<ForgotPasswordPage />} />
                     <Route path="reset-password/:token" element={<ResetPasswordPage />} />
                     <Route path="verify-email" element={<EmailVerificationPage />} />
@@ -138,6 +165,9 @@ export default function App() {
                       <Route path="orders" element={<AdminOrdersPage />} />
                       <Route path="coupons" element={<AdminCouponsPage />} />
                       <Route path="contact" element={<AdminContactPage />} />
+                      <Route path="reviews" element={<AdminReviewsPage />} />
+                      <Route path="analytics" element={<AdminAnalyticsPage />} />
+                      <Route path="returns" element={<AdminReturnsPage />} />
                     </Route>
 
                     <Route path="403" element={<ForbiddenPage />} />
@@ -148,6 +178,7 @@ export default function App() {
                 </Routes>
               </Suspense>
             </BrowserRouter>
+            </CompareProvider>
           </WishlistProvider>
         </AuthProvider>
       </ThemeProvider>

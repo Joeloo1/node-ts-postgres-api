@@ -104,8 +104,9 @@ export function AboutPage() {
           <motion.div variants={fadeUp} className="flex flex-wrap gap-3 pt-2">
             <Link
               to="/products"
-              className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white transition-all hover:bg-emerald-700 hover:shadow-lg hover:shadow-emerald-500/20"
+              className="relative inline-flex items-center gap-2 overflow-hidden rounded-xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white shadow-md shadow-emerald-600/30 transition-all hover:bg-emerald-500 hover:shadow-emerald-500/40 active:scale-[0.97]"
             >
+              <span className="absolute inset-0 -translate-x-full animate-[sweep_5s_ease-in-out_2s_infinite] bg-gradient-to-r from-transparent via-white/[0.12] to-transparent" />
               Browse catalog
             </Link>
             {!token && (
@@ -132,8 +133,9 @@ export function AboutPage() {
           <motion.div
             key={label}
             variants={fadeUp}
-            className="flex flex-col items-center justify-center gap-1 rounded-2xl border border-stroke bg-card px-4 py-6 text-center"
+            className="group relative flex flex-col items-center justify-center gap-1 overflow-hidden rounded-2xl border border-stroke bg-card px-4 py-6 text-center transition-all hover:border-edge hover:shadow-md hover:shadow-black/8"
           >
+            <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-transparent via-emerald-500/60 to-transparent" />
             <p className="font-display text-2xl font-bold text-ink sm:text-3xl">{value}</p>
             <p className="text-xs text-ink4">{label}</p>
           </motion.div>

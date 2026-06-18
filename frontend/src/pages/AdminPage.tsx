@@ -1,4 +1,5 @@
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
+import { Helmet } from "react-helmet-async";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
@@ -9,7 +10,7 @@ import type { Order, OrderStatus } from "../lib/types";
 import type { RevenueDay } from "../services/analytics";
 import { useAuth } from "../context/AuthContext";
 import {
-  ChartBarIcon, PackageIcon, ShieldIcon, TagIcon, UsersIcon,
+  ChartBarIcon, PackageIcon, ShieldIcon, TagIcon, UsersIcon, StarIcon,
 } from "../components/Icons";
 
 /* ── Status badge colours ─────────────────────────── */
@@ -39,6 +40,22 @@ function MailIcon({ className = "size-4" }: { className?: string }) {
   );
 }
 
+function AnalyticsIcon({ className = "size-4" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
+    </svg>
+  );
+}
+
+function ReturnIcon({ className = "size-4" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" />
+    </svg>
+  );
+}
+
 const NAV = [
   { to: "/admin/products",   label: "Products",   icon: PackageIcon },
   { to: "/admin/users",      label: "Users",       icon: UsersIcon },
@@ -46,6 +63,9 @@ const NAV = [
   { to: "/admin/orders",     label: "Orders",      icon: ChartBarIcon },
   { to: "/admin/coupons",    label: "Coupons",     icon: CouponIcon },
   { to: "/admin/contact",    label: "Inbox",       icon: MailIcon },
+  { to: "/admin/reviews",    label: "Reviews",     icon: StarIcon },
+  { to: "/admin/analytics",  label: "Analytics",   icon: AnalyticsIcon },
+  { to: "/admin/returns",    label: "Returns",     icon: ReturnIcon },
 ];
 
 const tabClass = ({ isActive }: { isActive: boolean }) =>
@@ -282,7 +302,7 @@ function AdminDashboard() {
       icon: ChartBarIcon,
       color: "text-emerald-500",
       bg: "bg-emerald-500/10",
-      to: "/admin/orders",
+      to: "/admin/analytics",
     },
     {
       label: "Total orders",
@@ -630,7 +650,16 @@ export function AdminPage() {
     : "A";
 
   return (
-    <div className="space-y-8">
+    <>
+      <Helmet>
+        <title>Admin — Northline</title>
+        <meta name="description" content="Northline admin dashboard. Manage products, orders, users, coupons, and more." />
+        <meta property="og:title" content="Admin — Northline" />
+        <meta property="og:description" content="Northline admin dashboard." />
+        <meta property="og:type" content="website" />
+        <meta property="og:site_name" content="Northline" />
+      </Helmet>
+      <div className="space-y-8">
 
       {/* Admin page header */}
       <motion.div
@@ -690,5 +719,6 @@ export function AdminPage() {
         {isRoot ? <AdminDashboard /> : <Outlet />}
       </motion.div>
     </div>
+    </>
   );
 }

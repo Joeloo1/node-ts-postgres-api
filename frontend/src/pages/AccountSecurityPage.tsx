@@ -1,5 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useMemo, useState, type FormEvent } from "react";
+import { Helmet } from "react-helmet-async";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { usePageTitle } from "../hooks/usePageTitle";
@@ -168,7 +169,16 @@ export function AccountSecurityPage() {
   }
 
   return (
-    <div className="space-y-5">
+    <>
+      <Helmet>
+        <title>Security — Northline</title>
+        <meta name="description" content="Manage your Northline account security, update your password, and review active sessions." />
+        <meta property="og:title" content="Security — Northline" />
+        <meta property="og:description" content="Manage your Northline account security and password." />
+        <meta property="og:type" content="website" />
+        <meta property="og:site_name" content="Northline" />
+      </Helmet>
+      <div className="space-y-5">
 
       {/* Change password */}
       <motion.section
@@ -406,24 +416,58 @@ export function AccountSecurityPage() {
               Coming soon
             </span>
           </div>
-          <div className="border-t border-stroke px-6 py-5">
-            <div className="flex items-center gap-3">
-              <div className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-stroke bg-raised">
-                <svg className="size-4 text-ink4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" />
-                </svg>
+
+          <div className="border-t border-stroke">
+            {/* Visual preview row */}
+            <div className="relative overflow-hidden border-b border-stroke px-6 py-6"
+              style={{ background: "linear-gradient(135deg, rgba(16,185,129,0.04) 0%, transparent 60%)" }}
+            >
+              <div className="absolute -right-8 -top-8 size-32 rounded-full bg-emerald-500/5 blur-2xl" />
+              <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+                {/* QR placeholder */}
+                <div className="flex size-[88px] shrink-0 items-center justify-center rounded-2xl border-2 border-dashed border-stroke bg-raised">
+                  <svg className="size-10 text-ink4/40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 6.75h.75v.75h-.75v-.75zM6.75 16.5h.75v.75h-.75V16.5zM16.5 6.75h.75v.75h-.75v-.75zM13.5 13.5h.75v.75h-.75v-.75zM13.5 18.75h.75v.75h-.75v-.75zM18.75 13.5h.75v.75h-.75v-.75zM18.75 18.75h.75v.75h-.75v-.75zM16.5 16.5h.75v.75h-.75V16.5z" />
+                  </svg>
+                </div>
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-sm font-semibold text-ink">Authenticator app (TOTP)</p>
+                    <p className="mt-0.5 text-xs text-ink4 max-w-sm">
+                      Scan a QR code with Google Authenticator, Authy, or 1Password and get a rotating 6-digit code on every sign-in.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {["Google Authenticator", "Authy", "1Password", "Bitwarden"].map((app) => (
+                      <span key={app} className="rounded-full border border-stroke bg-raised px-2.5 py-0.5 text-[10px] font-medium text-ink4">
+                        {app}
+                      </span>
+                    ))}
+                  </div>
+                </div>
               </div>
-              <div>
-                <p className="text-sm font-medium text-ink">Authenticator app (TOTP)</p>
-                <p className="mt-0.5 text-xs text-ink4">
-                  We're working on 2FA support. It will be available in a future update.
-                </p>
-              </div>
+            </div>
+
+            {/* Steps preview */}
+            <div className="grid grid-cols-3 divide-x divide-stroke px-0">
+              {[
+                { n: "1", label: "Scan QR", desc: "With your authenticator app" },
+                { n: "2", label: "Enter code", desc: "6-digit time-based code" },
+                { n: "3", label: "Verified", desc: "2FA active on your account" },
+              ].map(({ n, label, desc }) => (
+                <div key={n} className="flex flex-col items-center gap-1 px-4 py-4 text-center opacity-40">
+                  <span className="flex size-7 items-center justify-center rounded-full border border-stroke text-[11px] font-bold text-ink">{n}</span>
+                  <p className="text-[11px] font-semibold text-ink">{label}</p>
+                  <p className="text-[10px] text-ink4">{desc}</p>
+                </div>
+              ))}
             </div>
           </div>
         </motion.section>
       )}
 
     </div>
+    </>
   );
 }

@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
+import { Helmet } from "react-helmet-async";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { ApiError, apiFetch } from "../../lib/api";
@@ -70,7 +71,15 @@ export function AdminCategoriesPage() {
   }
 
   return (
-    <section className="overflow-hidden rounded-2xl border border-stroke bg-card">
+    <>
+      <Helmet>
+        <title>Categories — Admin · Northline</title>
+        <meta name="description" content="Manage Northline product categories. Add and remove categories." />
+        <meta property="og:title" content="Categories — Admin · Northline" />
+        <meta property="og:type" content="website" />
+        <meta property="og:site_name" content="Northline" />
+      </Helmet>
+      <section className="overflow-hidden rounded-2xl border border-stroke bg-card">
       {/* Header */}
       <div className="flex items-center gap-3 border-b border-stroke px-6 py-4">
         <div className="flex size-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
@@ -153,5 +162,6 @@ export function AdminCategoriesPage() {
         )}
       </div>
     </section>
+    </>
   );
 }

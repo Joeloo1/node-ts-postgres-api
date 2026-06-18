@@ -94,7 +94,7 @@ function SettingsLink({
       to={to}
       end={end}
       className={({ isActive }) =>
-        `${cls} ${isActive
+        `${cls} relative ${isActive
           ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-semibold"
           : "text-ink3 hover:bg-hover hover:text-ink"
         }`
@@ -102,6 +102,9 @@ function SettingsLink({
     >
       {({ isActive }) => (
         <>
+          {isActive && (
+            <span className="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-full bg-emerald-500" />
+          )}
           <Icon className={`size-5 shrink-0 ${isActive ? "text-emerald-600 dark:text-emerald-400" : ""}`} />
           <span className="flex-1">{label}</span>
           {badge !== undefined && badge > 0 && (

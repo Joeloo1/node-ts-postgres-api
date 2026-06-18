@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
+import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "../context/AuthContext";
@@ -16,8 +16,24 @@ import {
   CartIcon, HeartIcon, MenuIcon, XIcon, UserIcon,
   SunIcon, MoonIcon, SearchIcon, StarIcon,
   ChevronDownIcon, PackageIcon, MapPinIcon, LogoutIcon,
-  ChartBarIcon,
+  ChartBarIcon, ArrowRightIcon,
 } from "./Icons";
+
+const NOTIF_KEY = "northline_notif_dismissed";
+
+const MOCK_NOTIFS = [
+  { id: "n1", icon: "📦", title: "Order shipped", body: "Your recent order is on its way!", time: "2h ago" },
+  { id: "n2", icon: "🔥", title: "Flash Sale — ends tonight", body: "Extra 15% off electronics today only.", time: "5h ago" },
+  { id: "n3", icon: "💰", title: "Price drop alert", body: "A wishlisted item dropped 20% in price.", time: "1d ago" },
+];
+
+function getDismissed(): Set<string> {
+  try { return new Set(JSON.parse(localStorage.getItem(NOTIF_KEY) ?? "[]")); }
+  catch { return new Set(); }
+}
+function saveDismissed(ids: Set<string>) {
+  localStorage.setItem(NOTIF_KEY, JSON.stringify([...ids]));
+}
 
 const mobileNavClass = ({ isActive }: { isActive: boolean }) =>
   `flex items-center gap-3 px-4 py-3 rounded-lg text-[14px] font-medium transition-colors ${
@@ -36,19 +52,25 @@ export function Navbar({ onCartOpen }: NavbarProps) {
   const { wishlist } = useWishlist();
   const { theme, toggle: toggleTheme } = useTheme();
   const navigate = useNavigate();
-  const location = useLocation();
+
   const [mobileOpen, setMobileOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
+  const [bellOpen, setBellOpen] = useState(false);
+  const [shopOpen, setShopOpen] = useState(false);
+  const shopRef = useRef<HTMLDivElement>(null);
+  const [dismissed, setDismissed] = useState<Set<string>>(getDismissed);
   const [searchQuery, setSearchQuery] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchWrapperRef = useRef<HTMLDivElement>(null);
   const accountRef = useRef<HTMLDivElement>(null);
+  const bellRef = useRef<HTMLDivElement>(null);
   const debouncedQuery = useDebounce(searchQuery, 260);
 
   const isSignedIn = Boolean(token);
   const isAdmin = isSignedIn && user?.roles === "ADMIN";
   const wishlistCount = wishlist.size;
+  const unreadNotifs = MOCK_NOTIFS.filter((n) => !dismissed.has(n.id));
 
   const { data: suggestions, isFetching: suggestionsFetching } = useQuery({
     queryKey: queryKeys.suggestions(debouncedQuery),
@@ -72,12 +94,6 @@ export function Navbar({ onCartOpen }: NavbarProps) {
   });
   const navCategories = categories?.slice(0, MAX_NAV_CATEGORIES) ?? [];
 
-  /* Active category for the category bar (query-param based, so NavLink can't do it) */
-  const activeCategoryId =
-    location.pathname === "/products"
-      ? new URLSearchParams(location.search).get("category_id")
-      : null;
-  const onAllProducts = location.pathname === "/products" && !activeCategoryId;
 
   const dropdownVisible =
     showSuggestions &&
@@ -100,6 +116,12 @@ export function Navbar({ onCartOpen }: NavbarProps) {
       if (accountRef.current && !accountRef.current.contains(e.target as Node)) {
         setAccountOpen(false);
       }
+      if (bellRef.current && !bellRef.current.contains(e.target as Node)) {
+        setBellOpen(false);
+      }
+      if (shopRef.current && !shopRef.current.contains(e.target as Node)) {
+        setShopOpen(false);
+      }
     }
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -110,6 +132,7 @@ export function Navbar({ onCartOpen }: NavbarProps) {
       if (e.key === "Escape") {
         setShowSuggestions(false);
         setAccountOpen(false);
+        setShopOpen(false);
         return;
       }
       /* "/" focuses the search bar from anywhere (unless already typing) */
@@ -288,6 +311,75 @@ export function Navbar({ onCartOpen }: NavbarProps) {
               )}
             </NavLink>
 
+            {/* Notification bell */}
+            {isSignedIn && (
+              <div ref={bellRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBellOpen((v) => !v);
+                    if (!bellOpen) {
+                      const allDismissed = new Set(MOCK_NOTIFS.map((n) => n.id));
+                      setDismissed(allDismissed);
+                      saveDismissed(allDismissed);
+                    }
+                  }}
+                  className="relative flex size-9 items-center justify-center rounded-lg text-ink3 transition-colors hover:bg-hover hover:text-ink"
+                  aria-label="Notifications"
+                >
+                  <svg className="size-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
+                  </svg>
+                  {unreadNotifs.length > 0 && (
+                    <span className="absolute -right-0.5 -top-0.5 flex size-[16px] items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white">
+                      {unreadNotifs.length}
+                    </span>
+                  )}
+                </button>
+
+                <AnimatePresence>
+                  {bellOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -6, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -6, scale: 0.98 }}
+                      transition={{ duration: 0.14, ease: [0.25, 0.1, 0.25, 1] }}
+                      className="absolute right-0 top-[calc(100%+10px)] z-[60] w-80 overflow-hidden rounded-xl border border-stroke bg-card shadow-2xl shadow-black/25"
+                    >
+                      <div className="flex items-center justify-between border-b border-stroke px-4 py-3">
+                        <p className="text-[13px] font-semibold text-ink">Notifications</p>
+                        <button
+                          type="button"
+                          onClick={() => { const all = new Set(MOCK_NOTIFS.map((n) => n.id)); setDismissed(all); saveDismissed(all); }}
+                          className="text-[11px] font-medium text-emerald-600 transition-colors hover:text-emerald-500 dark:text-emerald-400"
+                        >
+                          Mark all read
+                        </button>
+                      </div>
+                      <div className="divide-y divide-stroke">
+                        {MOCK_NOTIFS.map((n) => (
+                          <div key={n.id} className={`flex items-start gap-3 px-4 py-3 ${dismissed.has(n.id) ? "opacity-50" : ""}`}>
+                            <span className="mt-0.5 text-lg leading-none">{n.icon}</span>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[13px] font-semibold text-ink">{n.title}</p>
+                              <p className="text-[12px] text-ink3">{n.body}</p>
+                              <p className="mt-0.5 text-[11px] text-ink4">{n.time}</p>
+                            </div>
+                            {!dismissed.has(n.id) && (
+                              <span className="mt-1.5 size-2 shrink-0 rounded-full bg-emerald-500" />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      <div className="border-t border-stroke px-4 py-2.5">
+                        <p className="text-center text-[11px] text-ink4">Real-time notifications coming soon</p>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
+
             <button
               type="button"
               onClick={() => (isSignedIn ? onCartOpen() : navigate("/login"))}
@@ -458,39 +550,86 @@ export function Navbar({ onCartOpen }: NavbarProps) {
           </div>
         </div>
 
-        {/* ══ Tier 2: category navigation (desktop) ═══════════ */}
+        {/* ══ Tier 2: primary navigation (desktop) ════════════ */}
         <div className="hidden border-t border-stroke/60 md:block">
           <nav
-            className="mx-auto flex h-11 max-w-7xl items-center gap-1 overflow-x-auto px-4 scrollbar-none sm:px-6 lg:px-8"
-            aria-label="Category navigation"
+            className="mx-auto flex h-11 max-w-7xl items-center gap-0.5 px-4 sm:px-6 lg:px-8"
+            aria-label="Primary navigation"
           >
-            <Link
-              to="/products"
-              className={`shrink-0 rounded-full px-3.5 py-1.5 text-[13px] transition-colors ${
-                onAllProducts
-                  ? "bg-ink font-semibold text-page"
-                  : "font-medium text-ink3 hover:bg-hover hover:text-ink"
-              }`}
-            >
-              All products
-            </Link>
+            {/* Shop dropdown */}
+            <div className="relative" ref={shopRef}>
+              <button
+                type="button"
+                onClick={() => setShopOpen((p) => !p)}
+                className={`flex shrink-0 items-center gap-1 rounded-full px-3.5 py-1.5 text-[13px] transition-colors ${
+                  shopOpen
+                    ? "bg-hover font-medium text-ink"
+                    : "font-medium text-ink3 hover:bg-hover hover:text-ink"
+                }`}
+              >
+                Shop
+                <ChevronDownIcon
+                  className={`size-3.5 transition-transform duration-200 ${shopOpen ? "rotate-180" : ""}`}
+                />
+              </button>
 
-            {navCategories.map((cat) => {
-              const isActive = activeCategoryId === String(cat.category_id);
-              return (
-                <Link
-                  key={cat.category_id}
-                  to={`/products?category_id=${cat.category_id}`}
-                  className={`shrink-0 whitespace-nowrap rounded-full px-3.5 py-1.5 text-[13px] transition-colors ${
-                    isActive
-                      ? "bg-ink font-semibold text-page"
-                      : "font-medium text-ink3 hover:bg-hover hover:text-ink"
-                  }`}
-                >
-                  {cat.name}
-                </Link>
-              );
-            })}
+              <AnimatePresence>
+                {shopOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 6, scale: 0.97 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 6, scale: 0.97 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute left-0 top-[calc(100%+6px)] z-50 w-52 overflow-hidden rounded-2xl border border-stroke bg-card shadow-2xl shadow-black/25"
+                  >
+                    <div className="py-1.5">
+                      {navCategories.map((cat) => (
+                        <Link
+                          key={cat.category_id}
+                          to={`/products?category_id=${cat.category_id}`}
+                          onClick={() => setShopOpen(false)}
+                          className="flex items-center px-4 py-2.5 text-[13px] text-ink2 transition-colors hover:bg-hover hover:text-ink"
+                        >
+                          {cat.name}
+                        </Link>
+                      ))}
+                      <div className="mx-3 my-1 border-t border-stroke" />
+                      <Link
+                        to="/products"
+                        onClick={() => setShopOpen(false)}
+                        className="flex items-center justify-between px-4 py-2.5 text-[13px] font-medium text-ink3 transition-colors hover:bg-hover hover:text-ink"
+                      >
+                        All products
+                        <ArrowRightIcon className="size-3.5" />
+                      </Link>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Featured pages */}
+            <NavLink
+              to="/new-arrivals"
+              className={({ isActive }) =>
+                `shrink-0 rounded-full px-3.5 py-1.5 text-[13px] transition-colors ${
+                  isActive ? "font-semibold text-ink" : "font-medium text-ink3 hover:bg-hover hover:text-ink"
+                }`
+              }
+            >
+              New Arrivals
+            </NavLink>
+
+            <NavLink
+              to="/best-sellers"
+              className={({ isActive }) =>
+                `shrink-0 rounded-full px-3.5 py-1.5 text-[13px] transition-colors ${
+                  isActive ? "font-semibold text-ink" : "font-medium text-ink3 hover:bg-hover hover:text-ink"
+                }`
+              }
+            >
+              Best Sellers
+            </NavLink>
 
             <NavLink
               to="/deals"
@@ -509,8 +648,10 @@ export function Navbar({ onCartOpen }: NavbarProps) {
               Deals
             </NavLink>
 
-            <div className="ml-auto flex shrink-0 items-center gap-1 pl-4">
+            {/* Utility links — right-aligned */}
+            <div className="ml-auto flex shrink-0 items-center gap-0.5">
               {[
+                { to: "/blog", label: "Blog" },
                 { to: "/about", label: "About" },
                 { to: "/contact", label: "Contact" },
                 { to: "/faq", label: "Help" },
@@ -520,9 +661,7 @@ export function Navbar({ onCartOpen }: NavbarProps) {
                   to={to}
                   className={({ isActive }) =>
                     `rounded-full px-3 py-1.5 text-[12.5px] transition-colors ${
-                      isActive
-                        ? "font-semibold text-ink"
-                        : "font-medium text-ink4 hover:text-ink"
+                      isActive ? "font-semibold text-ink" : "font-medium text-ink4 hover:text-ink"
                     }`
                   }
                 >
@@ -628,6 +767,18 @@ export function Navbar({ onCartOpen }: NavbarProps) {
                   </div>
                 </>
               )}
+
+              <p className="px-4 pb-1 pt-5 text-[10px] font-semibold uppercase tracking-widest text-ink4">
+                Explore
+              </p>
+              <div className="space-y-0.5">
+                <NavLink to="/best-sellers" className={mobileNavClass} onClick={() => setMobileOpen(false)}>⭐ Best Sellers</NavLink>
+                <NavLink to="/new-arrivals" className={mobileNavClass} onClick={() => setMobileOpen(false)}>✨ New Arrivals</NavLink>
+                <NavLink to="/blog" className={mobileNavClass} onClick={() => setMobileOpen(false)}>Blog</NavLink>
+                <NavLink to="/gift-cards" className={mobileNavClass} onClick={() => setMobileOpen(false)}>Gift Cards</NavLink>
+                <NavLink to="/loyalty" className={mobileNavClass} onClick={() => setMobileOpen(false)}>Rewards</NavLink>
+                <NavLink to="/track-order" className={mobileNavClass} onClick={() => setMobileOpen(false)}>Track Order</NavLink>
+              </div>
 
               <p className="px-4 pb-1 pt-5 text-[10px] font-semibold uppercase tracking-widest text-ink4">
                 Support

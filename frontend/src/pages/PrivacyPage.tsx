@@ -1,3 +1,4 @@
+import { Helmet } from "react-helmet-async";
 import { usePageTitle } from "../hooks/usePageTitle";
 
 const sections = [
@@ -43,7 +44,16 @@ export function PrivacyPage() {
   usePageTitle("Privacy Policy");
 
   return (
-    <div className="mx-auto max-w-3xl space-y-10">
+    <>
+      <Helmet>
+        <title>Privacy Policy — Northline</title>
+        <meta name="description" content="Learn how Northline collects, uses, and protects your personal information." />
+        <meta property="og:title" content="Privacy Policy — Northline" />
+        <meta property="og:description" content="Learn how Northline collects, uses, and protects your personal information." />
+        <meta property="og:type" content="website" />
+        <meta property="og:site_name" content="Northline" />
+      </Helmet>
+      <div className="mx-auto max-w-3xl space-y-10">
       <div>
         <p className="text-xs font-medium text-ink4">Legal</p>
         <h1 className="mt-1 font-display text-3xl font-bold text-ink sm:text-4xl">Privacy Policy</h1>
@@ -65,5 +75,6 @@ export function PrivacyPage() {
         ))}
       </div>
     </div>
+    </>
   );
 }

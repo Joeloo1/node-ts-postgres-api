@@ -82,7 +82,7 @@ body {
 ::-webkit-scrollbar-thumb:hover { background-color: var(--color-ink4); }
 
 /* ── Selection ───────────────────────────────────── */
-::selection { background: rgba(16, 185, 129, 0.14); }
+::selection { background: rgba(16, 185, 129, 0.18); color: var(--color-ink); }
 
 /* ── Animations ──────────────────────────────────── */
 @keyframes fade-up {
@@ -222,4 +222,113 @@ img { user-select: none; -webkit-user-drag: none; }
 /* ── Glass inner ring ────────────────────────────────── */
 .ring-glass {
   box-shadow: inset 0 1px 0 0 rgba(255,255,255,0.065), inset 0 0 0 1px rgba(255,255,255,0.025);
+}
+
+/* ── Gradient border card ────────────────────────────── */
+.gradient-border {
+  position: relative;
+  border: 1px solid transparent;
+  background-clip: padding-box;
+}
+.gradient-border::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(16,185,129,0.35) 0%, transparent 50%, rgba(16,185,129,0.15) 100%);
+  z-index: -1;
+}
+
+/* ── Emerald glow on hover ───────────────────────────── */
+.glow-emerald {
+  box-shadow: 0 0 0 0 rgba(16,185,129,0);
+  transition: box-shadow 0.25s ease;
+}
+.glow-emerald:hover {
+  box-shadow: 0 0 24px 0 rgba(16,185,129,0.22), 0 4px 12px 0 rgba(16,185,129,0.12);
+}
+
+/* ── Subtle text gradient ────────────────────────────── */
+.text-gradient-emerald {
+  background: linear-gradient(135deg, #10b981 0%, #34d399 50%, #6ee7b7 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Card hover lift ─────────────────────────────────── */
+.card-lift {
+  transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.25s ease;
+}
+.card-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px -8px rgba(0,0,0,0.15);
+}
+.dark .card-lift:hover {
+  box-shadow: 0 12px 40px -8px rgba(0,0,0,0.55);
+}
+
+/* ── Number badge pulse ──────────────────────────────── */
+@keyframes badge-pop {
+  0%   { transform: scale(0.7); }
+  60%  { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+.badge-pop { animation: badge-pop 0.25s cubic-bezier(0.34,1.56,0.64,1) forwards; }
+
+/* ── Underline slide ─────────────────────────────────── */
+.underline-slide {
+  position: relative;
+}
+.underline-slide::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 0;
+  height: 1.5px;
+  background: currentColor;
+  transition: width 0.2s ease;
+}
+.underline-slide:hover::after { width: 100%; }
+
+/* ── Announcement bar shine ─────────────────────────── */
+@keyframes ann-shine {
+  from { transform: translateX(-100%) skewX(-20deg); }
+  to   { transform: translateX(400%) skewX(-20deg); }
+}
+.ann-shine::after {
+  content: '';
+  position: absolute;
+  inset-y: 0;
+  width: 40px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent);
+  animation: ann-shine 3s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* ── Progress bar ────────────────────────────────────── */
+@keyframes progress-grow {
+  from { width: 0%; }
+}
+.progress-bar { animation: progress-grow 0.8s cubic-bezier(0.34,1,0.64,1) forwards; }
+
+/* ── Reduced motion ──────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .animate-float,
+  .animate-glow-pulse,
+  .ann-shine::after,
+  .animate-shimmer,
+  .animate-fade-up,
+  .animate-fade-in,
+  .animate-slide-right,
+  .animate-slide-up,
+  .animate-scale-in,
+  .progress-bar { animation: none !important; }
 }

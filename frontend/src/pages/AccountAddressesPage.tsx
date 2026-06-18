@@ -227,7 +227,7 @@ export function AccountAddressesPage() {
         <div className="divide-y divide-stroke">
           {addresses.length === 0 && !showAddForm ? (
             <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
-              <div className="flex size-20 items-center justify-center rounded-2xl bg-well text-ink4">
+              <div className="flex size-20 items-center justify-center rounded-2xl border border-stroke bg-well text-ink4">
                 <MapPinIcon className="size-10" />
               </div>
               <div>
@@ -344,7 +344,7 @@ export function AccountAddressesPage() {
                     </form>
                   ) : (
                     /* Address display */
-                    <div className="flex flex-wrap items-start justify-between gap-4 px-6 py-4">
+                    <div className="flex flex-wrap items-start justify-between gap-4 px-6 py-4 transition-colors hover:bg-hover/40">
                       <div className="flex items-start gap-3">
                         <div className={`mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-lg text-ink3 ${a.isDefault ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-well"}`}>
                           <MapPinIcon className="size-5" />
@@ -353,7 +353,7 @@ export function AccountAddressesPage() {
                           <div className="flex items-center gap-2">
                             <p className="font-medium text-ink">{a.street}</p>
                             {a.isDefault && (
-                              <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-600 dark:text-emerald-400">
+                              <span className="rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold px-2 py-0.5 border border-emerald-500/20">
                                 Default
                               </span>
                             )}

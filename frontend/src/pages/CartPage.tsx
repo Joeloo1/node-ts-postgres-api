@@ -170,7 +170,7 @@ function SavedForLaterSection({
                     type="button"
                     onClick={() => onMoveToCart(product)}
                     disabled={isPending}
-                    className="rounded-md bg-emerald-600 px-2.5 py-1 text-[11px] font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-60"
+                    className="rounded-md bg-emerald-600 px-2.5 py-1 text-[11px] font-semibold text-white transition-colors hover:bg-emerald-500 disabled:opacity-60"
                   >
                     Move to cart
                   </button>
@@ -203,6 +203,8 @@ function getEstimatedDelivery() {
 export function CartPage() {
   usePageTitle("Cart");
   const { addItem, updateItem, removeItem, clearCart } = useCartMutations();
+  const [couponCode, setCouponCode] = useState("");
+  const [couponApplied, setCouponApplied] = useState(false);
   const { wishlist, toggle } = useWishlist();
   const cartQuery = useQuery({
     queryKey: queryKeys.cart(),
@@ -225,8 +227,8 @@ export function CartPage() {
 
   if (cartQuery.isError) {
     return (
-      <div className="rounded-xl border border-red-900/40 bg-red-950/20 p-6 text-center">
-        <p className="text-sm text-red-300">{(cartQuery.error as Error).message}</p>
+      <div className="rounded-xl border border-red-500/20 bg-red-500/8 p-6 text-center">
+        <p className="text-sm text-red-500 dark:text-red-400">{(cartQuery.error as Error).message}</p>
       </div>
     );
   }
@@ -256,7 +258,7 @@ export function CartPage() {
   if (items.length === 0) {
     const emptyHeader = (
       <div className="flex flex-col items-center justify-center rounded-2xl border border-stroke bg-card py-16 text-center">
-        <div className="flex size-24 items-center justify-center rounded-2xl bg-raised text-ink4">
+        <div className="relative flex size-24 items-center justify-center rounded-2xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 to-teal-500/5 text-emerald-600 shadow-lg shadow-emerald-500/10 dark:text-emerald-400">
           <PackageIcon className="size-12" />
         </div>
         <h1 className="mt-5 font-display text-2xl font-bold text-ink">Your cart is empty</h1>
@@ -265,8 +267,9 @@ export function CartPage() {
         </p>
         <Link
           to="/products"
-          className="mt-8 inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
+          className="relative mt-8 inline-flex items-center gap-2 overflow-hidden rounded-xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white shadow-md shadow-emerald-600/20 transition-all hover:bg-emerald-500 hover:shadow-emerald-500/30 active:scale-[0.97]"
         >
+          <span className="absolute inset-0 -translate-x-full animate-[sweep_5s_ease-in-out_2s_infinite] bg-gradient-to-r from-transparent via-white/[0.12] to-transparent" />
           Browse products
           <ArrowRightIcon className="size-4" />
         </Link>
@@ -499,6 +502,50 @@ export function CartPage() {
             </div>
           </div>
 
+          {/* Coupon code */}
+          <div className="space-y-2 border-t border-stroke pt-3">
+            <p className="text-xs font-semibold text-ink3">Have a promo code?</p>
+            {couponApplied ? (
+              <div className="flex items-center justify-between rounded-lg border border-emerald-500/30 bg-emerald-500/8 px-3 py-2">
+                <div className="flex items-center gap-2 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                  <TagIcon className="size-3.5" />
+                  {couponCode.toUpperCase()} applied
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setCouponApplied(false); setCouponCode(""); }}
+                  className="text-[11px] text-ink4 transition-colors hover:text-red-400"
+                >
+                  Remove
+                </button>
+              </div>
+            ) : (
+              <form
+                className="flex gap-2"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (couponCode.trim()) {
+                    toast.info("Coupon codes coming soon!");
+                  }
+                }}
+              >
+                <input
+                  type="text"
+                  value={couponCode}
+                  onChange={(e) => setCouponCode(e.target.value)}
+                  placeholder="Enter promo code"
+                  className="flex-1 rounded-lg border border-stroke bg-input px-3 py-2 text-xs text-ink placeholder:text-ink4 focus:border-emerald-500/50 focus:outline-none focus:ring-2 focus:ring-emerald-500/15"
+                />
+                <button
+                  type="submit"
+                  className="shrink-0 rounded-lg border border-stroke bg-raised px-3 py-2 text-xs font-semibold text-ink2 transition-colors hover:bg-well hover:text-ink"
+                >
+                  Apply
+                </button>
+              </form>
+            )}
+          </div>
+
           <div className="flex items-center justify-between border-t border-stroke pt-3">
             <span className="font-semibold text-ink">Estimated total</span>
             <span className="text-lg font-bold tabular-nums text-ink">${total.toFixed(2)}</span>
@@ -540,8 +587,9 @@ export function CartPage() {
           ) : (
             <Link
               to="/checkout"
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3.5 text-sm font-semibold text-white shadow-md shadow-emerald-600/20 transition-all hover:bg-emerald-700 active:scale-[0.98]"
+              className="relative flex w-full overflow-hidden items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3.5 text-sm font-semibold text-white shadow-md shadow-emerald-600/20 transition-all hover:bg-emerald-500 hover:shadow-emerald-500/30 active:scale-[0.98]"
             >
+              <span className="absolute inset-0 -translate-x-full animate-[sweep_5s_ease-in-out_2s_infinite] bg-gradient-to-r from-transparent via-white/[0.12] to-transparent" />
               <LockClosedIcon className="size-3.5" />
               Proceed to checkout
             </Link>

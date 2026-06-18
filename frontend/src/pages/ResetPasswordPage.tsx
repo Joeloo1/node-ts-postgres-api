@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { Helmet } from "react-helmet-async";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { Logo } from "../components/Logo";
@@ -70,7 +71,16 @@ export function ResetPasswordPage() {
   }
 
   return (
-    <div className="flex min-h-[82vh] items-center justify-center py-10">
+    <>
+      <Helmet>
+        <title>Reset Password — Northline</title>
+        <meta name="description" content="Set a new password for your Northline account." />
+        <meta property="og:title" content="Reset Password — Northline" />
+        <meta property="og:description" content="Set a new password for your Northline account." />
+        <meta property="og:type" content="website" />
+        <meta property="og:site_name" content="Northline" />
+      </Helmet>
+      <div className="flex min-h-[82vh] items-center justify-center py-10">
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
@@ -83,14 +93,14 @@ export function ResetPasswordPage() {
 
         {done ? (
           <div className="space-y-4 text-center">
-            <div className="mx-auto flex size-16 items-center justify-center rounded-full bg-emerald-500/10">
+            <div className="mx-auto flex size-16 items-center justify-center rounded-2xl border border-emerald-500/25 bg-gradient-to-br from-emerald-500/20 to-teal-500/10 shadow-xl shadow-emerald-500/15">
               <svg className="size-8 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
               </svg>
             </div>
             <h1 className="font-display text-2xl font-bold text-ink">Password updated</h1>
             <p className="text-sm text-ink4">Redirecting you to sign in…</p>
-            <Link to="/login" className="inline-block text-sm font-medium text-emerald-600 hover:underline dark:text-emerald-400">
+            <Link to="/login" className="inline-block text-sm font-semibold text-emerald-600 transition-colors hover:text-emerald-500 dark:text-emerald-400">
               Sign in now
             </Link>
           </div>
@@ -106,9 +116,9 @@ export function ResetPasswordPage() {
                 <motion.div
                   initial={{ opacity: 0, y: -6 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="rounded-xl border border-red-900/40 bg-red-950/30 px-4 py-3"
+                  className="rounded-xl border border-red-500/20 bg-red-500/8 px-4 py-3"
                 >
-                  <p className="text-sm text-red-400">{error}</p>
+                  <p className="text-sm text-red-500 dark:text-red-400">{error}</p>
                 </motion.div>
               )}
 
@@ -169,8 +179,11 @@ export function ResetPasswordPage() {
               <button
                 type="submit"
                 disabled={pending || mismatch}
-                className="w-full rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-70"
+                className="relative w-full overflow-hidden rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-600/20 transition-all hover:bg-emerald-500 hover:shadow-emerald-500/30 active:scale-[0.98] disabled:opacity-70"
               >
+                {!pending && (
+                  <span className="absolute inset-0 -translate-x-full animate-[sweep_5s_ease-in-out_2s_infinite] bg-gradient-to-r from-transparent via-white/[0.12] to-transparent" />
+                )}
                 {pending ? "Updating…" : "Reset password"}
               </button>
             </form>
@@ -185,5 +198,6 @@ export function ResetPasswordPage() {
         )}
       </motion.div>
     </div>
+    </>
   );
 }

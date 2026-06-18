@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { Helmet } from "react-helmet-async";
 import { motion } from "framer-motion";
+import { toast } from "sonner";
 import { Logo } from "../components/Logo";
-import { apiFetch } from "../lib/api";
+import { apiFetch, ApiError } from "../lib/api";
 import { usePageTitle } from "../hooks/usePageTitle";
 import { CheckCircleIcon } from "../components/Icons";
 
@@ -14,6 +16,26 @@ export function EmailVerificationPage() {
   const token = params.get("token");
   const [state, setState] = useState<State>(token ? "verifying" : "error");
   const [message, setMessage] = useState("");
+  const [resendEmail, setResendEmail] = useState("");
+  const [resendPending, setResendPending] = useState(false);
+  const [resendSent, setResendSent] = useState(false);
+
+  async function handleResend(e: React.FormEvent) {
+    e.preventDefault();
+    setResendPending(true);
+    try {
+      await apiFetch("/api/v1/users/resendVerification", {
+        method: "POST",
+        body: JSON.stringify({ email: resendEmail }),
+      });
+      setResendSent(true);
+      toast.success("Verification email sent! Check your inbox.");
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Could not resend. Please try again.");
+    } finally {
+      setResendPending(false);
+    }
+  }
 
   useEffect(() => {
     if (!token) { setMessage("Verification link is invalid or missing."); return; }
@@ -26,7 +48,16 @@ export function EmailVerificationPage() {
   }, [token]);
 
   return (
-    <div className="flex min-h-[82vh] items-center justify-center py-10">
+    <>
+      <Helmet>
+        <title>Verify Email — Northline</title>
+        <meta name="description" content="Verify your email address to activate your Northline account and access all features." />
+        <meta property="og:title" content="Verify Email — Northline" />
+        <meta property="og:description" content="Verify your email address to activate your Northline account." />
+        <meta property="og:type" content="website" />
+        <meta property="og:site_name" content="Northline" />
+      </Helmet>
+      <div className="flex min-h-[82vh] items-center justify-center py-10">
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
@@ -77,8 +108,31 @@ export function EmailVerificationPage() {
             </div>
             <h1 className="font-display text-2xl font-bold text-ink">Verification failed</h1>
             <p className="text-sm text-ink4">
-              {message || "This link is invalid or has expired. Request a new one from your account."}
+              {message || "This link is invalid or has expired. Request a new one below."}
             </p>
+            {resendSent ? (
+              <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                Check your inbox — a new link is on its way.
+              </p>
+            ) : (
+              <form onSubmit={handleResend} className="space-y-2 text-left">
+                <input
+                  type="email"
+                  required
+                  value={resendEmail}
+                  onChange={(e) => setResendEmail(e.target.value)}
+                  placeholder="your@email.com"
+                  className="w-full rounded-lg border border-stroke bg-input px-3.5 py-2.5 text-sm text-ink placeholder:text-ink4 focus:border-emerald-500/50 focus:outline-none focus:ring-2 focus:ring-emerald-500/15"
+                />
+                <button
+                  type="submit"
+                  disabled={resendPending}
+                  className="w-full rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-60"
+                >
+                  {resendPending ? "Sending…" : "Resend verification email"}
+                </button>
+              </form>
+            )}
             <div className="flex flex-wrap justify-center gap-3">
               <Link
                 to="/account/profile"
@@ -97,5 +151,6 @@ export function EmailVerificationPage() {
         )}
       </motion.div>
     </div>
+    </>
   );
 }

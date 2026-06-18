@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState, type DragEvent, type FormEvent } from "react";
+import { Helmet } from "react-helmet-async";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { usePageTitle } from "../hooks/usePageTitle";
@@ -213,7 +214,16 @@ export function AccountProfilePage() {
     : null;
 
   return (
-    <div className="space-y-5">
+    <>
+      <Helmet>
+        <title>Profile — Northline</title>
+        <meta name="description" content="Update your Northline profile details, name, avatar, and personal preferences." />
+        <meta property="og:title" content="Profile — Northline" />
+        <meta property="og:description" content="Update your Northline profile details." />
+        <meta property="og:type" content="website" />
+        <meta property="og:site_name" content="Northline" />
+      </Helmet>
+      <div className="space-y-5">
 
       {/* ── Personal information ──────────────────────────────────────── */}
       <motion.section
@@ -226,11 +236,14 @@ export function AccountProfilePage() {
           <div className="relative flex flex-col border-b border-stroke lg:w-[240px] lg:shrink-0 lg:border-b-0 lg:border-r">
 
             {/* Cover */}
-            <div className="relative h-[88px] overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-br from-emerald-600/35 via-teal-500/20 to-transparent" />
-              <div className="absolute inset-0 dot-grid opacity-[0.2]" />
-              <div className="absolute -right-10 -top-10 size-48 rounded-full bg-emerald-500/20 blur-3xl" />
-              <div className="absolute -left-6 top-2 size-28 rounded-full bg-teal-400/10 blur-2xl" />
+            <div className="relative h-[96px] overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-emerald-600/40 via-teal-500/25 to-sky-600/10" />
+              <div className="absolute inset-0 dot-grid opacity-[0.25]" />
+              <div className="absolute -right-10 -top-10 size-52 rounded-full bg-emerald-500/25 blur-3xl" />
+              <div className="absolute -left-6 top-2 size-28 rounded-full bg-teal-400/15 blur-2xl" />
+              <div className="absolute right-1/3 bottom-0 size-20 rounded-full bg-sky-400/10 blur-2xl" />
+              {/* Shimmer sweep */}
+              <div className="absolute inset-0 -translate-x-full animate-[sweep_8s_ease-in-out_1s_infinite] bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
             </div>
 
             {/* Avatar + identity */}
@@ -290,6 +303,9 @@ export function AccountProfilePage() {
 
               {/* Email */}
               <p className="mt-1.5 max-w-full truncate text-center text-[11px] text-ink4">{safe.email}</p>
+              {safe.phoneNumber && (
+                <p className="mt-0.5 max-w-full truncate text-center text-[11px] text-ink4">{safe.phoneNumber}</p>
+              )}
 
               {/* Status row */}
               <div className="mt-2 flex flex-col items-center gap-1">
@@ -330,8 +346,9 @@ export function AccountProfilePage() {
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="w-full rounded-lg border border-stroke bg-raised px-3 py-2 text-xs font-medium text-ink2 transition-colors hover:bg-well hover:text-ink"
+                  className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-stroke bg-raised px-3 py-2 text-xs font-medium text-ink2 transition-colors hover:bg-well hover:text-ink"
                 >
+                  <CameraIcon className="size-3.5" />
                   {profileImageFile ? "Change photo" : "Upload photo"}
                 </button>
                 {profileImageFile && (
@@ -473,12 +490,15 @@ export function AccountProfilePage() {
                 type="submit"
                 form="profile-form"
                 disabled={updateProfile.isPending || !hasChanges}
-                className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-all disabled:opacity-50 ${
+                className={`relative inline-flex items-center gap-2 overflow-hidden rounded-lg px-4 py-2 text-sm font-semibold transition-all disabled:opacity-50 ${
                   saveState === "saved"
                     ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-                    : "bg-emerald-600 text-white hover:bg-emerald-700"
+                    : "bg-emerald-600 text-white shadow-md shadow-emerald-600/20 hover:bg-emerald-500 hover:shadow-emerald-500/30 active:scale-[0.97]"
                 }`}
               >
+                {!updateProfile.isPending && saveState !== "saved" && hasChanges && (
+                  <span className="absolute inset-0 -translate-x-full animate-[sweep_5s_ease-in-out_2s_infinite] bg-gradient-to-r from-transparent via-white/[0.12] to-transparent" />
+                )}
                 {updateProfile.isPending ? (
                   <>
                     <svg className="size-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
@@ -510,34 +530,37 @@ export function AccountProfilePage() {
           {[
             {
               icon: (
-                <svg className="size-4 text-ink3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <svg className="size-4 text-emerald-600 dark:text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
                 </svg>
               ),
+              iconBg: "bg-emerald-500/10 ring-emerald-500/20",
               label: "Account ID",
               value: `#${safe.id.slice(0, 8).toUpperCase()}`,
             },
             {
               icon: (
-                <svg className="size-4 text-ink3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <svg className="size-4 text-sky-600 dark:text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
                 </svg>
               ),
+              iconBg: "bg-sky-500/10 ring-sky-500/20",
               label: "Member since",
               value: memberSince ?? "—",
             },
             {
               icon: (
-                <svg className="size-4 text-ink3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <svg className="size-4 text-violet-600 dark:text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
                 </svg>
               ),
+              iconBg: "bg-violet-500/10 ring-violet-500/20",
               label: "Account type",
               value: isAdmin ? "Administrator" : "Customer",
             },
-          ].map(({ icon, label, value }) => (
-            <div key={label} className="flex items-start gap-3 px-6 py-5">
-              <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl bg-raised ring-1 ring-stroke">
+          ].map(({ icon, iconBg, label, value }) => (
+            <div key={label} className="group flex items-start gap-3 px-6 py-5 transition-colors hover:bg-raised/40">
+              <div className={`mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl ring-1 ${iconBg}`}>
                 {icon}
               </div>
               <div>
@@ -585,5 +608,6 @@ export function AccountProfilePage() {
       </motion.section>
 
     </div>
+    </>
   );
 }

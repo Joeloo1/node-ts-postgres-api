@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
+import { Helmet } from "react-helmet-async";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -94,7 +95,15 @@ export function AdminUsersPage() {
   }, [allUsers, roleFilter, debouncedSearch]);
 
   return (
-    <section className="space-y-4">
+    <>
+      <Helmet>
+        <title>Users — Admin · Northline</title>
+        <meta name="description" content="Manage Northline users. View, edit roles, and moderate user accounts." />
+        <meta property="og:title" content="Users — Admin · Northline" />
+        <meta property="og:type" content="website" />
+        <meta property="og:site_name" content="Northline" />
+      </Helmet>
+      <section className="space-y-4">
       {/* Header */}
       <div className="overflow-hidden rounded-2xl border border-stroke bg-card">
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-stroke px-6 py-4">
@@ -305,5 +314,6 @@ export function AdminUsersPage() {
         </div>
       </div>
     </section>
+    </>
   );
 }

@@ -125,7 +125,7 @@ export function SearchPage() {
       <div className="relative mx-auto max-w-2xl">
         <form
           onSubmit={(e) => { e.preventDefault(); submit(inputValue); }}
-          className="flex items-center gap-3 rounded-xl border border-stroke bg-card px-4 py-3 shadow-sm transition-shadow focus-within:border-emerald-500/40 focus-within:shadow-md"
+          className="flex items-center gap-3 rounded-full border border-stroke bg-card px-5 py-3.5 shadow-sm transition-all focus-within:border-emerald-500/40 focus-within:shadow-md focus-within:shadow-emerald-500/5"
         >
           <SearchIcon className="size-5 shrink-0 text-ink4" />
           <input
@@ -139,12 +139,18 @@ export function SearchPage() {
             aria-label="Search"
             autoComplete="off"
           />
+          {!inputValue && (
+            <span className="hidden shrink-0 items-center gap-1 rounded-md border border-stroke bg-raised px-1.5 py-0.5 text-[10px] font-medium text-ink4 sm:flex">
+              <span className="text-[9px]">↵</span> Enter
+            </span>
+          )}
           {inputValue && (
             <button type="button" onClick={() => { setInputValue(""); submit(""); setShowSuggestions(false); }} className="shrink-0 text-ink4 hover:text-ink transition-colors" aria-label="Clear">
               <XIcon className="size-4" />
             </button>
           )}
-          <button type="submit" className="shrink-0 rounded-lg bg-emerald-600 px-4 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700">
+          <button type="submit" className="relative shrink-0 overflow-hidden rounded-full bg-emerald-600 px-5 py-1.5 text-sm font-semibold text-white shadow-sm shadow-emerald-600/20 transition-all hover:bg-emerald-500 active:scale-[0.97]">
+            <span className="absolute inset-0 -translate-x-full animate-[sweep_5s_ease-in-out_2s_infinite] bg-gradient-to-r from-transparent via-white/[0.12] to-transparent" />
             Search
           </button>
         </form>
@@ -231,11 +237,10 @@ export function SearchPage() {
                   <Link
                     key={cat.category_id}
                     to={`/products?category_id=${cat.category_id}`}
-                    className="group flex items-center gap-2.5 rounded-xl border border-stroke bg-card px-3.5 py-3 transition-all hover:border-emerald-500/30 hover:bg-raised hover:shadow-sm"
+                    className="group flex items-center gap-2.5 rounded-xl border border-stroke bg-card px-3.5 py-3 transition-all hover:border-emerald-500/30 hover:bg-emerald-500/5 hover:shadow-sm"
                   >
-                    {/* Fix #26 — emoji with fallback initial */}
                     <span className="text-lg">{getCategoryEmoji(cat.name)}</span>
-                    <span className="text-[13px] font-medium text-ink2 transition-colors group-hover:text-ink truncate">{cat.name}</span>
+                    <span className="text-[13px] font-medium text-ink2 transition-colors group-hover:text-emerald-700 dark:group-hover:text-emerald-400 truncate">{cat.name}</span>
                   </Link>
                 ))}
               </div>
@@ -267,18 +272,30 @@ export function SearchPage() {
           {isPending ? (
             <ProductSkeletonGrid3 count={12} />
           ) : products.length === 0 ? (
-            <div className="rounded-xl border border-stroke bg-card py-20 text-center">
-              <div className="flex size-24 items-center justify-center rounded-3xl border border-stroke bg-raised text-ink4 mx-auto">
+            <div className="rounded-2xl border border-stroke bg-card py-20 text-center">
+              <div className="mx-auto flex size-24 items-center justify-center rounded-3xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 to-teal-500/5 text-emerald-600 shadow-lg shadow-emerald-500/10 dark:text-emerald-400">
                 <SearchIcon className="size-12" />
               </div>
-              <p className="mt-6 font-semibold text-ink">Nothing found for "{query}"</p>
-              <p className="mt-1 text-sm text-ink4">Try different keywords or browse our categories.</p>
-              <button type="button" onClick={() => { setInputValue(""); submit(""); }} className="mt-6 rounded-lg border border-stroke px-5 py-2 text-sm font-semibold text-ink2 transition-colors hover:bg-raised">
+              <p className="mt-6 text-lg font-semibold text-ink">Nothing found for "{query}"</p>
+              <p className="mt-1.5 text-sm text-ink4">Try a different keyword, check your spelling, or browse a category.</p>
+              <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
+                {["Electronics", "Fashion", "Home & Kitchen", "Sports"].map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => { setInputValue(s); submit(s); }}
+                    className="rounded-full border border-stroke bg-raised px-3.5 py-1.5 text-xs font-medium text-ink2 transition-colors hover:border-emerald-500/30 hover:bg-emerald-500/8 hover:text-emerald-600"
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+              <button type="button" onClick={() => { setInputValue(""); submit(""); }} className="mt-5 rounded-lg border border-stroke px-5 py-2 text-sm font-semibold text-ink2 transition-colors hover:bg-raised">
                 Clear search
               </button>
             </div>
           ) : (
-            <motion.div key={query} className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4" variants={stagger} initial="hidden" animate="show">
+            <motion.div key={query} className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5" variants={stagger} initial="hidden" animate="show">
               {products.map((p) => (
                 <motion.div key={p.product_id} variants={cardFade}>
                   <ProductCard product={p} />

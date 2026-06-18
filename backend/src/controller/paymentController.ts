@@ -4,6 +4,7 @@ import { prisma } from "../config/database";
 import catchAsync from "../utils/catchAsync";
 import AppError from "../utils/AppError";
 import logger from "../config/logger";
+import { emailQueue } from "../jobs/emailQueue";
 
 type StripeClient = InstanceType<typeof Stripe>;
 let _stripe: StripeClient | null = null;
@@ -44,7 +45,6 @@ export const createCheckoutSession = catchAsync(
       }
     }
 
-    // Build Stripe line items with product-level discounts and variant price modifiers applied
     const lineItems = cart.items.map((item) => {
       const discountMultiplier = item.product.discount
         ? 1 - item.product.discount / 100
@@ -59,7 +59,6 @@ export const createCheckoutSession = catchAsync(
           currency: "usd",
           product_data: {
             name: displayName,
-            // Only pass absolute URLs — local /public paths are not reachable by Stripe
             ...(item.product.image?.startsWith("http") && {
               images: [item.product.image],
             }),
@@ -70,7 +69,6 @@ export const createCheckoutSession = catchAsync(
       };
     });
 
-    // Validate coupon and create a one-time Stripe coupon if applicable
     let stripeDiscounts: { coupon: string }[] | undefined;
     let validCouponCode: string | undefined;
 
@@ -92,7 +90,6 @@ export const createCheckoutSession = catchAsync(
         (coupon.maxUses === null || coupon.usedCount < coupon.maxUses) &&
         (coupon.minOrderTotal === null || subtotal >= coupon.minOrderTotal)
       ) {
-        // Create a one-time Stripe coupon object so Stripe shows the correct total
         const stripeCoupon = await getStripe().coupons.create(
           coupon.type === "PERCENTAGE"
             ? { percent_off: coupon.value, duration: "once" }
@@ -115,7 +112,6 @@ export const createCheckoutSession = catchAsync(
         ...(validCouponCode && { couponCode: validCouponCode }),
       },
       ...(stripeDiscounts && { discounts: stripeDiscounts }),
-      // Stripe injects the session ID into the path — frontend reads it via useParams
       success_url: `${clientUrl}/orders/confirmation/{CHECKOUT_SESSION_ID}`,
       cancel_url: `${clientUrl}/cart`,
     });
@@ -139,8 +135,12 @@ const fulfillCartOrder = async (
   sessionId: string,
   couponCode?: string,
 ) => {
-  return prisma.$transaction(async (tx) => {
-    // Idempotency check — if this session was already fulfilled, return the existing order
+  // Captured outside transaction so we can use after commit
+  let isNewOrder = false;
+  const confirmedItems: { name: string; quantity: number; price: string }[] = [];
+
+  const order = await prisma.$transaction(async (tx) => {
+    // Idempotency check — if this session was already fulfilled, return existing order
     const existing = await tx.order.findUnique({
       where: { stripeSessionId: sessionId },
       include: { items: true },
@@ -178,20 +178,33 @@ const fulfillCartOrder = async (
         );
       }
 
-      // Decrement stock on the right record
+      // Decrement stock and auto-toggle availability
       if (variant) {
-        await tx.productVariant.update({
+        const updatedVariant = await tx.productVariant.update({
           where: { id: variant.id },
           data: { stock: { decrement: item.quantity } },
+          select: { stock: true },
         });
+        if (updatedVariant.stock === 0) {
+          await tx.productVariant.update({
+            where: { id: variant.id },
+            data: { availability: false },
+          });
+        }
       } else {
-        await tx.products.update({
+        const updatedProduct = await tx.products.update({
           where: { product_id: item.product_id },
           data: { stock: { decrement: item.quantity } },
+          select: { stock: true },
         });
+        if (updatedProduct.stock === 0) {
+          await tx.products.update({
+            where: { product_id: item.product_id },
+            data: { availability: false },
+          });
+        }
       }
 
-      // Apply product-level discount + variant price modifier (mirrors createCheckoutSession)
       const discountMultiplier = product.discount
         ? 1 - product.discount / 100
         : 1;
@@ -205,9 +218,17 @@ const fulfillCartOrder = async (
         price: linePrice,
         ...(variant && { variantId: variant.id, variantName: variant.name }),
       });
+
+      // Build email line items (product names available here)
+      confirmedItems.push({
+        name: variant
+          ? `${product.name} — ${variant.name}`
+          : product.name,
+        quantity: item.quantity,
+        price: linePrice.toFixed(2),
+      });
     }
 
-    // Apply coupon discount atomically — same logic as createOrder
     let discountAmount = 0;
     if (couponCode) {
       const coupon = await tx.coupon.findUnique({
@@ -233,7 +254,7 @@ const fulfillCartOrder = async (
     const finalTotal =
       Math.round(Math.max(0, calculatedTotal - discountAmount) * 100) / 100;
 
-    const order = await tx.order.create({
+    const newOrder = await tx.order.create({
       data: {
         userId,
         total: finalTotal,
@@ -248,8 +269,45 @@ const fulfillCartOrder = async (
 
     await tx.cartItem.deleteMany({ where: { cartId: cart.id } });
 
-    return order;
+    isNewOrder = true;
+    return newOrder;
   });
+
+  // Queue confirmation email only for newly created orders (not on idempotent replay)
+  if (isNewOrder && order) {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { email: true, name: true },
+      });
+      if (user) {
+        await emailQueue.add("send-email", {
+          email: user.email,
+          subject: "Your Northline order is confirmed! 🎉",
+          template: "orderConfirmed",
+          templateData: {
+            name: user.name,
+            orderId: order.id.slice(0, 8).toUpperCase(),
+            total: order.total.toFixed(2),
+            discountAmount:
+              order.discountAmount > 0
+                ? order.discountAmount.toFixed(2)
+                : null,
+            items: confirmedItems,
+            orderUrl: `${process.env.CLIENT_URL}/orders/${order.id}`,
+            year: new Date().getFullYear(),
+          },
+        });
+      }
+    } catch (err) {
+      logger.warn("Failed to queue order confirmation email", {
+        orderId: order.id,
+        err,
+      });
+    }
+  }
+
+  return order;
 };
 
 export const stripeWebhook = async (req: Request, res: Response) => {
@@ -261,7 +319,7 @@ export const stripeWebhook = async (req: Request, res: Response) => {
 
   try {
     event = getStripe().webhooks.constructEvent(
-      req.body, // raw Buffer — express.raw() must wrap this route
+      req.body,
       sig,
       process.env.STRIPE_WEBHOOK_SECRET!,
     );
@@ -270,7 +328,6 @@ export const stripeWebhook = async (req: Request, res: Response) => {
     return res.status(400).send("Webhook signature verification failed");
   }
 
-  // Only act on successful Checkout Sessions
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as {
       id: string;
@@ -278,7 +335,6 @@ export const stripeWebhook = async (req: Request, res: Response) => {
       payment_status: string;
     };
 
-    // Only fulfil paid sessions (not e.g. "unpaid" bank transfer sessions)
     if (session.payment_status !== "paid") {
       return res.status(200).json({ received: true });
     }
@@ -326,7 +382,6 @@ export const verifyCheckoutSession = catchAsync(
     const { sessionId } = req.params;
     const userId = req.user!.id;
 
-    // Retrieve the session from Stripe to confirm payment
     let session: {
       payment_status: string;
       metadata?: Record<string, string> | null;
@@ -337,7 +392,6 @@ export const verifyCheckoutSession = catchAsync(
       return next(new AppError("Checkout session not found", 404));
     }
 
-    // Ensure this session belongs to the authenticated user
     if (session.metadata?.userId !== userId) {
       return next(new AppError("Session does not belong to this account", 403));
     }
@@ -348,9 +402,6 @@ export const verifyCheckoutSession = catchAsync(
       );
     }
 
-    // Try to fulfill the cart — idempotent.
-    // If the webhook already ran, the cart is empty and this returns null.
-    // If the webhook hasn't run yet (local dev, slow delivery), we fulfill here.
     const couponCodeMeta = session.metadata?.couponCode ?? undefined;
     let order = null;
     try {
@@ -358,15 +409,10 @@ export const verifyCheckoutSession = catchAsync(
     } catch (err) {
       logger.warn(
         "verifyCheckoutSession fulfillment failed — looking for existing order",
-        {
-          userId,
-          sessionId,
-          error: err,
-        },
+        { userId, sessionId, error: err },
       );
     }
 
-    // If fulfillment returned null (cart was already empty), look up by session ID
     if (!order) {
       order = await prisma.order.findUnique({
         where: { stripeSessionId: sessionId },

@@ -27,21 +27,21 @@ export const createAddress = catchAsync(
     const userId = req.user!.id;
 
     logger.info("User creating a new address", { userId });
+
+    // Auto-default if this is the user's first address
+    const existingCount = await prisma.address.count({ where: { userId } });
+    const isDefault = existingCount === 0;
+
     const Address = await prisma.address.create({
-      data: {
-        ...addressData,
-        userId,
-      },
+      data: { ...addressData, userId, isDefault },
     });
 
     await clearAddressListCache(userId);
 
-    logger.info("Address created sucessfully");
+    logger.info("Address created successfully");
     res.status(201).json({
       status: "success",
-      data: {
-        Address,
-      },
+      data: { Address },
     });
   },
 );
@@ -162,6 +162,43 @@ export const getAddress = catchAsync(
       data: {
         address,
       },
+    });
+  },
+);
+
+// Set default address — unsets all others for this user first
+export const setDefaultAddress = catchAsync(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const addressId = req.params.id;
+    const userId = req.user!.id;
+
+    const address = await prisma.address.findUnique({
+      where: { id: addressId },
+    });
+
+    if (!address || address.userId !== userId) {
+      return next(new AppError("Address not found or unauthorized", 404));
+    }
+
+    // Atomic: clear all defaults then set the chosen one
+    await prisma.$transaction([
+      prisma.address.updateMany({
+        where: { userId },
+        data: { isDefault: false },
+      }),
+      prisma.address.update({
+        where: { id: addressId },
+        data: { isDefault: true },
+      }),
+    ]);
+
+    await clearAddressListCache(userId);
+    await redis.del(getAddressKey(addressId));
+
+    logger.info("Default address set", { userId, addressId });
+    res.status(200).json({
+      status: "success",
+      message: "Default address updated",
     });
   },
 );

@@ -5,6 +5,7 @@ import AppError from "../utils/AppError";
 import logger from "../config/logger";
 import { createReturnSchema, updateReturnSchema } from "../Schema/returnSchema";
 import { logAudit } from "../utils/audit";
+import { emailQueue } from "../jobs/emailQueue";
 
 const RETURNABLE_WINDOW_DAYS = Number(process.env.RETURNABLE_WINDOW_DAYS ?? 30);
 
@@ -126,6 +127,10 @@ export const adminUpdateReturn = catchAsync(
 
     const existing = await prisma.returnRequest.findUnique({
       where: { id },
+      include: {
+        user: { select: { email: true, name: true } },
+        order: { select: { id: true } },
+      },
     });
 
     if (!existing) return next(new AppError("Return request not found", 404));
@@ -134,6 +139,26 @@ export const adminUpdateReturn = catchAsync(
       where: { id },
       data: { status, adminNote },
     });
+
+    // Notify customer of return decision (only on terminal statuses)
+    if (status === "APPROVED" || status === "REJECTED") {
+      emailQueue
+        .add("send-email", {
+          email: existing.user.email,
+          subject: `Your return request has been ${status === "APPROVED" ? "approved" : "declined"}`,
+          template: "returnDecision",
+          templateData: {
+            name: existing.user.name,
+            orderId: existing.order.id.slice(0, 8).toUpperCase(),
+            approved: status === "APPROVED",
+            adminNote: adminNote ?? null,
+            year: new Date().getFullYear(),
+          },
+        })
+        .catch((err) =>
+          logger.warn("Failed to queue return decision email", { id, err }),
+        );
+    }
 
     await logAudit({
       req,
@@ -144,7 +169,7 @@ export const adminUpdateReturn = catchAsync(
       after: { status, adminNote },
     });
 
-    logger.info("Retrun request updated", { id, status });
+    logger.info("Return request updated", { id, status });
     res.status(200).json({
       status: "success",
       data: {

@@ -140,31 +140,42 @@ export function OrdersPage() {
 
       {/* Stats bar */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {(
-          [
-            { label: "Total orders", value: orders.length.toString(),        filterValue: "ALL" as const },
-            { label: "Total spent",  value: `$${totalSpent.toFixed(2)}`,     filterValue: undefined },
-            { label: "Active",       value: activeCount.toString(),           filterValue: undefined },
-            { label: "Delivered",    value: deliveredCount.toString(),        filterValue: "DELIVERED" as const },
-          ] as const
-        ).map(({ label, value, filterValue }) =>
-          filterValue !== undefined ? (
-            <button
-              key={label}
-              type="button"
-              onClick={() => setFilter(filterValue)}
-              className="rounded-xl border border-stroke bg-card px-4 py-3 text-left transition-colors hover:border-emerald-500/30 hover:bg-raised"
-            >
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-ink4">{label}</p>
-              <p className="mt-1 text-lg font-bold tabular-nums text-ink">{value}</p>
-            </button>
-          ) : (
-            <div key={label} className="rounded-xl border border-stroke bg-card px-4 py-3">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-ink4">{label}</p>
-              <p className="mt-1 text-lg font-bold tabular-nums text-ink">{value}</p>
-            </div>
-          ),
-        )}
+        <button
+          type="button"
+          onClick={() => setFilter("ALL")}
+          className="relative rounded-xl border border-stroke bg-card px-4 py-3 text-left transition-colors hover:border-emerald-500/30 hover:bg-raised"
+        >
+          <div className="absolute right-3 top-3">
+            <svg className="size-4 text-sky-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}><path strokeLinecap="round" strokeLinejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" /></svg>
+          </div>
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-ink4">Total orders</p>
+          <p className="mt-1 text-lg font-bold tabular-nums text-ink">{orders.length}</p>
+        </button>
+        <div className="relative rounded-xl border border-stroke bg-card px-4 py-3">
+          <div className="absolute right-3 top-3">
+            <svg className="size-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+          </div>
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-ink4">Total spent</p>
+          <p className="mt-1 text-lg font-bold tabular-nums text-ink">${totalSpent.toFixed(2)}</p>
+        </div>
+        <div className="relative rounded-xl border border-stroke bg-card px-4 py-3">
+          <div className="absolute right-3 top-3">
+            <svg className="size-4 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12" /></svg>
+          </div>
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-ink4">Active</p>
+          <p className="mt-1 text-lg font-bold tabular-nums text-ink">{activeCount}</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setFilter("DELIVERED")}
+          className="relative rounded-xl border border-stroke bg-card px-4 py-3 text-left transition-colors hover:border-emerald-500/30 hover:bg-raised"
+        >
+          <div className="absolute right-3 top-3">
+            <svg className="size-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+          </div>
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-ink4">Delivered</p>
+          <p className="mt-1 text-lg font-bold tabular-nums text-ink">{deliveredCount}</p>
+        </button>
       </div>
 
       {/* Search + Sort */}
@@ -175,7 +186,7 @@ export function OrdersPage() {
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
             placeholder="Search by order ID or product name…"
-            className="w-full rounded-lg border border-stroke bg-card py-2.5 pl-9 pr-9 text-sm text-ink placeholder:text-ink4 focus:border-emerald-500/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/25"
+            className="w-full rounded-xl border border-stroke bg-input py-2.5 pl-9 pr-9 text-sm text-ink placeholder:text-ink4 focus:border-emerald-500/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/25"
           />
           {searchText && (
             <button
@@ -333,7 +344,8 @@ export function OrdersPage() {
                     {/* Shipped banner */}
                     {o.status === "SHIPPED" && (
                       <div className="border-t border-violet-500/15 bg-violet-500/5 px-5 py-2">
-                        <p className="text-[11px] font-medium text-violet-600 dark:text-violet-400">
+                        <p className="flex items-center gap-1.5 text-[11px] font-semibold text-violet-600 dark:text-violet-400">
+                          <span className="size-1.5 rounded-full bg-violet-500 animate-pulse" />
                           Your order is on its way — check details for tracking info
                         </p>
                       </div>

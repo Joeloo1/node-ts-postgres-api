@@ -88,13 +88,15 @@ export function OrderConfirmationPage() {
         initial={{ opacity: 0, scale: 0.96 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
-        className="overflow-hidden rounded-2xl border border-emerald-500/20 bg-emerald-500/5 px-8 py-10 text-center"
+        className="relative overflow-hidden rounded-2xl border border-emerald-500/20 bg-emerald-500/5 px-8 py-10 text-center"
       >
+        <div className="pointer-events-none absolute inset-0 dot-grid opacity-[0.15]" />
+        <div className="pointer-events-none absolute -right-10 -top-10 size-48 rounded-full bg-emerald-500/15 blur-3xl" />
         <motion.div
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
           transition={{ delay: 0.15, type: "spring", stiffness: 200, damping: 15 }}
-          className="mx-auto mb-5 flex size-24 items-center justify-center rounded-full bg-emerald-500/15"
+          className="mx-auto mb-5 flex size-24 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500/20 to-teal-500/10 ring-[3px] ring-emerald-500/20 shadow-xl shadow-emerald-500/20"
         >
           <CheckCircleIcon className="size-12 text-emerald-500" />
         </motion.div>
@@ -192,12 +194,15 @@ export function OrderConfirmationPage() {
         className="overflow-hidden rounded-2xl border border-stroke bg-card"
       >
         <div className="border-b border-stroke px-5 py-4">
-          <h2 className="text-sm font-semibold text-ink">What happens next</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-ink">What happens next</h2>
+            <span className="text-[11px] text-ink4">3 steps</span>
+          </div>
         </div>
         <ul className="divide-y divide-stroke">
           {NEXT_STEPS.map((step, i) => (
             <li key={i} className="flex items-start gap-4 px-5 py-4">
-              <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-raised">
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-stroke bg-raised shadow-sm">
                 {step.icon}
               </div>
               <div>
@@ -227,8 +232,9 @@ export function OrderConfirmationPage() {
         )}
         <Link
           to="/products"
-          className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
+          className="relative inline-flex items-center gap-2 overflow-hidden rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-emerald-600/20 transition-colors hover:bg-emerald-700 active:scale-[0.98]"
         >
+          <span className="absolute inset-0 -translate-x-full animate-[sweep_5s_ease-in-out_2s_infinite] bg-gradient-to-r from-transparent via-white/[0.12] to-transparent" />
           Continue shopping
         </Link>
       </motion.div>

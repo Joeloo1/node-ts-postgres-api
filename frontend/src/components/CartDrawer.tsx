@@ -124,7 +124,7 @@ export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => vo
             className="fixed bottom-0 right-0 top-0 z-50 flex w-full max-w-sm flex-col border-l border-stroke bg-page shadow-2xl"
           >
             {/* Header */}
-            <div className="flex items-center justify-between border-b border-stroke px-5 py-4">
+            <div className="flex items-center justify-between border-b border-stroke bg-raised/30 px-5 py-4">
               <div className="flex items-center gap-2">
                 <CartIcon className="size-5 text-ink3" />
                 <h2 className="font-display text-lg font-semibold text-ink">
@@ -158,7 +158,7 @@ export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => vo
                 </div>
               ) : items.length === 0 ? (
                 <div className="flex flex-col items-center justify-center gap-4 px-8 py-16 text-center">
-                  <div className="flex size-20 items-center justify-center rounded-full bg-raised">
+                  <div className="flex size-20 items-center justify-center rounded-3xl border border-stroke bg-raised">
                     <CartIcon className="size-10 text-ink4" />
                   </div>
                   <div>
@@ -197,13 +197,13 @@ export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => vo
                           <Link
                             to={`/products/${line.product.product_id}`}
                             onClick={onClose}
-                            className="relative size-16 shrink-0 overflow-hidden rounded-lg bg-raised"
+                            className="relative size-[72px] shrink-0 overflow-hidden rounded-lg bg-raised"
                           >
                             <Img
                               src={productImageUrl(line.product)}
                               alt={line.product.name}
                               className="h-full w-full object-cover transition-transform hover:scale-105"
-                              wrapperClassName="size-16 rounded-lg overflow-hidden"
+                              wrapperClassName="size-[72px] rounded-lg overflow-hidden"
                               loading="lazy"
                             />
                             {line.product.discount && line.product.discount > 0 ? (
@@ -330,7 +330,7 @@ export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => vo
                   </div>
                 )}
 
-                <div className="flex items-center justify-between text-[15px] font-bold text-ink">
+                <div className="flex items-center justify-between text-base font-bold text-ink">
                   <span>Subtotal</span>
                   <span className="tabular-nums">${subtotal.toFixed(2)}</span>
                 </div>
@@ -358,8 +358,9 @@ export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => vo
                   <button
                     type="button"
                     onClick={() => { onClose(); navigate("/checkout"); }}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
+                    className="relative flex w-full overflow-hidden items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
                   >
+                    <span className="absolute inset-0 -translate-x-full animate-[sweep_5s_ease-in-out_2s_infinite] bg-gradient-to-r from-transparent via-white/[0.12] to-transparent" />
                     Checkout
                     <ArrowRightIcon className="size-4" />
                   </button>

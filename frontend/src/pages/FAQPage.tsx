@@ -216,8 +216,9 @@ export function FAQPage() {
         <p className="mt-2 text-[13.5px] text-ink3">Our support team responds within one business day.</p>
         <Link
           to="/contact"
-          className="mt-6 inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-500/20 transition-all hover:bg-emerald-500"
+          className="relative mt-6 inline-flex items-center gap-2 overflow-hidden rounded-xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-500/20 transition-all hover:bg-emerald-500 hover:shadow-emerald-500/30 active:scale-[0.97]"
         >
+          <span className="absolute inset-0 -translate-x-full animate-[sweep_5s_ease-in-out_2s_infinite] bg-gradient-to-r from-transparent via-white/[0.12] to-transparent" />
           Get in touch
         </Link>
       </motion.div>

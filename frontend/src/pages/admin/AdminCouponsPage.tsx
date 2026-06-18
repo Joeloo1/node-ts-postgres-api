@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Helmet } from "react-helmet-async";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -198,7 +199,15 @@ export function AdminCouponsPage() {
   const coupons = couponsQ.data ?? [];
 
   return (
-    <div className="space-y-5">
+    <>
+      <Helmet>
+        <title>Coupons — Admin · Northline</title>
+        <meta name="description" content="Manage Northline discount coupons. Create, edit, and manage promotional codes." />
+        <meta property="og:title" content="Coupons — Admin · Northline" />
+        <meta property="og:type" content="website" />
+        <meta property="og:site_name" content="Northline" />
+      </Helmet>
+      <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="font-display text-base font-semibold text-ink">Coupons</h2>
@@ -297,5 +306,6 @@ export function AdminCouponsPage() {
         )}
       </div>
     </div>
+    </>
   );
 }

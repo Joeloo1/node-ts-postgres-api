@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Helmet } from "react-helmet-async";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -131,7 +132,15 @@ export function AdminContactPage() {
   const unreadCount = messages.filter((m) => !m.read).length;
 
   return (
-    <div className="space-y-5">
+    <>
+      <Helmet>
+        <title>Messages — Admin · Northline</title>
+        <meta name="description" content="View and manage customer contact messages on Northline." />
+        <meta property="og:title" content="Messages — Admin · Northline" />
+        <meta property="og:type" content="website" />
+        <meta property="og:site_name" content="Northline" />
+      </Helmet>
+      <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
@@ -186,5 +195,6 @@ export function AdminContactPage() {
         </div>
       )}
     </div>
+    </>
   );
 }

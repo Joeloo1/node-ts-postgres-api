@@ -1,3 +1,4 @@
+import { Helmet } from "react-helmet-async";
 import { usePageTitle } from "../hooks/usePageTitle";
 
 const sections = [
@@ -43,7 +44,16 @@ export function TermsPage() {
   usePageTitle("Terms of Service");
 
   return (
-    <div className="mx-auto max-w-3xl space-y-10">
+    <>
+      <Helmet>
+        <title>Terms of Service — Northline</title>
+        <meta name="description" content="Read Northline's Terms of Service governing your use of our website, products, and services." />
+        <meta property="og:title" content="Terms of Service — Northline" />
+        <meta property="og:description" content="Read Northline's Terms of Service governing your use of our website, products, and services." />
+        <meta property="og:type" content="website" />
+        <meta property="og:site_name" content="Northline" />
+      </Helmet>
+      <div className="mx-auto max-w-3xl space-y-10">
       <div>
         <p className="text-xs font-medium text-ink4">Legal</p>
         <h1 className="mt-1 font-display text-3xl font-bold text-ink sm:text-4xl">Terms of Service</h1>
@@ -65,5 +75,6 @@ export function TermsPage() {
         ))}
       </div>
     </div>
+    </>
   );
 }

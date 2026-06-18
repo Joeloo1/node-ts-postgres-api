@@ -9,6 +9,8 @@ import { useAuth } from "../context/AuthContext";
 import { useCartMutations } from "../hooks/useCartMutations";
 import { QuickViewModal } from "./QuickViewModal";
 import { Img } from "./Img";
+import { useCompare } from "../context/CompareContext";
+import { usePrefetch } from "../hooks/usePrefetch";
 
 export function ProductCard({ product }: { product: Product }) {
   const { token } = useAuth();
@@ -18,6 +20,9 @@ export function ProductCard({ product }: { product: Product }) {
   const [quickViewOpen, setQuickViewOpen] = useState(false);
   const [addedFeedback, setAddedFeedback] = useState(false);
   const isWishlisted = has(product.product_id);
+  const { add: compareAdd, remove: compareRemove, has: compareHas, isFull: compareFull } = useCompare();
+  const { prefetchProduct } = usePrefetch();
+  const isCompared = compareHas(product.product_id);
 
   const categoryName =
     product.category && "name" in product.category ? product.category.name : null;
@@ -68,7 +73,12 @@ export function ProductCard({ product }: { product: Product }) {
 
   return (
     <>
-      <article className="group relative flex flex-col overflow-hidden rounded-2xl border border-stroke bg-card transition-all duration-300 hover:-translate-y-0.5 hover:border-edge hover:shadow-xl hover:shadow-black/10 dark:hover:shadow-black/35 [will-change:transform]">
+      <article
+        className={`group relative flex flex-col overflow-hidden rounded-2xl border bg-card transition-all duration-300 hover:-translate-y-0.5 hover:border-edge hover:shadow-xl hover:shadow-black/10 dark:hover:shadow-black/35 [will-change:transform] glow-emerald ${
+          isWishlisted ? "border-red-500/25 ring-1 ring-red-500/15" : "border-stroke"
+        }`}
+        onMouseEnter={() => prefetchProduct(product.product_id)}
+      >
         {/* Glass inner highlight */}
         <div className="pointer-events-none absolute inset-0 z-10 rounded-2xl ring-glass" />
 
@@ -97,13 +107,14 @@ export function ProductCard({ product }: { product: Product }) {
           {/* Top-left badges */}
           <div className="absolute left-2.5 top-2.5 flex flex-col gap-1">
             {hasDiscount && (
-              <span className="rounded-full bg-red-500 px-2.5 py-0.5 text-[10px] font-bold tracking-wider text-white shadow-sm">
+              <span className="inline-flex items-center gap-0.5 rounded-full bg-red-500 px-2.5 py-0.5 text-[10px] font-bold tracking-wider text-white shadow-sm shadow-red-500/30">
                 −{Math.round(product.discount!)}%
               </span>
             )}
-            {isLowStock && !hasDiscount && (
-              <span className="rounded-full bg-amber-500 px-2.5 py-0.5 text-[10px] font-bold text-white shadow-sm">
-                {product.stock === 1 ? "1 left" : `${product.stock} left`}
+            {isLowStock && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-500 px-2.5 py-0.5 text-[10px] font-bold text-white shadow-sm shadow-amber-500/30">
+                <span className="size-1.5 rounded-full bg-white/80 animate-pulse" />
+                {product.stock === 1 ? "Last one!" : `Only ${product.stock} left`}
               </span>
             )}
           </div>
@@ -112,7 +123,7 @@ export function ProductCard({ product }: { product: Product }) {
           <button
             type="button"
             onClick={(e) => { e.preventDefault(); setQuickViewOpen(true); }}
-            className="absolute bottom-2.5 left-1/2 -translate-x-1/2 translate-y-2 rounded-lg border border-white/20 bg-black/65 px-3 py-1.5 text-[11px] font-semibold text-white opacity-0 backdrop-blur-sm transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100 hover:bg-black/80 whitespace-nowrap"
+            className="absolute bottom-2.5 left-1/2 -translate-x-1/2 translate-y-2 rounded-xl border border-white/25 bg-black/70 px-4 py-1.5 text-[11px] font-semibold tracking-wide text-white opacity-0 backdrop-blur-sm transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100 hover:bg-black/85 whitespace-nowrap shadow-lg"
           >
             Quick view
           </button>
@@ -129,6 +140,27 @@ export function ProductCard({ product }: { product: Product }) {
             }`}
           >
             <HeartIcon className="size-4.5" filled={isWishlisted} />
+          </button>
+
+          {/* Compare */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              isCompared ? compareRemove(product.product_id) : compareAdd(product);
+            }}
+            disabled={!isCompared && compareFull}
+            aria-label={isCompared ? "Remove from compare" : "Add to compare"}
+            title={!isCompared && compareFull ? "Max 4 products" : undefined}
+            className={`absolute right-2.5 top-11 flex size-7.5 items-center justify-center rounded-full shadow-md backdrop-blur-sm transition-all duration-200 sm:translate-y-1 sm:opacity-0 sm:group-hover:translate-y-0 sm:group-hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-40 ${
+              isCompared
+                ? "bg-emerald-500 text-white"
+                : "bg-white/90 text-ink3 hover:bg-emerald-500 hover:text-white dark:bg-card/90"
+            }`}
+          >
+            <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
           </button>
         </Link>
 
@@ -212,10 +244,10 @@ export function ProductCard({ product }: { product: Product }) {
                   onClick={handleAddToCart}
                   disabled={addItem.isPending || addedFeedback}
                   aria-label="Add to cart"
-                  className={`flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold text-white shadow-sm transition-all active:scale-[0.97] disabled:cursor-default ${
+                  className={`flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 text-[12px] font-semibold text-white shadow-sm transition-all duration-200 active:scale-[0.95] disabled:cursor-default ${
                     addedFeedback
-                      ? "bg-emerald-500 shadow-emerald-500/20"
-                      : "bg-emerald-600 shadow-emerald-500/20 hover:bg-emerald-700 hover:shadow-emerald-500/30 disabled:opacity-50"
+                      ? "bg-emerald-500 shadow-emerald-500/30 scale-[0.97]"
+                      : "bg-emerald-600 shadow-emerald-600/20 hover:bg-emerald-500 hover:shadow-emerald-500/35 hover:-translate-y-0.5 disabled:opacity-50"
                   }`}
                 >
                   {addItem.isPending ? (

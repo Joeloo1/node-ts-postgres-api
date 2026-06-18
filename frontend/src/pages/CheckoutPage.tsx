@@ -37,9 +37,9 @@ function CheckoutStepper({ addressDone, itemsDone }: { addressDone: boolean; ite
           <div key={step.label} className="flex flex-1 items-center">
             <div className="flex flex-col items-center gap-1.5">
               <div
-                className={`flex size-7 items-center justify-center rounded-full text-[11px] font-bold transition-colors ${
+                className={`flex size-8 items-center justify-center rounded-full text-[11px] font-bold transition-colors ${
                   isDone
-                    ? "bg-emerald-600 text-white"
+                    ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/30"
                     : isActive
                     ? "border-2 border-emerald-600 bg-emerald-600/10 text-emerald-600 dark:text-emerald-400"
                     : "border-2 border-stroke bg-card text-ink4"
@@ -217,7 +217,7 @@ export function CheckoutPage() {
           {/* Delivery address */}
           <section>
             <div className="mb-4 flex items-center gap-2">
-              <div className="flex size-6 items-center justify-center rounded-full bg-emerald-500 text-[11px] font-bold text-white">1</div>
+              <div className="flex size-7 items-center justify-center rounded-full bg-emerald-500 text-[11px] font-bold text-white shadow-sm shadow-emerald-500/40">1</div>
               <h2 className="text-base font-semibold text-ink">Delivery address</h2>
             </div>
 
@@ -281,7 +281,7 @@ export function CheckoutPage() {
           <section>
             <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="flex size-6 items-center justify-center rounded-full bg-emerald-500 text-[11px] font-bold text-white">2</div>
+                <div className="flex size-7 items-center justify-center rounded-full bg-emerald-500 text-[11px] font-bold text-white shadow-sm shadow-emerald-500/40">2</div>
                 <h2 className="text-base font-semibold text-ink">
                   Items <span className="ml-1.5 text-sm font-normal text-ink4">({items.length} item{items.length !== 1 ? "s" : ""})</span>
                 </h2>
@@ -323,7 +323,7 @@ export function CheckoutPage() {
           {/* Payment note */}
           <section>
             <div className="mb-4 flex items-center gap-2">
-              <div className="flex size-6 items-center justify-center rounded-full bg-emerald-500 text-[11px] font-bold text-white">3</div>
+              <div className="flex size-7 items-center justify-center rounded-full bg-emerald-500 text-[11px] font-bold text-white shadow-sm shadow-emerald-500/40">3</div>
               <h2 className="text-base font-semibold text-ink">Payment</h2>
             </div>
             <div className="rounded-2xl border border-stroke bg-card px-5 py-4">
@@ -336,7 +336,7 @@ export function CheckoutPage() {
                 </div>
                 <div className="hidden shrink-0 items-center gap-1.5 sm:flex">
                   {["Visa", "MC", "Amex"].map((c) => (
-                    <span key={c} className="rounded border border-edge px-1.5 py-0.5 text-[9px] font-bold text-ink4">{c}</span>
+                    <span key={c} className="rounded-md border border-stroke bg-raised px-2 py-1 text-[9px] font-bold text-ink3 shadow-sm">{c}</span>
                   ))}
                 </div>
               </div>
@@ -446,8 +446,11 @@ export function CheckoutPage() {
               type="button"
               disabled={checkoutMutation.isPending || cartQuery.isPending || items.length === 0}
               onClick={() => checkoutMutation.mutate()}
-              className="group flex w-full items-center justify-center gap-2.5 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white shadow-md shadow-emerald-500/20 transition-all hover:bg-emerald-700 hover:shadow-emerald-500/30 disabled:opacity-50"
+              className="group relative flex w-full items-center justify-center gap-2.5 overflow-hidden rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white shadow-md shadow-emerald-500/20 transition-all hover:bg-emerald-700 hover:shadow-emerald-500/30 disabled:opacity-50"
             >
+              {!checkoutMutation.isPending && (
+                <span className="absolute inset-0 -translate-x-full animate-[sweep_5s_ease-in-out_2s_infinite] bg-gradient-to-r from-transparent via-white/[0.12] to-transparent" />
+              )}
               {checkoutMutation.isPending ? (
                 <>
                   <svg className="size-4 animate-spin" viewBox="0 0 24 24" fill="none">

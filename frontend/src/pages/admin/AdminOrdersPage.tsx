@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { Helmet } from "react-helmet-async";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -94,7 +95,15 @@ export function AdminOrdersPage() {
   const total = ordersQuery.data?.total ?? 0;
 
   return (
-    <section className="overflow-hidden rounded-2xl border border-stroke bg-card">
+    <>
+      <Helmet>
+        <title>Orders — Admin · Northline</title>
+        <meta name="description" content="Manage Northline orders. View, update order status, and track shipments." />
+        <meta property="og:title" content="Orders — Admin · Northline" />
+        <meta property="og:type" content="website" />
+        <meta property="og:site_name" content="Northline" />
+      </Helmet>
+      <section className="overflow-hidden rounded-2xl border border-stroke bg-card">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-stroke px-6 py-4">
         <div>
@@ -299,5 +308,6 @@ export function AdminOrdersPage() {
         )}
       </div>
     </section>
+    </>
   );
 }

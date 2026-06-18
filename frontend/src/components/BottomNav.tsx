@@ -21,48 +21,56 @@ export function BottomNav({ onCartOpen }: { onCartOpen: () => void }) {
   const cartCount = cartData?.items?.reduce((sum, i) => sum + i.quantity, 0) ?? 0;
 
   const linkClass = ({ isActive }: { isActive: boolean }) =>
-    `flex flex-col items-center gap-0.5 px-3 py-1.5 text-[10px] font-medium transition-colors ${
-      isActive ? "text-emerald-600 dark:text-emerald-400" : "text-ink3"
+    `relative flex flex-col items-center gap-0.5 rounded-xl px-3 py-1.5 text-[10px] font-semibold transition-all duration-200 ${
+      isActive
+        ? "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10"
+        : "text-ink4 hover:text-ink3"
     }`;
+
+  const ActiveDot = () => (
+    <span className="absolute -top-0.5 left-1/2 h-0.5 w-4 -translate-x-1/2 rounded-full bg-emerald-500" />
+  );
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around border-t border-stroke bg-page/95 px-2 py-2 backdrop-blur-md md:hidden"
+      className="fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around border-t border-stroke/70 bg-card/80 px-2 py-1.5 backdrop-blur-xl md:hidden shadow-[0_-4px_24px_rgba(0,0,0,0.08)] dark:shadow-[0_-4px_24px_rgba(0,0,0,0.4)]"
       aria-label="Mobile navigation"
     >
       <NavLink to="/" end className={linkClass}>
-        <HomeIcon className="size-5" />
-        Home
+        {({ isActive }) => (<>{isActive && <ActiveDot />}<HomeIcon className="size-5" />Home</>)}
       </NavLink>
 
       <NavLink to="/products" className={linkClass}>
-        <GridIcon className="size-5" />
-        Shop
+        {({ isActive }) => (<>{isActive && <ActiveDot />}<GridIcon className="size-5" />Shop</>)}
       </NavLink>
 
       <NavLink to="/search" className={linkClass}>
-        <SearchIcon className="size-5" />
-        Search
+        {({ isActive }) => (<>{isActive && <ActiveDot />}<SearchIcon className="size-5" />Search</>)}
       </NavLink>
 
       {isSignedIn ? (
         <>
           <NavLink to="/wishlist" className={linkClass}>
-            <span className="relative">
-              <HeartIcon className="size-5" filled={wishlistCount > 0} />
-              {wishlistCount > 0 && (
-                <span className="absolute -right-1 -top-1 flex size-[14px] items-center justify-center rounded-full bg-red-500 text-[8px] font-bold text-white">
-                  {wishlistCount > 9 ? "9+" : wishlistCount}
+            {({ isActive }) => (
+              <>
+                {isActive && <ActiveDot />}
+                <span className="relative">
+                  <HeartIcon className="size-5" filled={wishlistCount > 0} />
+                  {wishlistCount > 0 && (
+                    <span className="absolute -right-1 -top-1 flex size-[14px] items-center justify-center rounded-full bg-red-500 text-[8px] font-bold text-white">
+                      {wishlistCount > 9 ? "9+" : wishlistCount}
+                    </span>
+                  )}
                 </span>
-              )}
-            </span>
-            Wishlist
+                Wishlist
+              </>
+            )}
           </NavLink>
 
           <button
             type="button"
             onClick={onCartOpen}
-            className="relative flex flex-col items-center gap-0.5 px-3 py-1.5 text-[10px] font-medium text-ink3"
+            className="relative flex flex-col items-center gap-0.5 rounded-xl px-3 py-1.5 text-[10px] font-semibold text-ink4 hover:text-ink3 transition-all duration-200"
           >
             <span className="relative">
               <CartIcon className="size-5" />
@@ -78,19 +86,16 @@ export function BottomNav({ onCartOpen }: { onCartOpen: () => void }) {
       ) : (
         <>
           <NavLink to="/login" className={linkClass}>
-            <HeartIcon className="size-5" />
-            Wishlist
+            {({ isActive }) => (<>{isActive && <ActiveDot />}<HeartIcon className="size-5" />Wishlist</>)}
           </NavLink>
           <NavLink to="/login" className={linkClass}>
-            <CartIcon className="size-5" />
-            Cart
+            {({ isActive }) => (<>{isActive && <ActiveDot />}<CartIcon className="size-5" />Cart</>)}
           </NavLink>
         </>
       )}
 
       <NavLink to={isSignedIn ? "/account/profile" : "/login"} className={linkClass}>
-        <UserIcon className="size-5" />
-        Account
+        {({ isActive }) => (<>{isActive && <ActiveDot />}<UserIcon className="size-5" />Account</>)}
       </NavLink>
     </nav>
   );

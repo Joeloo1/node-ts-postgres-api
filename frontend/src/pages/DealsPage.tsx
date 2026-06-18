@@ -55,14 +55,21 @@ export function DealsPage() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="-mx-4 -mt-8 overflow-hidden sm:-mx-6 lg:-mx-8"
-        style={{ background: "linear-gradient(135deg, #3d0808 0%, #7f1d1d 50%, #0f172a 100%)" }}
+        className="relative -mx-4 -mt-8 overflow-hidden sm:-mx-6 lg:-mx-8"
+        style={{ background: "linear-gradient(135deg, #3d0808 0%, #7c1d1d 45%, #0f172a 100%)" }}
       >
-        <div className="absolute inset-0 opacity-[0.05]" style={{ backgroundImage: "radial-gradient(circle, white 1px, transparent 1px)", backgroundSize: "24px 24px" }} />
+        {/* dot-grid overlay */}
+        <div className="absolute inset-0 dot-grid opacity-[0.12]" />
+        {/* glow blobs */}
+        <div className="absolute -left-20 -top-20 size-72 rounded-full bg-red-500/15 blur-3xl" />
+        <div className="absolute -right-10 bottom-0 size-56 rounded-full bg-orange-500/10 blur-3xl" />
+        {/* shimmer sweep */}
+        <div className="absolute inset-0 -translate-x-full animate-[sweep_8s_ease-in-out_1s_infinite] bg-gradient-to-r from-transparent via-white/[0.04] to-transparent" />
+
         <div className="relative px-4 py-14 sm:px-6 sm:py-20 lg:px-8">
           <div className="mx-auto max-w-7xl">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="h-px w-8 bg-red-400" />
+            <div className="mb-4 flex items-center gap-3">
+              <div className="h-px w-8 bg-red-400/80" />
               <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-red-400">Limited time offers</span>
             </div>
             <h1 className="font-display text-2xl font-bold text-white sm:text-3xl lg:text-[2.2rem]">
@@ -72,9 +79,19 @@ export function DealsPage() {
               {isPending
                 ? "Loading deals…"
                 : deals.length > 0
-                  ? `${deals.length} product${deals.length === 1 ? "" : "s"} on sale — up to ${maxDiscount}% off.`
+                  ? `${deals.length} product${deals.length === 1 ? "" : "s"} on sale — up to `
                   : "New deals are added regularly — check back soon."}
+              {!isPending && deals.length > 0 && (
+                <span className="font-bold text-red-300">{maxDiscount}% off</span>
+              )}
+              {!isPending && deals.length > 0 && "."}
             </p>
+            {!isPending && deals.length > 0 && (
+              <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-red-500/25 bg-red-500/10 px-3.5 py-1.5">
+                <span className="size-1.5 rounded-full bg-red-400 animate-pulse" />
+                <span className="text-[12px] font-semibold text-red-300">{deals.length} active deal{deals.length !== 1 ? "s" : ""}</span>
+              </div>
+            )}
           </div>
         </div>
       </motion.div>

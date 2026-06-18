@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { prisma } from "../config/database";
 import { client as redis } from "../config/redis";
+import { Prisma } from "@prisma/client";
 import catchAsync from "../utils/catchAsync";
 import AppError from "../utils/AppError";
 import { productQuerySchema } from "../Schema/querySchema";
@@ -25,14 +26,21 @@ const ALLOWED_CACHE_PARAMS = new Set([
   "limit",
   "sort",
   "order",
+  "sortBy",
   "category_id",
   "minPrice",
   "maxPrice",
+  "price_gte",
+  "price_lte",
+  "rating_gte",
+  "discount_gte",
   "availability",
   "fields",
   "includeImages",
   "brand",
-  "search",
+  "name",
+  "tag",
+  "attributes",
 ]);
 
 const getProductsQueryKey = (query: Record<string, unknown>) => {
@@ -65,6 +73,7 @@ const baseListSelect = (includeImages: boolean) =>
     image: true,
     discount: true,
     availability: true,
+    stock: true,
     brand: true,
     rating: true,
     category_id: true,
@@ -251,7 +260,16 @@ export const getProduct = catchAsync(
     logger.info(`Fetching Product by ID: ${productId}`);
     const product = await prisma.products.findFirst({
       where: { product_id: productId, deletedAt: null },
-      include: productCategoryInclude,
+      include: {
+        ...productCategoryInclude,
+        attributes: {
+          select: { id: true, key: true, value: true },
+          orderBy: [{ key: "asc" }, { value: "asc" }],
+        },
+        tags: {
+          select: { tag: { select: { id: true, name: true, slug: true } } },
+        },
+      },
     });
 
     if (!product) {
@@ -489,5 +507,359 @@ export const getProductsFeed = catchAsync(
           : null,
       },
     });
+  },
+);
+
+// ── Autocomplete suggestions ─────────────────────────────────────────────────
+
+export const getSuggestions = catchAsync(
+  async (req: Request, res: Response, _next: NextFunction) => {
+    const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
+
+    if (q.length < 2) {
+      return res.status(200).json({ status: "success", data: [] });
+    }
+
+    const cacheKey = `suggestions:${q.toLowerCase()}`;
+    const cached = await redis.get(cacheKey);
+    if (cached) {
+      return res.status(200).json({ status: "success", data: JSON.parse(cached) });
+    }
+
+    const suggestions = await prisma.products.findMany({
+      where: {
+        deletedAt: null,
+        availability: true,
+        OR: [
+          { name: { contains: q, mode: "insensitive" } },
+          { brand: { contains: q, mode: "insensitive" } },
+        ],
+      },
+      select: {
+        product_id: true,
+        name: true,
+        brand: true,
+        price: true,
+        image: true,
+        discount: true,
+      },
+      take: 8,
+      orderBy: { rating: "desc" },
+    });
+
+    await redis.setEx(cacheKey, 30, JSON.stringify(suggestions));
+
+    res.status(200).json({ status: "success", data: suggestions });
+  },
+);
+
+// ── Full-text search with relevance ranking ──────────────────────────────────
+
+type SearchRow = {
+  product_id: string;
+  search_rank: number;
+};
+
+export const searchProducts = catchAsync(
+  async (req: Request, res: Response, _next: NextFunction) => {
+    const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 24));
+    const skip = (page - 1) * limit;
+
+    if (!q) {
+      return res.status(200).json({
+        status: "success",
+        results: 0,
+        data: { products: [] },
+        pagination: { page, limit, total: 0, totalPages: 0, hasNext: false, hasPrev: false },
+      });
+    }
+
+    const cacheKey = `search:${encodeURIComponent(q)}:p${page}:l${limit}`;
+    const cached = await redis.get(cacheKey);
+    if (cached) {
+      return res.status(200).json(JSON.parse(cached));
+    }
+
+    // Parse optional filter params
+    const categoryId = req.query.category_id ? Number(req.query.category_id) : undefined;
+    const priceGte   = req.query.price_gte   ? Number(req.query.price_gte)   : undefined;
+    const priceLte   = req.query.price_lte   ? Number(req.query.price_lte)   : undefined;
+    const ratingGte  = req.query.rating_gte  ? Number(req.query.rating_gte)  : undefined;
+    const brand      = typeof req.query.brand === "string" ? req.query.brand.trim() : undefined;
+    const tag        = typeof req.query.tag   === "string" ? req.query.tag.trim()   : undefined;
+    const availability = req.query.availability !== undefined
+      ? req.query.availability === "true"
+      : undefined;
+
+    // Build dynamic WHERE conditions
+    const conditions: Prisma.Sql[] = [
+      Prisma.sql`p."deletedAt" IS NULL`,
+      Prisma.sql`(
+        to_tsvector('english', coalesce(p.name,'') || ' ' || coalesce(p.brand,'') || ' ' || coalesce(p.description,''))
+        @@ plainto_tsquery('english', ${q})
+        OR p.name ILIKE ${`%${q}%`}
+        OR p.brand ILIKE ${`%${q}%`}
+      )`,
+    ];
+
+    if (categoryId !== undefined && !isNaN(categoryId)) {
+      conditions.push(Prisma.sql`p.category_id = ${categoryId}`);
+    }
+    if (priceGte !== undefined && !isNaN(priceGte)) {
+      conditions.push(Prisma.sql`p.price >= ${priceGte}`);
+    }
+    if (priceLte !== undefined && !isNaN(priceLte)) {
+      conditions.push(Prisma.sql`p.price <= ${priceLte}`);
+    }
+    if (ratingGte !== undefined && !isNaN(ratingGte)) {
+      conditions.push(Prisma.sql`p.rating >= ${ratingGte}`);
+    }
+    if (brand) {
+      conditions.push(Prisma.sql`p.brand ILIKE ${`%${brand}%`}`);
+    }
+    if (availability !== undefined) {
+      conditions.push(Prisma.sql`p.availability = ${availability}`);
+    }
+    if (tag) {
+      conditions.push(Prisma.sql`EXISTS (
+        SELECT 1 FROM "ProductTag" pt
+        JOIN "Tag" t ON pt."tagId" = t.id
+        WHERE pt."productId" = p.product_id AND t.slug = ${tag}
+      )`);
+    }
+
+    const whereClause = Prisma.join(conditions, " AND ");
+
+    // Step 1: get ranked IDs (fast raw SQL)
+    const [ranked, countResult] = await Promise.all([
+      prisma.$queryRaw<SearchRow[]>`
+        SELECT p.product_id::text, CAST(
+          ts_rank_cd(
+            to_tsvector('english', coalesce(p.name,'') || ' ' || coalesce(p.brand,'') || ' ' || coalesce(p.description,'')),
+            plainto_tsquery('english', ${q})
+          ) AS float8
+        ) as search_rank
+        FROM "Products" p
+        WHERE ${whereClause}
+        ORDER BY search_rank DESC, p.rating DESC NULLS LAST, p."createdAt" DESC
+        LIMIT ${BigInt(limit)} OFFSET ${BigInt(skip)}
+      `,
+      prisma.$queryRaw<[{ count: bigint }]>`
+        SELECT COUNT(*)::bigint as count FROM "Products" p WHERE ${whereClause}
+      `,
+    ]);
+
+    const total = Number(countResult[0]?.count ?? 0);
+    const productIds = ranked.map((r) => r.product_id);
+
+    // Step 2: fetch full product records with Prisma ORM (gets typed results + category join)
+    const products =
+      productIds.length === 0
+        ? []
+        : await prisma.products.findMany({
+            where: { product_id: { in: productIds } },
+            select: baseListSelect(false),
+          });
+
+    // Restore rank order
+    const rankMap = new Map(ranked.map((r) => [r.product_id, r.search_rank]));
+    products.sort(
+      (a: any, b: any) =>
+        (rankMap.get(b.product_id) ?? 0) - (rankMap.get(a.product_id) ?? 0),
+    );
+
+    const totalPages = Math.ceil(total / limit);
+    const responseData = {
+      status: "success",
+      results: products.length,
+      data: { products },
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1,
+      },
+    };
+
+    await redis.setEx(cacheKey, 60, JSON.stringify(responseData));
+    res.status(200).json(responseData);
+  },
+);
+
+// ── Trending products (most ordered in last 7 days) ──────────────────────────
+
+export const getTrending = catchAsync(
+  async (req: Request, res: Response, _next: NextFunction) => {
+    const limit = Math.min(20, Math.max(1, Number(req.query.limit) || 10));
+    const cacheKey = `trending:${limit}`;
+
+    const cached = await redis.get(cacheKey);
+    if (cached) {
+      return res.status(200).json({ status: "success", data: { products: JSON.parse(cached) } });
+    }
+
+    type TrendRow = { product_id: string; order_count: bigint };
+
+    const trendRows = await prisma.$queryRaw<TrendRow[]>`
+      SELECT oi.product_id::text, COUNT(*)::bigint as order_count
+      FROM "OrderItem" oi
+      JOIN "Order" o ON oi."orderId" = o.id
+      WHERE o."createdAt" > NOW() - INTERVAL '7 days'
+      GROUP BY oi.product_id
+      ORDER BY order_count DESC
+      LIMIT ${BigInt(limit)}
+    `;
+
+    const productIds = trendRows.map((r) => r.product_id);
+
+    if (productIds.length === 0) {
+      // Fallback: highest rated available products
+      const products = await prisma.products.findMany({
+        where: { deletedAt: null, availability: true },
+        select: baseListSelect(false),
+        orderBy: { rating: "desc" },
+        take: limit,
+      });
+      await redis.setEx(cacheKey, 300, JSON.stringify(products));
+      return res.status(200).json({ status: "success", data: { products } });
+    }
+
+    const products = await prisma.products.findMany({
+      where: { product_id: { in: productIds }, deletedAt: null },
+      select: baseListSelect(false),
+    });
+
+    // Restore trending order
+    const orderMap = new Map(trendRows.map((r) => [r.product_id, Number(r.order_count)]));
+    products.sort(
+      (a: any, b: any) =>
+        (orderMap.get(b.product_id) ?? 0) - (orderMap.get(a.product_id) ?? 0),
+    );
+
+    await redis.setEx(cacheKey, 300, JSON.stringify(products));
+    res.status(200).json({ status: "success", data: { products } });
+  },
+);
+
+// ── Related products (same category, similar price) ──────────────────────────
+
+export const getRelatedProducts = catchAsync(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const productId = req.params.id;
+    const limit = Math.min(12, Math.max(1, Number(req.query.limit) || 6));
+    const cacheKey = `related:${productId}:${limit}`;
+
+    const cached = await redis.get(cacheKey);
+    if (cached) {
+      return res.status(200).json({ status: "success", data: { products: JSON.parse(cached) } });
+    }
+
+    const product = await prisma.products.findFirst({
+      where: { product_id: productId, deletedAt: null },
+      select: { price: true, category_id: true },
+    });
+
+    if (!product) return next(new AppError("Product not found", 404));
+
+    // Same category, similar price (±60%), excluding current product
+    const priceMin = product.price * 0.4;
+    const priceMax = product.price * 1.6;
+
+    const products = await prisma.products.findMany({
+      where: {
+        deletedAt: null,
+        availability: true,
+        product_id: { not: productId },
+        ...(product.category_id ? { category_id: product.category_id } : {}),
+        price: { gte: priceMin, lte: priceMax },
+      },
+      select: baseListSelect(false),
+      orderBy: [{ rating: "desc" }, { createdAt: "desc" }],
+      take: limit,
+    });
+
+    // If not enough results, backfill from same category without price constraint
+    if (products.length < 4 && product.category_id) {
+      const existing = new Set(products.map((p: any) => p.product_id));
+      const backfill = await prisma.products.findMany({
+        where: {
+          deletedAt: null,
+          availability: true,
+          product_id: { not: productId, notIn: [...existing] },
+          category_id: product.category_id,
+        },
+        select: baseListSelect(false),
+        orderBy: { rating: "desc" },
+        take: limit - products.length,
+      });
+      products.push(...backfill);
+    }
+
+    await redis.setEx(cacheKey, 300, JSON.stringify(products));
+    res.status(200).json({ status: "success", data: { products } });
+  },
+);
+
+// ── Frequently bought together ────────────────────────────────────────────────
+
+export const getFrequentlyBoughtTogether = catchAsync(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const productId = req.params.id;
+    const limit = Math.min(8, Math.max(1, Number(req.query.limit) || 4));
+    const cacheKey = `fbt:${productId}:${limit}`;
+
+    const cached = await redis.get(cacheKey);
+    if (cached) {
+      return res.status(200).json({ status: "success", data: { products: JSON.parse(cached) } });
+    }
+
+    const product = await prisma.products.findFirst({
+      where: { product_id: productId, deletedAt: null },
+      select: { product_id: true },
+    });
+    if (!product) return next(new AppError("Product not found", 404));
+
+    type FbtRow = { product_id: string; co_count: bigint };
+
+    const fbtRows = await prisma.$queryRaw<FbtRow[]>`
+      SELECT oi2.product_id::text, COUNT(*)::bigint as co_count
+      FROM "OrderItem" oi1
+      JOIN "OrderItem" oi2
+        ON oi1."orderId" = oi2."orderId"
+        AND oi2.product_id::text != oi1.product_id::text
+      WHERE oi1.product_id = ${productId}::uuid
+      GROUP BY oi2.product_id
+      ORDER BY co_count DESC
+      LIMIT ${BigInt(limit)}
+    `;
+
+    const coIds = fbtRows.map((r) => r.product_id);
+
+    if (coIds.length === 0) {
+      // Fallback: related products
+      return getRelatedProducts(req, res, next);
+    }
+
+    const products = await prisma.products.findMany({
+      where: {
+        product_id: { in: coIds },
+        deletedAt: null,
+        availability: true,
+      },
+      select: baseListSelect(false),
+    });
+
+    const coMap = new Map(fbtRows.map((r) => [r.product_id, Number(r.co_count)]));
+    products.sort(
+      (a: any, b: any) =>
+        (coMap.get(b.product_id) ?? 0) - (coMap.get(a.product_id) ?? 0),
+    );
+
+    await redis.setEx(cacheKey, 300, JSON.stringify(products));
+    res.status(200).json({ status: "success", data: { products } });
   },
 );

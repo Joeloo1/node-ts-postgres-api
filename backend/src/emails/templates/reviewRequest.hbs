@@ -1,0 +1,51 @@
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>How was your order?</title>
+  </head>
+  <body style="margin:0; padding:0; background:#f4f4f4; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr>
+        <td align="center" style="padding:40px 20px;">
+          <table width="600" cellpadding="0" cellspacing="0" style="background:#fff; border-radius:12px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+            <!-- Header -->
+            <tr>
+              <td style="background:#000; padding:28px 32px;">
+                <h1 style="color:#fff; margin:0; font-size:22px; font-weight:700; letter-spacing:-0.5px;">Northline</h1>
+              </td>
+            </tr>
+            <!-- Body -->
+            <tr>
+              <td style="padding:40px 32px; text-align:center;">
+                <!-- Stars graphic -->
+                <p style="font-size:36px; margin:0 0 16px; letter-spacing:4px;">★★★★★</p>
+                <h2 style="color:#111; margin:0 0 12px; font-size:22px;">How was your order, {{name}}?</h2>
+                <p style="color:#666; margin:0 0 8px; font-size:15px; line-height:1.6;">
+                  Your order <strong>#{{orderId}}</strong> was delivered a few days ago.
+                </p>
+                <p style="color:#666; margin:0 0 32px; font-size:15px; line-height:1.6;">
+                  Your honest review helps other shoppers make better decisions — and it only takes a minute.
+                </p>
+
+                <!-- CTA -->
+                <a href="{{ordersUrl}}" style="display:inline-block; background:#000; color:#fff; text-decoration:none; padding:14px 36px; border-radius:8px; font-size:15px; font-weight:600;">
+                  Leave a review
+                </a>
+
+                <p style="color:#aaa; margin:36px 0 0; font-size:13px; line-height:1.6;">
+                  Not your style? No problem — you can ignore this email. We won't send another reminder for this order.
+                </p>
+              </td>
+            </tr>
+            <!-- Footer -->
+            <tr>
+              <td style="background:#f9f9f9; padding:20px 32px; border-top:1px solid #eee;">
+                <p style="margin:0; color:#aaa; font-size:12px;">© {{year}} Northline. All rights reserved.</p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

@@ -17,6 +17,12 @@ export const productQuerySchema = z.object({
   rating_gte: z.coerce.number().min(0).max(5).optional(),
   discount_gte: z.coerce.number().min(0).max(100).optional(),
 
+  // Tag collection filter (tag slug)
+  tag: z.string().optional(),
+
+  // Attribute filter — comma-separated "Key:Value" pairs e.g. "Color:Red,Size:M"
+  attributes: z.string().optional(),
+
   // Sorting
   sortBy: z.string().default("createdAt"),
   order: z.enum(["asc", "desc"]).default("desc"),

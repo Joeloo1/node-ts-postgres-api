@@ -172,8 +172,9 @@ const isProd = process.env.NODE_ENV === "production";
 
 const { generateCsrfToken, doubleCsrfProtection } = doubleCsrf({
   getSecret: () => process.env.CSRF_SECRET!,
-  // Ties the CSRF token to the current JWT session — rotates automatically on login/logout
-  getSessionIdentifier: (req: Request) => req.cookies?.jwt ?? req.ip ?? "",
+  // Tie CSRF token to the JWT when present. Fall back to "" for unauthenticated
+  // requests — using req.ip causes IPv4/IPv6 dual-stack mismatches with trust proxy.
+  getSessionIdentifier: (req: Request) => req.cookies?.jwt ?? "",
   cookieName: "x-csrf-token",
   cookieOptions: { sameSite: "lax", secure: isProd, httpOnly: true },
   size: 64,

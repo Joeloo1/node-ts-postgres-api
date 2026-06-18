@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { ZodObject, ZodError, ZodSchema } from "zod"
+import { ZodError, ZodSchema } from "zod"
 import AppError from "../utils/AppError";
 
 interface ValidationSchemas {
@@ -42,17 +42,17 @@ export const validate = (Schemas: ValidationSchemas) => {
     }
 }
 
-// Helper function for body-only validation 
-export const validateBody = (schema: ZodObject<any>) => {
+// Helper function for body-only validation
+export const validateBody = (schema: ZodSchema) => {
     return validate({ body: schema });
 };
 
 // Helper function for params-only validation
-export const validateParams = (schema: ZodObject<any>) => {
+export const validateParams = (schema: ZodSchema) => {
     return validate({ params: schema });
 };
 
 // Helper function for query-only validation
-export const validateQuery = (schema: ZodObject<any>) => {
+export const validateQuery = (schema: ZodSchema) => {
     return validate({ query: schema });
 };

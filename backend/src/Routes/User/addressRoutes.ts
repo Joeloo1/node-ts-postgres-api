@@ -15,6 +15,7 @@ import {
   getAllAddresses,
   getAddress,
   deleteAddress,
+  setDefaultAddress,
 } from "../../controller/addressController";
 import { Protect } from "../../controller/authController";
 
@@ -36,5 +37,7 @@ router
     updateAddress
   )
   .delete(validateParams(addressIdSchema), deleteAddress);
+
+router.patch("/:id/default", validateParams(addressIdSchema), setDefaultAddress);
 
 export default router;

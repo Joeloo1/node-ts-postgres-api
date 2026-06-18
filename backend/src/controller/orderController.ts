@@ -11,6 +11,7 @@ import {
 } from "../Schema/orderSchema";
 import { emailQueue } from "../jobs/emailQueue";
 import { logAudit } from "../utils/audit";
+import { triggerStockNotification } from "./stockNotifyController";
 
 const ORDER_STATUS_COPY: Partial<
   Record<OrderStatus, { label: string; message: string }>
@@ -38,6 +39,66 @@ const ORDER_STATUS_COPY: Partial<
       "Your order has been cancelled. If you have questions, please contact support.",
   },
 };
+
+// Decrement stock and auto-set availability=false when stock hits 0
+async function decrementStock(
+  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
+  item: { product_id: string; variantId?: string | null; quantity: number },
+) {
+  if (item.variantId) {
+    const updated = await tx.productVariant.update({
+      where: { id: item.variantId },
+      data: { stock: { decrement: item.quantity } },
+      select: { stock: true },
+    });
+    if (updated.stock === 0) {
+      await tx.productVariant.update({
+        where: { id: item.variantId },
+        data: { availability: false },
+      });
+    }
+  } else {
+    const updated = await tx.products.update({
+      where: { product_id: item.product_id },
+      data: { stock: { decrement: item.quantity } },
+      select: { stock: true },
+    });
+    if (updated.stock === 0) {
+      await tx.products.update({
+        where: { product_id: item.product_id },
+        data: { availability: false },
+      });
+    }
+  }
+}
+
+// Restore stock on cancellation, auto-set availability=true, and return IDs that went from 0 → positive
+async function restoreStock(
+  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
+  item: { product_id: string; variantId?: string | null; quantity: number },
+): Promise<string | null> {
+  if (item.variantId) {
+    const before = await tx.productVariant.findUnique({
+      where: { id: item.variantId },
+      select: { stock: true },
+    });
+    await tx.productVariant.update({
+      where: { id: item.variantId },
+      data: { stock: { increment: item.quantity }, availability: true },
+    });
+    return null; // variant back-in-stock uses product_id, handle separately if needed
+  } else {
+    const before = await tx.products.findUnique({
+      where: { product_id: item.product_id },
+      select: { stock: true },
+    });
+    await tx.products.update({
+      where: { product_id: item.product_id },
+      data: { stock: { increment: item.quantity }, availability: true },
+    });
+    return (before?.stock ?? 0) === 0 ? item.product_id : null;
+  }
+}
 
 export const createOrder = catchAsync(
   async (req: Request, res: Response, _next: NextFunction) => {
@@ -68,7 +129,6 @@ export const createOrder = catchAsync(
         if (!product)
           throw new AppError(`Product not found: ${item.product_id}`, 404);
 
-        // Resolve variant if provided
         let variant = null;
         if (item.variantId) {
           variant =
@@ -90,20 +150,12 @@ export const createOrder = catchAsync(
           );
         }
 
-        // Decrement stock on the right record
-        if (variant) {
-          await tx.productVariant.update({
-            where: { id: variant.id },
-            data: { stock: { decrement: item.quantity } },
-          });
-        } else {
-          await tx.products.update({
-            where: { product_id: item.product_id },
-            data: { stock: { decrement: item.quantity } },
-          });
-        }
+        await decrementStock(tx, {
+          product_id: item.product_id,
+          variantId: item.variantId,
+          quantity: item.quantity,
+        });
 
-        // Apply product-level discount + variant price modifier
         const discountMultiplier = product.discount
           ? 1 - product.discount / 100
           : 1;
@@ -120,7 +172,6 @@ export const createOrder = catchAsync(
         });
       }
 
-      // Apply coupon discount inside the transaction so it's atomic
       let discountAmount = 0;
       let resolvedCouponCode: string | null = null;
       if (couponCode) {
@@ -181,7 +232,6 @@ export const createOrder = catchAsync(
   },
 );
 
-// Checkout from cart
 export const checkoutFromCart = catchAsync(
   async (req: Request, res: Response, _next: NextFunction) => {
     const userId = req.user!.id;
@@ -218,20 +268,12 @@ export const checkoutFromCart = catchAsync(
           );
         }
 
-        // Decrement stock on the right record
-        if (variant) {
-          await tx.productVariant.update({
-            where: { id: variant.id },
-            data: { stock: { decrement: item.quantity } },
-          });
-        } else {
-          await tx.products.update({
-            where: { product_id: item.product_id },
-            data: { stock: { decrement: item.quantity } },
-          });
-        }
+        await decrementStock(tx, {
+          product_id: item.product_id,
+          variantId: variant?.id ?? null,
+          quantity: item.quantity,
+        });
 
-        // Apply product-level discount + variant price modifier
         const discountMultiplier = product.discount
           ? 1 - product.discount / 100
           : 1;
@@ -248,7 +290,6 @@ export const checkoutFromCart = catchAsync(
         });
       }
 
-      // Apply coupon discount inside the transaction so it's atomic
       let discountAmount = 0;
       let resolvedCouponCode: string | null = null;
       if (couponCode) {
@@ -290,7 +331,6 @@ export const checkoutFromCart = catchAsync(
         include: { items: true },
       });
 
-      // Clear the cart after successful order creation
       await tx.cartItem.deleteMany({ where: { cartId: cart.id } });
 
       return newOrder;
@@ -304,7 +344,6 @@ export const checkoutFromCart = catchAsync(
   },
 );
 
-//  Get My Order
 export const getMyOrder = catchAsync(
   async (req: Request, res: Response, _next: NextFunction) => {
     const page = Math.max(1, Number(req.query.page) || 1);
@@ -336,14 +375,11 @@ export const getMyOrder = catchAsync(
       total,
       totalPages: Math.ceil(total / limit),
       page,
-      data: {
-        orders,
-      },
+      data: { orders },
     });
   },
 );
 
-// Get single Order
 export const getOrderById = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
     logger.info(`Fetching order with ID: ${req.params.id}`);
@@ -375,14 +411,63 @@ export const getOrderById = catchAsync(
     logger.info(`Order with ID: ${req.params.id} fetched successfully`);
     res.status(200).json({
       status: "success",
+      data: { order },
+    });
+  },
+);
+
+// Public tracking — no auth. Validates email ownership server-side.
+export const trackOrder = catchAsync(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const { orderId, email } = req.query as { orderId?: string; email?: string };
+
+    if (!orderId || !email) {
+      return next(new AppError("orderId and email are required", 400));
+    }
+
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: {
+        user: { select: { email: true } },
+        items: {
+          include: {
+            product: { select: { name: true, image: true } },
+          },
+        },
+      },
+    });
+
+    if (!order || order.user.email.toLowerCase() !== email.toLowerCase()) {
+      // Intentionally vague — don't reveal if order exists
+      return next(new AppError("Order not found", 404));
+    }
+
+    // Return only safe fields — no pricing, no personal details beyond what user already knows
+    res.status(200).json({
+      status: "success",
       data: {
-        order,
+        order: {
+          id: order.id,
+          shortId: order.id.slice(0, 8).toUpperCase(),
+          status: order.status,
+          createdAt: order.createdAt,
+          shippedAt: order.shippedAt,
+          trackingNumber: order.trackingNumber,
+          shippingCity: order.shippingCity,
+          shippingCountry: order.shippingCountry,
+          items: order.items.map((item) => ({
+            name: item.variantName
+              ? `${item.product.name} — ${item.variantName}`
+              : item.product.name,
+            image: item.product.image,
+            quantity: item.quantity,
+          })),
+        },
       },
     });
   },
 );
 
-// update Order (only Admin)
 export const updateOrder = catchAsync(
   async (req: Request, res: Response, _next: NextFunction) => {
     const { status, trackingNumber } = updateOrderStatusSchema.parse(req.body);
@@ -400,11 +485,10 @@ export const updateOrder = catchAsync(
         ...(status === OrderStatus.SHIPPED && { shippedAt: new Date() }),
       },
       include: {
-        user: {
-          select: {
-            email: true,
-            name: true,
-          },
+        user: { select: { email: true, name: true } },
+        items: {
+          take: 5,
+          include: { product: { select: { name: true } } },
         },
       },
     });
@@ -412,18 +496,46 @@ export const updateOrder = catchAsync(
     const copy = ORDER_STATUS_COPY[status as OrderStatus];
 
     if (copy) {
-      await emailQueue.add("send-email", {
-        email: order.user.email,
-        subject: `Your Northline order has been ${copy.label.toLowerCase()}`,
-        template: "orderStatus",
-        templateData: {
-          name: order.user.name,
-          orderId: order.id.slice(0, 8).toUpperCase(),
-          statusLabel: copy.label,
-          statusMessage: copy.message,
-          trackingNumber: order.trackingNumber ?? null,
-        },
-      });
+      await emailQueue
+        .add("send-email", {
+          email: order.user.email,
+          subject: `Your Northline order has been ${copy.label.toLowerCase()}`,
+          template: "orderStatus",
+          templateData: {
+            name: order.user.name,
+            orderId: order.id.slice(0, 8).toUpperCase(),
+            statusLabel: copy.label,
+            statusMessage: copy.message,
+            trackingNumber: order.trackingNumber ?? null,
+          },
+        })
+        .catch((err) =>
+          logger.warn("Failed to queue order status email", { err }),
+        );
+    }
+
+    // Schedule review request 7 days after delivery
+    if (status === OrderStatus.DELIVERED) {
+      const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+      await emailQueue
+        .add(
+          "send-email",
+          {
+            email: order.user.email,
+            subject: `How was your Northline order?`,
+            template: "reviewRequest",
+            templateData: {
+              name: order.user.name,
+              orderId: order.id.slice(0, 8).toUpperCase(),
+              ordersUrl: `${process.env.CLIENT_URL}/orders`,
+              year: new Date().getFullYear(),
+            },
+          },
+          { delay: SEVEN_DAYS_MS },
+        )
+        .catch((err) =>
+          logger.warn("Failed to schedule review request email", { err }),
+        );
     }
 
     await logAudit({
@@ -450,7 +562,6 @@ export const updateOrder = catchAsync(
   },
 );
 
-// Cancel Order (USER)
 export const cancelOrder = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
     const orderId = req.params.id;
@@ -469,27 +580,21 @@ export const cancelOrder = catchAsync(
     }
 
     if (order.userId !== userId) {
-      logger.warn(
-        `User with ID: ${userId} is not authorized to cancel order ID: ${orderId}`,
-      );
       return next(
         new AppError("You are not allowed to cancel this Order", 403),
       );
     }
 
     if (order.status === OrderStatus.CANCELLED) {
-      logger.warn(`Order with ID: ${orderId} id already cancelled`);
       return next(new AppError("Order already cancelled", 400));
     }
 
     if (!cancellableStatus.includes(order.status)) {
-      logger.warn(
-        `Order with ID : ${orderId} cannot be canceled at this stage`,
-      );
       return next(new AppError("Order cannot be cancelled at this stage", 400));
     }
 
-    logger.info(`Cancelling order with ID: ${orderId}`);
+    const restockedProductIds: string[] = [];
+
     const cancelledOrder = await prisma.$transaction(async (tx) => {
       const orderWithItems = await tx.order.findUnique({
         where: { id: orderId },
@@ -498,10 +603,12 @@ export const cancelOrder = catchAsync(
 
       if (orderWithItems) {
         for (const item of orderWithItems.items) {
-          await tx.products.update({
-            where: { product_id: item.product_id },
-            data: { stock: { increment: item.quantity } },
+          const restocked = await restoreStock(tx, {
+            product_id: item.product_id,
+            variantId: item.variantId,
+            quantity: item.quantity,
           });
+          if (restocked) restockedProductIds.push(restocked);
         }
       }
 
@@ -515,6 +622,37 @@ export const cancelOrder = catchAsync(
       });
     });
 
+    // Trigger back-in-stock notifications for products that went from 0 → positive
+    for (const productId of restockedProductIds) {
+      triggerStockNotification(productId).catch((err) =>
+        logger.warn("Back-in-stock notification failed", { productId, err }),
+      );
+    }
+
+    // Notify user of cancellation
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true, name: true },
+    });
+    if (user) {
+      emailQueue
+        .add("send-email", {
+          email: user.email,
+          subject: "Your Northline order has been cancelled",
+          template: "orderStatus",
+          templateData: {
+            name: user.name,
+            orderId: orderId.slice(0, 8).toUpperCase(),
+            statusLabel: "Cancelled",
+            statusMessage: ORDER_STATUS_COPY[OrderStatus.CANCELLED]!.message,
+            trackingNumber: null,
+          },
+        })
+        .catch((err) =>
+          logger.warn("Failed to queue cancel confirmation email", { err }),
+        );
+    }
+
     await logAudit({
       req,
       action: "USER_CANCEL_ORDER",
@@ -524,17 +662,14 @@ export const cancelOrder = catchAsync(
       after: { status: OrderStatus.CANCELLED, cancelledBy: CancelledBy.USER },
     });
 
-    logger.info(`Order with ID: ${orderId} sucessfully cancelled`);
+    logger.info(`Order with ID: ${orderId} successfully cancelled`);
     res.status(200).json({
       status: "success",
-      data: {
-        order: cancelledOrder,
-      },
+      data: { order: cancelledOrder },
     });
   },
 );
 
-// Get All Orders (ADMIN)
 export const getAllOrders = catchAsync(
   async (req: Request, res: Response, _next: NextFunction) => {
     const page = Math.max(1, Number(req.query.page) || 1);
@@ -573,7 +708,6 @@ export const getAllOrders = catchAsync(
   },
 );
 
-// Cancel Order (ADMIN)
 export const adminCancelOrder = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
     const orderId = req.params.id;
@@ -586,6 +720,7 @@ export const adminCancelOrder = catchAsync(
 
     const order = await prisma.order.findUnique({
       where: { id: orderId },
+      include: { user: { select: { email: true, name: true } } },
     });
 
     if (!order) {
@@ -600,6 +735,8 @@ export const adminCancelOrder = catchAsync(
       return next(new AppError("Order cannot be cancelled at this stage", 400));
     }
 
+    const restockedProductIds: string[] = [];
+
     const cancelledOrder = await prisma.$transaction(async (tx) => {
       const orderWithItems = await tx.order.findUnique({
         where: { id: orderId },
@@ -608,10 +745,12 @@ export const adminCancelOrder = catchAsync(
 
       if (orderWithItems) {
         for (const item of orderWithItems.items) {
-          await tx.products.update({
-            where: { product_id: item.product_id },
-            data: { stock: { increment: item.quantity } },
+          const restocked = await restoreStock(tx, {
+            product_id: item.product_id,
+            variantId: item.variantId,
+            quantity: item.quantity,
           });
+          if (restocked) restockedProductIds.push(restocked);
         }
       }
 
@@ -625,11 +764,34 @@ export const adminCancelOrder = catchAsync(
       });
     });
 
+    // Trigger back-in-stock notifications
+    for (const productId of restockedProductIds) {
+      triggerStockNotification(productId).catch((err) =>
+        logger.warn("Back-in-stock notification failed", { productId, err }),
+      );
+    }
+
+    // Notify customer of admin cancellation
+    emailQueue
+      .add("send-email", {
+        email: order.user.email,
+        subject: "Your Northline order has been cancelled",
+        template: "orderStatus",
+        templateData: {
+          name: order.user.name,
+          orderId: orderId.slice(0, 8).toUpperCase(),
+          statusLabel: "Cancelled",
+          statusMessage: ORDER_STATUS_COPY[OrderStatus.CANCELLED]!.message,
+          trackingNumber: null,
+        },
+      })
+      .catch((err) =>
+        logger.warn("Failed to queue admin cancel email", { err }),
+      );
+
     res.status(200).json({
       status: "success",
-      data: {
-        order: cancelledOrder,
-      },
+      data: { order: cancelledOrder },
     });
   },
 );

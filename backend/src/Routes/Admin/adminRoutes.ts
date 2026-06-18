@@ -8,6 +8,8 @@ import adminCategoryRoute from "./adminCategoryRoutes";
 import adminOrderRoute from "./adminOrderRoutes";
 import adminAnalyticsRoute from "./adminAnalyticsRoutes";
 import adminVariantRoute from "./adminVariantRoutes";
+import adminTagRoute, { productTagRouter } from "./adminTagRoutes";
+import adminAttributeRoute from "./adminAttributeRoutes";
 import { Role } from "../../types/role.types";
 import { getSubscribers } from "../../controller/newsletterController";
 import {
@@ -37,10 +39,13 @@ router.use(Protect, restrictTo(Role.ADMIN));
 
 router.use("/categories", adminCategoryRoute);
 router.use("/products", adminProductRoute);
+router.use("/products", adminAttributeRoute);
+router.use("/products", productTagRouter);
 router.use("/users", adminUserRoute);
 router.use("/orders", adminOrderRoute);
 router.use("/analytics", adminAnalyticsRoute);
 router.use("/variants", adminVariantRoute);
+router.use("/tags", adminTagRoute);
 
 router.get("/newsletter/subscribers", getSubscribers);
 router.get("/contact", getContractMessages);

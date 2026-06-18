@@ -4,7 +4,7 @@ import { ProductQueryInput } from "../Schema/querySchema";
 export function buildWhereClause(filters: ProductQueryInput) {
   const where: any = {};
 
-  // Text search (case-insensitive)
+  // Text search (case-insensitive substring — for browsing/admin)
   if (filters.name) {
     where.name = {
       contains: filters.name,
@@ -52,6 +52,41 @@ export function buildWhereClause(filters: ProductQueryInput) {
     };
   }
 
+  // Tag collection filter (slug)
+  if (filters.tag) {
+    where.tags = {
+      some: {
+        tag: { slug: filters.tag },
+      },
+    };
+  }
+
+  // Attribute filter — "Color:Red,Size:M" → AND conditions
+  if (filters.attributes) {
+    const pairs = filters.attributes
+      .split(",")
+      .map((pair) => {
+        const colonIdx = pair.indexOf(":");
+        if (colonIdx === -1) return null;
+        return {
+          key: pair.slice(0, colonIdx).trim(),
+          value: pair.slice(colonIdx + 1).trim(),
+        };
+      })
+      .filter((p): p is { key: string; value: string } =>
+        p !== null && p.key.length > 0 && p.value.length > 0,
+      );
+
+    if (pairs.length > 0) {
+      where.AND = [
+        ...(where.AND ?? []),
+        ...pairs.map(({ key, value }) => ({
+          attributes: { some: { key, value } },
+        })),
+      ];
+    }
+  }
+
   return where;
 }
 
@@ -72,7 +107,6 @@ export function buildSelectClause(
   const fieldArray = fields.split(",").map((f) => f.trim());
   const select: any = {};
 
-  // Map query param names to Prisma `Products` field names (schema uses snake_case for ids)
   const fieldMap: Record<string, string> = {
     created_at: "createdAt",
     updated_at: "updatedAt",
@@ -83,7 +117,6 @@ export function buildSelectClause(
     select[prismaField] = true;
   });
 
-  // Ensure core display fields are always returned (frontend expects them).
   select.product_id = true;
   select.name = true;
   select.image = true;

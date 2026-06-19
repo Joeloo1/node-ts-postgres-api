@@ -20,15 +20,15 @@ const clearAddressListCache = async (userId: string) => {
   const keys = await redis.keys(`addresses:list:${userId}:*`);
   if (keys.length > 0) await redis.del(keys);
 };
+
 // create Address
 export const createAddress = catchAsync(
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (req: Request, res: Response, _next: NextFunction) => {
     const addressData = createAddressSchema.parse(req.body);
     const userId = req.user!.id;
 
     logger.info("User creating a new address", { userId });
 
-    // Auto-default if this is the user's first address
     const existingCount = await prisma.address.count({ where: { userId } });
     const isDefault = existingCount === 0;
 
@@ -55,6 +55,7 @@ export const updateAddress = catchAsync(
     const updateData = updateAddressSchema.parse(req.body);
 
     logger.info("User updating an address", { userId, addressId });
+
     const address = await prisma.address.findUnique({
       where: { id: addressId },
     });
@@ -91,7 +92,7 @@ export const updateAddress = catchAsync(
 
 // Get All Address
 export const getAllAddresses = catchAsync(
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (req: Request, res: Response, _next: NextFunction) => {
     const userId = req.user!.id;
     const cacheKey = getAddressListKey(userId, req.query);
 
@@ -106,6 +107,7 @@ export const getAllAddresses = catchAsync(
         },
       });
     }
+
     logger.info("User fetching all addresses", { userId });
     const address = await prisma.address.findMany({
       where: { userId },

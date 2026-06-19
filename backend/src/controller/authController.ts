@@ -20,9 +20,13 @@ import { Role } from "../types/role.types";
 import { JwtPayload } from "../types/auth.types";
 import { UserRole } from "@prisma/client";
 import { client as redis, scanDel } from "../config/redis";
-import type { CookieOptions } from "express";
+// import type { CookieOptions } from "express";
 import { emailQueue } from "../jobs/emailQueue";
-import { isAccountLocked, recordFailedLogin, clearFailedLogins } from "../utils/authLimiter";
+import {
+  isAccountLocked,
+  recordFailedLogin,
+  clearFailedLogins,
+} from "../utils/authLimiter";
 
 const isProd = process.env.NODE_ENV === "production";
 
@@ -72,14 +76,17 @@ const clearAuthCookie = (res: Response) => {
 
 //  Signup User
 export const signup = catchAsync(
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (req: Request, res: Response, _next: NextFunction) => {
     const user = signupSchema.parse(req.body);
 
     const exitingUser = await prisma.user.findUnique({
       where: { email: user.email },
     });
     if (exitingUser) {
-      logger.warn("Signup attempt for existing email — sending silent notification", { email: user.email });
+      logger.warn(
+        "Signup attempt for existing email — sending silent notification",
+        { email: user.email },
+      );
       try {
         await emailQueue.add("send-email", {
           email: user.email,
@@ -105,6 +112,9 @@ export const signup = catchAsync(
       .digest("hex");
     const verifyTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
+    // Generate a unique referral code for this user
+    const referralCode = crypto.randomBytes(5).toString("hex").toUpperCase();
+
     logger.info("Creating a new user", { email: user.email });
     const newUser = await prisma.user.create({
       data: {
@@ -116,8 +126,30 @@ export const signup = catchAsync(
         profileImage: user.profileImage,
         verifyToken: hashedVerifyToken,
         verifyTokenExpiry,
+        referralCode,
       },
     });
+
+    // Create loyalty account immediately so the user always has one
+    await prisma.loyaltyAccount.create({ data: { userId: newUser.id } }).catch(() => {});
+
+    // Handle referral — accept from body OR ?ref= query param
+    const refCode =
+      (user as typeof user & { referredByCode?: string }).referredByCode ||
+      (req.query.ref as string | undefined);
+    if (refCode) {
+      const referrer = await prisma.user.findUnique({
+        where: { referralCode: refCode.toUpperCase() },
+        select: { id: true },
+      });
+      if (referrer && referrer.id !== newUser.id) {
+        await prisma.referral
+          .create({
+            data: { referrerId: referrer.id, refereeId: newUser.id },
+          })
+          .catch(() => {}); // ignore duplicate if somehow already created
+      }
+    }
 
     // New signup affects admin user listings cached by userController.
     await clearUsersListCache();
@@ -403,6 +435,29 @@ export const Protect = catchAsync(
     next();
   },
 );
+
+// Non-blocking variant — attaches req.user if a valid JWT is present, never throws
+export const optionalProtect = async (
+  req: Request,
+  _res: Response,
+  next: NextFunction,
+) => {
+  try {
+    let token: string | undefined;
+    if (req.headers.authorization?.startsWith("Bearer")) {
+      token = req.headers.authorization.split(" ")[1];
+    }
+    if (!token) token = req.cookies?.jwt;
+    if (!token) return next();
+
+    const decoded = JWT.verify(token, process.env.JWT_SECRET as string) as JwtPayload;
+    const user = await prisma.user.findUnique({ where: { id: decoded.id } });
+    if (user && user.active) req.user = user;
+  } catch {
+    // ignore invalid/expired tokens — event tracking never blocks on auth
+  }
+  next();
+};
 
 export const logout = catchAsync(async (req: Request, res: Response) => {
   const token =

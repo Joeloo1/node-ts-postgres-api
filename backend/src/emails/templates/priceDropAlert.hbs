@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Price Drop Alert</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f4f4f4; margin: 0; padding: 0; }
+    .container { max-width: 580px; margin: 40px auto; background: #fff; border-radius: 8px; overflow: hidden; }
+    .header { background: #065f46; padding: 32px; text-align: center; color: #fff; }
+    .body { padding: 32px; color: #374151; }
+    .price-old { color: #9ca3af; text-decoration: line-through; font-size: 18px; }
+    .price-new { color: #059669; font-size: 28px; font-weight: bold; }
+    .btn { display: inline-block; margin-top: 24px; padding: 14px 28px; background: #059669; color: #fff; border-radius: 6px; text-decoration: none; font-weight: bold; }
+    .footer { background: #f9fafb; padding: 20px; text-align: center; font-size: 12px; color: #9ca3af; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1 style="margin:0;font-size:24px;">Price Drop! 🎉</h1>
+    </div>
+    <div class="body">
+      <p>Hi {{name}},</p>
+      <p>Good news! An item on your wishlist just got cheaper:</p>
+      <p><strong>{{productName}}</strong></p>
+      <p class="price-old">${{oldPrice}}</p>
+      <p class="price-new">${{newPrice}}</p>
+      <a href="{{productUrl}}" class="btn">Shop Now</a>
+    </div>
+    <div class="footer">&copy; {{year}} Northline. All rights reserved.</div>
+  </div>
+</body>
+</html>

@@ -30,6 +30,11 @@ export const signupSchema = z
       .string()
       .url({ message: "Invalid URL format for profile image" })
       .optional(),
+    referredByCode: z
+      .string()
+      .max(20)
+      .optional()
+      .transform((v) => v?.toUpperCase().trim() || undefined),
   })
   .refine((data) => data.password === data.passwordConfirm, {
     message: "Passwords do not match",

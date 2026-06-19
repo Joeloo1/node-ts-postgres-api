@@ -30,5 +30,8 @@ export async function uploadToS3(
       ContentType: contentType,
     }),
   );
+  // Serve via CloudFront when configured — faster delivery, hides bucket name
+  const cdnBase = process.env.CLOUDFRONT_URL?.replace(/\/$/, "");
+  if (cdnBase) return `${cdnBase}/${key}`;
   return `https://${BUCKET}.s3.amazonaws.com/${key}`;
 }

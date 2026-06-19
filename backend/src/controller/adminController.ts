@@ -3,7 +3,6 @@ import { prisma } from "../config/database";
 import catchAsync from "../utils/catchAsync";
 import AppError from "../utils/AppError";
 import { userUpdateSchema } from "../Schema/userSchema";
-import { filterObj } from "../utils/filterObj";
 import { sanitizeUser } from "../utils/sanitizeUser";
 import logger from "../config/logger";
 import { client as redis, scanDel } from "../config/redis";

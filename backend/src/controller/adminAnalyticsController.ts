@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { OrderStatus } from "@prisma/client";
+import { OrderStatus, Prisma } from "@prisma/client";
 import { prisma } from "../config/database";
 import catchAsync from "../utils/catchAsync";
 import logger from "../config/logger";
@@ -16,8 +16,9 @@ const PAID_STATUSES: OrderStatus[] = [
 ];
 
 export const getDashboardStats = catchAsync(
-  async (req: Request, res: Response) => {
+  async (_req: Request, res: Response) => {
     const cached = await redis.get(DASHBOARD_CACHE_KEY);
+
     if (cached) {
       logger.info("Serving dashboard analytics from cache");
       return res.status(200).json(JSON.parse(cached));
@@ -137,5 +138,151 @@ export const getDashboardStats = catchAsync(
 
     logger.info("Admin fetched dashboard analytics");
     res.status(200).json(responseData);
+  },
+);
+
+type RevenuePeriod = "daily" | "weekly" | "monthly" | "yearly";
+
+const PERIOD_TRUNC: Record<RevenuePeriod, string> = {
+  daily: "day",
+  weekly: "week",
+  monthly: "month",
+  yearly: "year",
+};
+
+const PERIOD_FORMAT: Record<RevenuePeriod, string> = {
+  daily: "YYYY-MM-DD",
+  weekly: "IYYY-IW",
+  monthly: "YYYY-MM",
+  yearly: "YYYY",
+};
+
+// GET /admin/analytics/revenue?period=daily|weekly|monthly|yearly&days=90
+export const getRevenueBreakdown = catchAsync(
+  async (req: Request, res: Response) => {
+    const period = ((req.query.period as string) || "daily") as RevenuePeriod;
+    const days = Math.min(Number(req.query.days) || 30, 365);
+
+    if (!PERIOD_TRUNC[period]) {
+      return res.status(400).json({
+        status: "fail",
+        message: "Invalid period. Use daily|weekly|monthly|yearly",
+      });
+    }
+
+    const cacheKey = `analytics:revenue:${period}:${days}`;
+    const cached = await redis.get(cacheKey);
+    if (cached) {
+      return res.status(200).json(JSON.parse(cached));
+    }
+
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    const trunc = PERIOD_TRUNC[period];
+    const fmt = PERIOD_FORMAT[period];
+
+    const rows = await prisma.$queryRaw<
+      Array<{ period: string; revenue: number; orders: number }>
+    >`
+      SELECT
+        TO_CHAR(DATE_TRUNC(${trunc}, "createdAt"), ${fmt}) AS period,
+        SUM(total)::float                                   AS revenue,
+        COUNT(*)::int                                       AS orders
+      FROM "Order"
+      WHERE "createdAt" >= ${since}
+        AND status = ANY(ARRAY['PAID','PROCESSING','SHIPPED','DELIVERED'])
+      GROUP BY DATE_TRUNC(${trunc}, "createdAt")
+      ORDER BY DATE_TRUNC(${trunc}, "createdAt") ASC
+    `;
+
+    const payload = { status: "success", data: { period, days, rows } };
+    await redis.setEx(cacheKey, 300, JSON.stringify(payload));
+    res.status(200).json(payload);
+  },
+);
+
+// GET /admin/analytics/top-customers?limit=10
+export const getTopCustomers = catchAsync(
+  async (req: Request, res: Response) => {
+    const limit = Math.min(Number(req.query.limit) || 10, 50);
+
+    const cacheKey = `analytics:top-customers:${limit}`;
+    const cached = await redis.get(cacheKey);
+    if (cached) {
+      return res.status(200).json(JSON.parse(cached));
+    }
+
+    const rows = await prisma.$queryRaw<
+      Array<{
+        userId: string;
+        name: string;
+        email: string;
+        totalSpend: number;
+        orderCount: number;
+      }>
+    >`
+      SELECT
+        o."userId",
+        u.name,
+        u.email,
+        SUM(o.total)::float  AS "totalSpend",
+        COUNT(o.id)::int     AS "orderCount"
+      FROM "Order" o
+      JOIN "User" u ON u.id = o."userId"
+      WHERE o.status = ANY(ARRAY['PAID','PROCESSING','SHIPPED','DELIVERED'])
+      GROUP BY o."userId", u.name, u.email
+      ORDER BY "totalSpend" DESC
+      LIMIT ${BigInt(limit)}
+    `;
+
+    const payload = { status: "success", data: { customers: rows } };
+    await redis.setEx(cacheKey, 300, JSON.stringify(payload));
+    res.status(200).json(payload);
+  },
+);
+
+// GET /admin/analytics/top-products?by=revenue|units&limit=10
+export const getTopProductsAnalytics = catchAsync(
+  async (req: Request, res: Response) => {
+    const by = (req.query.by as string) === "revenue" ? "revenue" : "units";
+    const limit = Math.min(Number(req.query.limit) || 10, 50);
+
+    const cacheKey = `analytics:top-products:${by}:${limit}`;
+    const cached = await redis.get(cacheKey);
+    if (cached) {
+      return res.status(200).json(JSON.parse(cached));
+    }
+
+    const orderClause =
+      by === "revenue"
+        ? Prisma.sql`SUM(oi.price * oi.quantity) DESC`
+        : Prisma.sql`SUM(oi.quantity) DESC`;
+
+    const rows = await prisma.$queryRaw<
+      Array<{
+        productId: string;
+        name: string;
+        image: string | null;
+        revenue: number;
+        unitsSold: number;
+      }>
+    >`
+      SELECT
+        p.product_id::text                        AS "productId",
+        p.name,
+        p.image,
+        SUM(oi.price * oi.quantity)::float        AS revenue,
+        SUM(oi.quantity)::int                     AS "unitsSold"
+      FROM "OrderItem" oi
+      JOIN "Products" p ON p.product_id = oi.product_id
+      JOIN "Order" o ON o.id = oi."orderId"
+      WHERE o.status = ANY(ARRAY['PAID','PROCESSING','SHIPPED','DELIVERED'])
+      GROUP BY p.product_id, p.name, p.image
+      ORDER BY ${orderClause}
+      LIMIT ${BigInt(limit)}
+    `;
+
+    const payload = { status: "success", data: { by, products: rows } };
+    await redis.setEx(cacheKey, 300, JSON.stringify(payload));
+    res.status(200).json(payload);
   },
 );

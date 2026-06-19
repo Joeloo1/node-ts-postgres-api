@@ -5,6 +5,8 @@ import logger from "./config/logger";
 import app from "./app";
 import { Server } from "http";
 import "./jobs/emailQueue";
+import "./jobs/promotionQueue";
+import "./jobs/cartAbandonmentQueue";
 
 const port = process.env.PORT || 3000;
 let server: Server;

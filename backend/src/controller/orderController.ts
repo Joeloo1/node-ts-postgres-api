@@ -12,6 +12,7 @@ import {
 import { emailQueue } from "../jobs/emailQueue";
 import { logAudit } from "../utils/audit";
 import { triggerStockNotification } from "./stockNotifyController";
+import { awardLoyaltyPoints } from "./loyaltyController";
 
 const ORDER_STATUS_COPY: Partial<
   Record<OrderStatus, { label: string; message: string }>
@@ -37,6 +38,11 @@ const ORDER_STATUS_COPY: Partial<
     label: "Cancelled",
     message:
       "Your order has been cancelled. If you have questions, please contact support.",
+  },
+  REFUNDED: {
+    label: "Refunded",
+    message:
+      "Your refund has been processed. Funds will appear in your account within 5-10 business days.",
   },
 };
 
@@ -346,28 +352,53 @@ export const checkoutFromCart = catchAsync(
 
 export const getMyOrder = catchAsync(
   async (req: Request, res: Response, _next: NextFunction) => {
-    const page = Math.max(1, Number(req.query.page) || 1);
+    const userId = req.user!.id;
     const limit = Math.min(20, Math.max(1, Number(req.query.limit) || 10));
+    const cursor = typeof req.query.cursor === "string" ? req.query.cursor : undefined;
+
+    logger.info(`Fetching orders for user ID: ${userId}`);
+
+    if (cursor) {
+      const orders = await prisma.order.findMany({
+        where: { userId },
+        orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+        cursor: { id: cursor },
+        skip: 1,
+        take: limit,
+        include: {
+          items: {
+            include: { product: { select: { name: true, image: true, images: true } } },
+          },
+        },
+      });
+      const nextCursor = orders.length === limit ? orders[orders.length - 1].id : null;
+      return res.status(200).json({
+        status: "success",
+        results: orders.length,
+        data: { orders },
+        pagination: { limit, nextCursor, hasNext: nextCursor !== null },
+      });
+    }
+
+    const page = Math.max(1, Number(req.query.page) || 1);
     const skip = (page - 1) * limit;
 
-    logger.info(`Fetching orders for user ID: ${req.user!.id}`);
     const [orders, total] = await Promise.all([
       prisma.order.findMany({
-        where: { userId: req.user!.id },
+        where: { userId },
         orderBy: { createdAt: "desc" },
         skip,
         take: limit,
         include: {
           items: {
-            include: {
-              product: { select: { name: true, image: true, images: true } },
-            },
+            include: { product: { select: { name: true, image: true, images: true } } },
           },
         },
       }),
-      prisma.order.count({ where: { userId: req.user!.id } }),
+      prisma.order.count({ where: { userId } }),
     ]);
 
+    const nextCursor = orders.length === limit ? orders[orders.length - 1].id : null;
     logger.info("Orders fetched successfully");
     res.status(200).json({
       status: "success",
@@ -376,6 +407,7 @@ export const getMyOrder = catchAsync(
       totalPages: Math.ceil(total / limit),
       page,
       data: { orders },
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit), nextCursor },
     });
   },
 );
@@ -512,6 +544,36 @@ export const updateOrder = catchAsync(
         .catch((err) =>
           logger.warn("Failed to queue order status email", { err }),
         );
+    }
+
+    // Award loyalty points and complete referral on first delivery
+    if (status === OrderStatus.DELIVERED) {
+      const pointsEarned = Math.floor(order.total);
+      if (pointsEarned > 0) {
+        awardLoyaltyPoints(
+          order.userId,
+          pointsEarned,
+          "EARNED",
+          `Order #${order.id.slice(0, 8).toUpperCase()}`,
+          order.id,
+        ).catch(() => {});
+      }
+
+      // Complete referral on referee's first delivered order
+      const referral = await prisma.referral
+        .findUnique({ where: { refereeId: order.userId } })
+        .catch(() => null);
+      if (referral && referral.status === "PENDING") {
+        await prisma.referral
+          .update({
+            where: { id: referral.id },
+            data: { status: "COMPLETED", completedAt: new Date() },
+          })
+          .catch(() => {});
+        // Bonus: 200 pts to referrer, 100 pts to referee
+        awardLoyaltyPoints(referral.referrerId, 200, "BONUS", "Referral reward").catch(() => {});
+        awardLoyaltyPoints(order.userId, 100, "BONUS", "Welcome referral bonus").catch(() => {});
+      }
     }
 
     // Schedule review request 7 days after delivery
@@ -793,5 +855,27 @@ export const adminCancelOrder = catchAsync(
       status: "success",
       data: { order: cancelledOrder },
     });
+  },
+);
+
+// ADMIN: bulk update order status
+export const bulkUpdateOrderStatus = catchAsync(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const { ids, status } = req.body as { ids: string[]; status: OrderStatus };
+
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return next(new AppError("ids must be a non-empty array", 400));
+    }
+    if (!Object.values(OrderStatus).includes(status)) {
+      return next(new AppError(`Invalid status: ${status}`, 400));
+    }
+
+    const { count } = await prisma.order.updateMany({
+      where: { id: { in: ids } },
+      data: { status },
+    });
+
+    logger.info("Bulk order status update", { ids, status, count });
+    res.status(200).json({ status: "success", data: { updated: count } });
   },
 );

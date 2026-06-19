@@ -1,4 +1,4 @@
-import { ProductQueryInput } from "../Schema/querySchema";
+import type { ProductQueryInput } from "../Schema/querySchema";
 
 // Build WHERE clause for Prisma
 export function buildWhereClause(filters: ProductQueryInput) {
@@ -133,4 +133,21 @@ export function getPaginationParams(page: number, limit: number) {
     skip: (page - 1) * limit,
     take: limit,
   };
+}
+
+// Cursor-based pagination params — pass cursor (last product_id) for stable, index-friendly pagination
+export function getCursorParams(
+  cursor: string | undefined,
+  limit: number,
+): { cursor?: { product_id: string }; skip?: number; take: number; orderBy: object[] } {
+  if (cursor) {
+    return {
+      cursor: { product_id: cursor },
+      skip: 1,
+      take: limit,
+      // Stable compound sort required for cursor pagination correctness
+      orderBy: [{ createdAt: "desc" as const }, { product_id: "asc" as const }],
+    };
+  }
+  return { take: limit, orderBy: [{ createdAt: "desc" as const }, { product_id: "asc" as const }] };
 }

@@ -7,6 +7,7 @@ export const productQuerySchema = z.object({
 
   // filter
   name: z.string().optional(),
+  search: z.string().optional(), // alias that triggers FTS instead of ILIKE
   brand: z.string().optional(),
   category_id: z.coerce.number().int().optional(),
   availability: z.coerce.boolean().optional(),
@@ -22,6 +23,9 @@ export const productQuerySchema = z.object({
 
   // Attribute filter — comma-separated "Key:Value" pairs e.g. "Color:Red,Size:M"
   attributes: z.string().optional(),
+
+  // Cursor-based pagination (pass last product_id from previous page)
+  cursor: z.string().uuid().optional(),
 
   // Sorting
   sortBy: z.string().default("createdAt"),

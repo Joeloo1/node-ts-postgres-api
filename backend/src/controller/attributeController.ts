@@ -78,7 +78,10 @@ export const bulkSetAttributes = catchAsync(
     await redis.del(`product:${productId}`);
     await scanDel("products:list:*");
 
-    logger.info("Product attributes replaced", { productId, count: attributes.length });
+    logger.info("Product attributes replaced", {
+      productId,
+      count: attributes.length,
+    });
     res.status(200).json({
       status: "success",
       message: `${attributes.length} attribute(s) set for product ${productId}`,

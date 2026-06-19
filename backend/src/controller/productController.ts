@@ -11,11 +11,13 @@ import {
   buildOrderByClause,
   buildSelectClause,
   getPaginationParams,
+  getCursorParams,
 } from "../utils/queryBuilder";
 import logger from "../config/logger";
 import { scanDel } from "../config/redis";
 import { logAudit } from "../utils/audit";
 import { triggerStockNotification } from "./stockNotifyController";
+import { emailQueue } from "../jobs/emailQueue";
 
 const REDIS_TTL = 3600;
 const getProductKey = (id: string) => `product:${id}`;
@@ -41,6 +43,8 @@ const ALLOWED_CACHE_PARAMS = new Set([
   "name",
   "tag",
   "attributes",
+  "cursor",
+  "search",
 ]);
 
 const getProductsQueryKey = (query: Record<string, unknown>) => {
@@ -149,7 +153,13 @@ export const createProduct = catchAsync(
 
 // GET ALL PRODUCTS WITH FILTERING, SORTING & PAGINATION
 export const getAllProducts = catchAsync(
-  async (req: Request, res: Response, _next: NextFunction) => {
+  async (req: Request, res: Response, next: NextFunction) => {
+    // Delegate to FTS endpoint when ?search= is provided
+    if (req.query.search) {
+      req.query.q = req.query.search;
+      return searchProducts(req, res, next);
+    }
+
     // Validate and parse query parameters
     const filters = productQuerySchema.parse(req.query);
 
@@ -166,62 +176,73 @@ export const getAllProducts = catchAsync(
     }
 
     logger.info("Fetching all Products");
-    // Build query components
     const where = { ...buildWhereClause(filters), deletedAt: null };
-    const orderBy = buildOrderByClause(filters);
     const select = buildSelectClause(filters.fields, {
       includeImages: filters.includeImages,
     });
-    const { skip, take } = getPaginationParams(filters.page, filters.limit);
 
-    // Execute query with count in parallel
-    const productsPromise = select
-      ? prisma.products.findMany({
-          where,
-          orderBy,
-          skip,
-          take,
-          select,
-        })
-      : prisma.products.findMany({
-          where,
-          orderBy,
-          skip,
-          take,
-          select: baseListSelect(filters.includeImages),
-        });
+    let responseData: object;
 
-    const [products, total] = await Promise.all([
-      productsPromise,
-      prisma.products.count({ where }),
-    ]);
+    if (filters.cursor) {
+      // Cursor-based pagination — no total count needed (expensive on large tables)
+      const cursorParams = getCursorParams(filters.cursor, filters.limit);
+      const products = await prisma.products.findMany({
+        where,
+        ...cursorParams,
+        ...(select ? { select } : { select: baseListSelect(filters.includeImages) }),
+      });
+      const nextCursor =
+        products.length === filters.limit
+          ? (products[products.length - 1] as any).product_id
+          : null;
 
-    // Calculate pagination metadata
-    const totalPages = Math.ceil(total / filters.limit);
+      responseData = {
+        status: "Success",
+        results: products.length,
+        data: { products },
+        pagination: { limit: filters.limit, nextCursor, hasNext: nextCursor !== null },
+      };
+    } else {
+      // Offset pagination (default)
+      const orderBy = buildOrderByClause(filters);
+      const { skip, take } = getPaginationParams(filters.page, filters.limit);
+
+      const productsPromise = select
+        ? prisma.products.findMany({ where, orderBy, skip, take, select })
+        : prisma.products.findMany({ where, orderBy, skip, take, select: baseListSelect(filters.includeImages) });
+
+      const [products, total] = await Promise.all([
+        productsPromise,
+        prisma.products.count({ where }),
+      ]);
+
+      const totalPages = Math.ceil(total / filters.limit);
+      // Expose nextCursor for clients who want to switch to cursor mode
+      const lastProduct = products[products.length - 1] as any;
+      const nextCursor = products.length === filters.limit && lastProduct
+        ? lastProduct.product_id
+        : null;
+
+      responseData = {
+        status: "Success",
+        results: products.length,
+        data: { products },
+        pagination: {
+          page: filters.page,
+          limit: filters.limit,
+          total,
+          totalPages,
+          hasNext: filters.page < totalPages,
+          hasPrev: filters.page > 1,
+          nextCursor,
+        },
+      };
+    }
 
     logger.info("Fetched all products successfully");
-
-    const responseData = {
-      status: "Success",
-      results: products.length,
-      data: {
-        products,
-      },
-      pagination: {
-        page: filters.page,
-        limit: filters.limit,
-        total,
-        totalPages,
-        hasNext: filters.page < totalPages,
-        hasPrev: filters.page > 1,
-      },
-    };
     await redis.setEx(cacheKey, REDIS_TTL, JSON.stringify(responseData));
 
-    res.setHeader(
-      "Cache-Control",
-      "public, max-age=30, stale-while-revalidate=600",
-    );
+    res.setHeader("Cache-Control", "public, max-age=30, stale-while-revalidate=600");
     res.status(200).json(responseData);
   },
 );
@@ -348,6 +369,36 @@ export const updateProduct = catchAsync(
         data: { product_id: productId, price: data.price },
       });
       await redis.del(`price_history:${productId}`);
+
+      // Price drop alert — email users who wishlisted this product
+      if (data.price < existingProduct.price) {
+        prisma.wishlist
+          .findMany({
+            where: { product_id: productId },
+            include: { user: { select: { email: true, name: true, active: true } } },
+          })
+          .then((entries) => {
+            for (const entry of entries) {
+              if (!entry.user.active) continue;
+              emailQueue
+                .add("send-email", {
+                  email: entry.user.email,
+                  subject: `Price drop! "${existingProduct.name}" is now cheaper`,
+                  template: "priceDropAlert",
+                  templateData: {
+                    name: entry.user.name,
+                    productName: existingProduct.name,
+                    oldPrice: existingProduct.price.toFixed(2),
+                    newPrice: data.price!.toFixed(2),
+                    productUrl: `${process.env.CLIENT_URL}/products/${productId}`,
+                    year: new Date().getFullYear(),
+                  },
+                })
+                .catch(() => {});
+            }
+          })
+          .catch(() => {});
+      }
     }
 
     await redis.del(getProductKey(productId));
@@ -512,6 +563,16 @@ export const getProductsFeed = catchAsync(
 
 // ── Autocomplete suggestions ─────────────────────────────────────────────────
 
+type SuggestionRow = {
+  product_id: string;
+  name: string;
+  brand: string | null;
+  price: number;
+  image: string | null;
+  discount: number | null;
+  similarity: number;
+};
+
 export const getSuggestions = catchAsync(
   async (req: Request, res: Response, _next: NextFunction) => {
     const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
@@ -526,29 +587,34 @@ export const getSuggestions = catchAsync(
       return res.status(200).json({ status: "success", data: JSON.parse(cached) });
     }
 
-    const suggestions = await prisma.products.findMany({
-      where: {
-        deletedAt: null,
-        availability: true,
-        OR: [
-          { name: { contains: q, mode: "insensitive" } },
-          { brand: { contains: q, mode: "insensitive" } },
-        ],
-      },
-      select: {
-        product_id: true,
-        name: true,
-        brand: true,
-        price: true,
-        image: true,
-        discount: true,
-      },
-      take: 8,
-      orderBy: { rating: "desc" },
-    });
+    // Use trigram similarity for typo-tolerant instant suggestions
+    const suggestions = await prisma.$queryRaw<SuggestionRow[]>`
+      SELECT
+        p.product_id::text,
+        p.name,
+        p.brand,
+        p.price,
+        p.image,
+        p.discount,
+        GREATEST(
+          similarity(p.name, ${q}),
+          similarity(coalesce(p.brand, ''), ${q})
+        ) AS similarity
+      FROM "Products" p
+      WHERE
+        p."deletedAt" IS NULL
+        AND p.availability = true
+        AND (
+          p.name ILIKE ${`%${q}%`}
+          OR p.brand ILIKE ${`%${q}%`}
+          OR similarity(p.name, ${q}) > 0.15
+          OR similarity(coalesce(p.brand, ''), ${q}) > 0.15
+        )
+      ORDER BY similarity DESC, p.rating DESC NULLS LAST
+      LIMIT 8
+    `;
 
     await redis.setEx(cacheKey, 30, JSON.stringify(suggestions));
-
     res.status(200).json({ status: "success", data: suggestions });
   },
 );
@@ -861,5 +927,219 @@ export const getFrequentlyBoughtTogether = catchAsync(
 
     await redis.setEx(cacheKey, 300, JSON.stringify(products));
     res.status(200).json({ status: "success", data: { products } });
+  },
+);
+
+// ─── Bulk Operations ─────────────────────────────────────────────────────────
+
+// ADMIN: batch update (discount, availability) for multiple products
+export const bulkUpdateProducts = catchAsync(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const { ids, update } = req.body as {
+      ids: string[];
+      update: { discount?: number; availability?: boolean };
+    };
+
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return next(new AppError("ids must be a non-empty array", 400));
+    }
+    if (!update || Object.keys(update).length === 0) {
+      return next(new AppError("update object must have at least one field", 400));
+    }
+
+    const { count } = await prisma.products.updateMany({
+      where: { product_id: { in: ids }, deletedAt: null },
+      data: update,
+    });
+
+    await scanDel("products:list:*");
+    logger.info("Bulk product update", { ids, update, count });
+    res.status(200).json({ status: "success", data: { updated: count } });
+  },
+);
+
+// ADMIN: soft-delete multiple products
+export const bulkDeleteProducts = catchAsync(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const { ids } = req.body as { ids: string[] };
+
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return next(new AppError("ids must be a non-empty array", 400));
+    }
+
+    const { count } = await prisma.products.updateMany({
+      where: { product_id: { in: ids }, deletedAt: null },
+      data: { deletedAt: new Date() },
+    });
+
+    await scanDel("products:list:*");
+    logger.info("Bulk product soft-delete", { ids, count });
+    res.status(200).json({ status: "success", data: { deleted: count } });
+  },
+);
+
+// ADMIN: update stock for multiple products at once
+export const bulkUpdateStock = catchAsync(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const { updates } = req.body as {
+      updates: Array<{ id: string; stock: number }>;
+    };
+
+    if (!Array.isArray(updates) || updates.length === 0) {
+      return next(new AppError("updates must be a non-empty array", 400));
+    }
+
+    await prisma.$transaction(
+      updates.map(({ id, stock }) =>
+        prisma.products.update({
+          where: { product_id: id },
+          data: {
+            stock,
+            availability: stock > 0,
+          },
+        }),
+      ),
+    );
+
+    await scanDel("products:list:*");
+    logger.info("Bulk stock update", { count: updates.length });
+    res.status(200).json({ status: "success", data: { updated: updates.length } });
+  },
+);
+
+// ─── Export / Import ──────────────────────────────────────────────────────────
+
+function csvRow(fields: (string | number | boolean | null | undefined)[]): string {
+  return fields
+    .map((v) => {
+      const s = v == null ? "" : String(v);
+      return s.includes(",") || s.includes('"') || s.includes("\n")
+        ? `"${s.replace(/"/g, '""')}"`
+        : s;
+    })
+    .join(",");
+}
+
+// ADMIN: export all products as CSV
+export const exportProducts = catchAsync(
+  async (_req: Request, res: Response) => {
+    const products = await prisma.products.findMany({
+      where: { deletedAt: null },
+      include: { category: { select: { name: true } } },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const headers = [
+      "id", "name", "brand", "price", "discount", "stock",
+      "availability", "category", "rating", "createdAt",
+    ];
+    const rows = products.map((p) =>
+      csvRow([
+        p.product_id,
+        p.name,
+        p.brand,
+        p.price,
+        p.discount,
+        p.stock,
+        p.availability,
+        p.category?.name,
+        p.rating,
+        p.createdAt.toISOString(),
+      ]),
+    );
+
+    const csv = [headers.join(","), ...rows].join("\n");
+
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="products-${Date.now()}.csv"`,
+    );
+    res.status(200).send(csv);
+  },
+);
+
+// ADMIN: import products from CSV (multipart/form-data, field: "file")
+export const importProducts = catchAsync(
+  async (req: Request, res: Response, next: NextFunction) => {
+    if (!req.file) return next(new AppError("CSV file is required", 400));
+
+    const text = req.file.buffer.toString("utf-8");
+    const lines = text.trim().split(/\r?\n/);
+    if (lines.length < 2) return next(new AppError("CSV must have a header row and at least one data row", 400));
+
+    const headers = lines[0].split(",").map((h) => h.trim().replace(/^"|"$/g, ""));
+    const required = ["name", "price"];
+    const missing = required.filter((r) => !headers.includes(r));
+    if (missing.length) {
+      return next(new AppError(`CSV missing required columns: ${missing.join(", ")}`, 400));
+    }
+
+    const parseRow = (line: string): Record<string, string> => {
+      const values: string[] = [];
+      let cur = "";
+      let inQuote = false;
+      for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (ch === '"') {
+          if (inQuote && line[i + 1] === '"') { cur += '"'; i++; }
+          else { inQuote = !inQuote; }
+        } else if (ch === "," && !inQuote) {
+          values.push(cur); cur = "";
+        } else {
+          cur += ch;
+        }
+      }
+      values.push(cur);
+      return Object.fromEntries(headers.map((h, i) => [h, (values[i] ?? "").trim()]));
+    };
+
+    const rows = lines.slice(1).map(parseRow);
+    let created = 0;
+    let updated = 0;
+    const errors: string[] = [];
+
+    for (const [i, row] of rows.entries()) {
+      const rowNum = i + 2;
+      const price = parseFloat(row.price);
+      if (isNaN(price) || price < 0) {
+        errors.push(`Row ${rowNum}: invalid price "${row.price}"`);
+        continue;
+      }
+      if (!row.name?.trim()) {
+        errors.push(`Row ${rowNum}: name is required`);
+        continue;
+      }
+
+      try {
+        const data = {
+          name: row.name.trim(),
+          price,
+          brand: row.brand?.trim() || null,
+          description: row.description?.trim() || null,
+          stock: row.stock ? parseInt(row.stock, 10) : 0,
+          discount: row.discount ? parseFloat(row.discount) : null,
+          availability: row.availability?.toLowerCase() !== "false",
+        };
+
+        if (row.id?.trim()) {
+          await prisma.products.update({ where: { product_id: row.id }, data });
+          updated++;
+        } else {
+          await prisma.products.create({ data });
+          created++;
+        }
+      } catch {
+        errors.push(`Row ${rowNum}: database error for "${row.name}"`);
+      }
+    }
+
+    await scanDel("products:list:*");
+    logger.info("Product CSV import complete", { created, updated, errors: errors.length });
+
+    res.status(200).json({
+      status: "success",
+      data: { created, updated, errors },
+    });
   },
 );

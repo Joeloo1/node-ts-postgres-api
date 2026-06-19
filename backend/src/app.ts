@@ -24,10 +24,19 @@ import newsletterRoutes from "./Routes/User/newsletterRoutes";
 import contactRoutes from "./Routes/User/contactRoutes";
 import couponRoutes from "./Routes/User/couponRoutes";
 import stockNotifyRoutes from "./Routes/User/stockNotifyRoutes";
+import bannerRoutes from "./Routes/User/bannerRoutes";
+import shippingRoutes from "./Routes/User/shippingRoutes";
+import loyaltyRoutes from "./Routes/User/loyaltyRoutes";
+import giftCardRoutes from "./Routes/User/giftCardRoutes";
+import referralRoutes from "./Routes/User/referralRoutes";
+import eventsRoutes from "./Routes/User/eventsRoutes";
 import { stripeWebhook } from "./controller/paymentController";
 
 import logger from "./config/logger";
 import AppError from "./utils/AppError";
+import { serverAdapter as bullBoardAdapter } from "./config/bullBoard";
+import { Protect, restrictTo } from "./controller/authController";
+import { Role } from "./types/role.types";
 import { globalErrorHandler } from "./Error/globalErrorHandler";
 import { client as redis } from "./config/redis";
 import { requestIdMiddleware } from "./middleware/requestId";
@@ -285,6 +294,25 @@ app.use("/api/v1/contact", contactRoutes);
 app.use("/api/v1/coupons", couponRoutes);
 // stockNotify Routes
 app.use("/api/v1/stock-notify", stockNotifyRoutes);
+// banner Routes (public)
+app.use("/api/v1/banners", bannerRoutes);
+// shipping Routes (public rates + tracking webhook)
+app.use("/api/v1/shipping", shippingRoutes);
+// loyalty Routes
+app.use("/api/v1/users/me/loyalty", loyaltyRoutes);
+// gift card Routes
+app.use("/api/v1/gift-cards", giftCardRoutes);
+// referral Routes
+app.use("/api/v1/users/me/referral", referralRoutes);
+// analytics event tracking (lightweight, unauthenticated)
+app.use("/api/v1/events", eventsRoutes);
+// Bull Board queue dashboard (admin only)
+app.use(
+  "/api/v1/admin/queues",
+  Protect,
+  restrictTo(Role.ADMIN),
+  bullBoardAdapter.getRouter(),
+);
 
 // HANDLING  unhandled Routes
 app.use((req: Request, _res: Response, next: NextFunction) => {

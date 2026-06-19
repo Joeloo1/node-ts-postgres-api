@@ -10,6 +10,11 @@ import adminAnalyticsRoute from "./adminAnalyticsRoutes";
 import adminVariantRoute from "./adminVariantRoutes";
 import adminTagRoute, { productTagRouter } from "./adminTagRoutes";
 import adminAttributeRoute from "./adminAttributeRoutes";
+import adminPromotionRoute from "./adminPromotionRoutes";
+import adminBannerRoute from "./adminBannerRoutes";
+import adminNotificationRoute from "./adminNotificationRoutes";
+import adminShippingRoute from "./adminShippingRoutes";
+import adminGiftCardRoute from "./adminGiftCardRoutes";
 import { Role } from "../../types/role.types";
 import { getSubscribers } from "../../controller/newsletterController";
 import {
@@ -46,6 +51,11 @@ router.use("/orders", adminOrderRoute);
 router.use("/analytics", adminAnalyticsRoute);
 router.use("/variants", adminVariantRoute);
 router.use("/tags", adminTagRoute);
+router.use("/promotions", adminPromotionRoute);
+router.use("/banners", adminBannerRoute);
+router.use("/notifications", adminNotificationRoute);
+router.use("/shipping", adminShippingRoute);
+router.use("/gift-cards", adminGiftCardRoute);
 
 router.get("/newsletter/subscribers", getSubscribers);
 router.get("/contact", getContractMessages);

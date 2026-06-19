@@ -5,6 +5,7 @@ import { createReviewSchema, updateReviewSchema } from "../Schema/reviewsSchema"
 import { prisma } from "../config/database";
 import logger from "../config/logger";
 import { client as redis, scanDel } from "../config/redis";
+import { adminNotify } from "../utils/adminNotify";
 
 const REDIS_TTL = 3600;
 const getReviewKey = (id: string) => `review:${id}`;
@@ -90,6 +91,7 @@ export const createReview = catchAsync(
     await clearReviewCache();
     await syncProductRating(product_id);
 
+    adminNotify("NEW_REVIEW", `New review for product ${product_id}`, { productId: product_id, rating: review.rating });
     logger.info("Review created successfully");
     res.status(201).json({
       status: "success",

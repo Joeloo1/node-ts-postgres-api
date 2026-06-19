@@ -4,6 +4,7 @@ import catchAsync from "../utils/catchAsync";
 import logger from "../config/logger";
 import { contactSchema } from "../Schema/contactSchema";
 import { emailQueue } from "../jobs/emailQueue";
+import { adminNotify } from "../utils/adminNotify";
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? process.env.EMAIL_FROM ?? "";
 
@@ -30,6 +31,7 @@ export const submitContact = catchAsync(
           logger.warn("Failed to queue contact notification email");
         });
     }
+    adminNotify("NEW_CONTACT", `New contact message: "${data.subject}" from ${data.name}`, { email: data.email });
     logger.info("Contact message received", {
       email: data.email,
       subject: data.subject,

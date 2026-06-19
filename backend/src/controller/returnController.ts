@@ -6,6 +6,7 @@ import logger from "../config/logger";
 import { createReturnSchema, updateReturnSchema } from "../Schema/returnSchema";
 import { logAudit } from "../utils/audit";
 import { emailQueue } from "../jobs/emailQueue";
+import { adminNotify } from "../utils/adminNotify";
 
 const RETURNABLE_WINDOW_DAYS = Number(process.env.RETURNABLE_WINDOW_DAYS ?? 30);
 
@@ -51,6 +52,7 @@ export const createReturn = catchAsync(
       data: { orderId, userId, reason },
     });
 
+    adminNotify("NEW_RETURN", `Return request for order #${orderId.slice(0, 8).toUpperCase()}`, { orderId, userId });
     logger.info("Return request created", { orderId, userId });
     res.status(201).json({
       status: "success",

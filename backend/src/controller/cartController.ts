@@ -5,6 +5,10 @@ import AppError from "../utils/AppError";
 import { prisma } from "../config/database";
 import logger from "../config/logger";
 import { addToCartSchema, updateCartItemSchema } from "../Schema/cartSchema";
+import {
+  scheduleCartAbandonment,
+  cancelCartAbandonment,
+} from "../jobs/cartAbandonmentQueue";
 
 // Add item to cart
 export const addItemToCart = catchAsync(
@@ -92,6 +96,9 @@ export const addItemToCart = catchAsync(
       quantity,
       variantId,
     });
+
+    scheduleCartAbandonment(userId).catch(() => {});
+
     res.status(201).json({
       status: "success",
       message: "Item added to cart",
@@ -203,6 +210,8 @@ export const updateCartItem = catchAsync(
       quantity,
     });
 
+    scheduleCartAbandonment(req.user!.id).catch(() => {});
+
     res.status(200).json({
       status: "success",
       message: "Cart items updated ",
@@ -256,6 +265,8 @@ export const clearCart = catchAsync(
     await prisma.cartItem.deleteMany({
       where: { cartId: cart.id },
     });
+
+    cancelCartAbandonment(userId).catch(() => {});
 
     logger.info("Cart cleared successfully");
     res.status(204).json({

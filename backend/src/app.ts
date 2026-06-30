@@ -63,7 +63,13 @@ app.use(
 const makeRedisStore = (prefix: string) =>
   new RedisStore({
     prefix,
-    sendCommand: (...args: string[]) => (redis as any).sendCommand(args),
+    sendCommand: async (...args: string[]) => {
+      const deadline = Date.now() + 5000;
+      while (!(redis as any).isOpen && Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 50));
+      }
+      return (redis as any).sendCommand(args);
+    },
   });
 
 // set seurity HTTP Header

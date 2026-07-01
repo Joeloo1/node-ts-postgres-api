@@ -222,6 +222,12 @@ export function ProductDetailPage() {
     enabled: Boolean(id),
   });
 
+  const fbtQuery = useQuery({
+    queryKey: queryKeys.frequentlyBoughtTogether(id!),
+    queryFn: () => productService.getFrequentlyBoughtTogether(id!, 4),
+    enabled: Boolean(id),
+  });
+
   const p = productQuery.data;
   usePageTitle(p?.name ?? "Product");
 
@@ -676,8 +682,10 @@ export function ProductDetailPage() {
                   </button>
                 )}
 
-                <button
+                <motion.button
                   type="button"
+                  whileTap={{ scale: 0.85 }}
+                  whileHover={{ scale: 1.05 }}
                   onClick={() => {
                     toggle(id ?? "");
                     toast(isWishlisted ? "Removed from wishlist" : "Saved to wishlist", {
@@ -693,8 +701,15 @@ export function ProductDetailPage() {
                   }`}
                   aria-label={isWishlisted ? "Remove from wishlist" : "Save to wishlist"}
                 >
-                  <HeartIcon className="size-5" filled={isWishlisted} />
-                </button>
+                  <motion.div
+                    key={isWishlisted ? "active" : "inactive"}
+                    initial={{ scale: 0.8 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 15 }}
+                  >
+                    <HeartIcon className="size-5" filled={isWishlisted} />
+                  </motion.div>
+                </motion.button>
               </div>
 
               {!isAvailable && <BackInStockNotify productId={p.product_id} productName={p.name} />}
@@ -1080,6 +1095,28 @@ export function ProductDetailPage() {
           </motion.div>
           </AnimatePresence>
         </motion.section>
+
+        {/* Frequently bought together */}
+        {(fbtQuery.isPending || (fbtQuery.data && fbtQuery.data.length > 0)) && (
+          <motion.section variants={fadeUp} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-60px" }} className="border-t border-stroke pt-12">
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Frequently bought together</p>
+            <h2 className="mb-7 mt-1.5 font-display text-2xl font-bold text-ink">Frequently bought together</h2>
+            {fbtQuery.isPending ? (
+              <ProductSkeletonGrid count={4} />
+            ) : (
+              <>
+                <motion.div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4" variants={stagger} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-40px" }}>
+                  {fbtQuery.data?.map((fbt) => (
+                    <motion.div key={fbt.product_id} variants={cardFade}><ProductCard product={fbt} /></motion.div>
+                  ))}
+                </motion.div>
+                <button type="button" className="mt-4 inline-block rounded-lg bg-emerald-500 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-600">
+                  Add all to cart
+                </button>
+              </>
+            )}
+          </motion.section>
+        )}
 
         {/* Related products — after the details, before recently viewed */}
         {(relatedQuery.isPending || (relatedQuery.data && relatedQuery.data.length > 0)) && (

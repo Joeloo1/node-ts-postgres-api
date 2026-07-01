@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Helmet } from "react-helmet-async";
 import { useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { apiFetch } from "../../lib/http";
+import { apiFetch } from "../../lib/api";
 import { formatPrice } from "../../lib/pricing";
 import { usePageTitle } from "../../hooks/usePageTitle";
 import { ChartBarIcon, UsersIcon, PackageIcon, StarIcon } from "../../components/Icons";
@@ -35,6 +35,43 @@ const STATUS_COLORS: Record<string, string> = {
 
 const PERIODS = ["7 days", "30 days", "90 days"] as const;
 type Period = typeof PERIODS[number];
+
+const TABS = ["Overview", "Revenue", "Customers", "Funnel"] as const;
+type Tab = typeof TABS[number];
+
+interface RevenueBreakdown {
+  period: string;
+  revenue: number;
+  orders: number;
+}
+
+interface TopCustomer {
+  userId: string;
+  name: string;
+  email: string;
+  totalSpend: number;
+  orderCount: number;
+}
+
+interface FunnelEvent {
+  event: string;
+  count: number;
+}
+
+async function getRevenueBreakdown(period: string, days: number): Promise<RevenueBreakdown[]> {
+  const res = await apiFetch<{ data: RevenueBreakdown[] }>(`/api/v1/admin/analytics/revenue?period=${period}&days=${days}`, { auth: true });
+  return res.data ?? [];
+}
+
+async function getTopCustomers(): Promise<TopCustomer[]> {
+  const res = await apiFetch<{ data: TopCustomer[] }>("/api/v1/admin/analytics/top-customers?limit=20", { auth: true });
+  return res.data ?? [];
+}
+
+async function getEventFunnel(days: number): Promise<FunnelEvent[]> {
+  const res = await apiFetch<{ data: FunnelEvent[] }>(`/api/v1/admin/analytics/funnel?days=${days}`, { auth: true });
+  return res.data ?? [];
+}
 
 function RevenueSparkline({ data }: { data: { date: string; revenue: number }[] }) {
   const ref = useRef<SVGSVGElement>(null);
@@ -85,11 +122,36 @@ function RevenueSparkline({ data }: { data: { date: string; revenue: number }[] 
 export function AdminAnalyticsPage() {
   usePageTitle("Analytics — Admin");
   const [period, setPeriod] = useState<Period>("30 days");
+  const [tab, setTab] = useState<Tab>("Overview");
 
   const { data: stats, isPending } = useQuery({
     queryKey: ["admin", "analytics", period],
     queryFn: getDashboardStats,
     staleTime: 5 * 60_000,
+  });
+
+  const periodDays = period === "7 days" ? 7 : period === "30 days" ? 30 : 90;
+  const apiPeriod = period === "7 days" ? "daily" : period === "30 days" ? "daily" : "weekly";
+
+  const { data: revenueBreakdown, isPending: revPending } = useQuery({
+    queryKey: ["admin", "revenue-breakdown", apiPeriod, periodDays],
+    queryFn: () => getRevenueBreakdown(apiPeriod, periodDays),
+    staleTime: 5 * 60_000,
+    enabled: tab === "Revenue",
+  });
+
+  const { data: topCustomers, isPending: custPending } = useQuery({
+    queryKey: ["admin", "top-customers"],
+    queryFn: getTopCustomers,
+    staleTime: 5 * 60_000,
+    enabled: tab === "Customers",
+  });
+
+  const { data: funnelData, isPending: funnelPending } = useQuery({
+    queryKey: ["admin", "funnel", periodDays],
+    queryFn: () => getEventFunnel(periodDays),
+    staleTime: 5 * 60_000,
+    enabled: tab === "Funnel",
   });
 
   const filteredRevenue = useMemo(() => {
@@ -147,7 +209,7 @@ export function AdminAnalyticsPage() {
 
       <div className="space-y-8">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="font-display text-2xl font-bold text-ink">Analytics</h1>
             <p className="mt-0.5 text-sm text-ink3">Store performance at a glance</p>
@@ -168,6 +230,25 @@ export function AdminAnalyticsPage() {
           </div>
         </div>
 
+        {/* Tabs */}
+        <div className="flex gap-1 border-b border-stroke">
+          {TABS.map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setTab(t)}
+              className={`px-4 py-2.5 text-sm font-semibold transition-colors border-b-2 -mb-px ${
+                tab === t
+                  ? "border-emerald-500 text-emerald-600 dark:text-emerald-400"
+                  : "border-transparent text-ink4 hover:text-ink3"
+              }`}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+
+        {tab === "Overview" && (<>
         {/* KPI cards */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {KPI_CARDS.map((card) => (
@@ -286,6 +367,121 @@ export function AdminAnalyticsPage() {
             )}
           </div>
         </div>
+        </>)}
+
+        {tab === "Revenue" && (
+          <div className="space-y-4">
+            <h2 className="font-semibold text-ink">Revenue breakdown</h2>
+            {revPending ? (
+              <div className="space-y-2">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-10 animate-pulse rounded-lg bg-raised" />)}</div>
+            ) : !revenueBreakdown?.length ? (
+              <div className="rounded-xl border border-stroke bg-card py-16 text-center text-sm text-ink4">No revenue data for this period.</div>
+            ) : (
+              <div className="overflow-hidden rounded-xl border border-stroke bg-card">
+                <table className="min-w-full text-sm">
+                  <thead><tr className="border-b border-stroke bg-raised/50">
+                    <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-ink4">Period</th>
+                    <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-ink4">Revenue</th>
+                    <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-ink4">Orders</th>
+                    <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-ink4">Avg order</th>
+                  </tr></thead>
+                  <tbody className="divide-y divide-stroke">
+                    {revenueBreakdown.map((row) => (
+                      <tr key={row.period} className="hover:bg-raised/40 transition-colors">
+                        <td className="px-4 py-3 font-medium text-ink">{row.period}</td>
+                        <td className="px-4 py-3 text-right font-bold tabular-nums text-ink">{formatPrice(row.revenue)}</td>
+                        <td className="px-4 py-3 text-right tabular-nums text-ink3">{row.orders}</td>
+                        <td className="px-4 py-3 text-right tabular-nums text-ink3">{row.orders > 0 ? formatPrice(row.revenue / row.orders) : "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {tab === "Customers" && (
+          <div className="space-y-4">
+            <h2 className="font-semibold text-ink">Top customers by spend</h2>
+            {custPending ? (
+              <div className="space-y-2">{Array.from({ length: 8 }).map((_, i) => <div key={i} className="h-12 animate-pulse rounded-lg bg-raised" />)}</div>
+            ) : !topCustomers?.length ? (
+              <div className="rounded-xl border border-stroke bg-card py-16 text-center text-sm text-ink4">No customer data yet.</div>
+            ) : (
+              <div className="overflow-hidden rounded-xl border border-stroke bg-card">
+                <table className="min-w-full text-sm">
+                  <thead><tr className="border-b border-stroke bg-raised/50">
+                    <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-ink4">#</th>
+                    <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-ink4">Customer</th>
+                    <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-ink4">Total spend</th>
+                    <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-ink4">Orders</th>
+                    <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-ink4">Avg order</th>
+                  </tr></thead>
+                  <tbody className="divide-y divide-stroke">
+                    {topCustomers.map((c, i) => (
+                      <motion.tr key={c.userId} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.03 }} className="hover:bg-raised/40 transition-colors">
+                        <td className="px-4 py-3">
+                          <div className="flex size-6 items-center justify-center rounded-full bg-raised text-[11px] font-bold text-ink4">{i + 1}</div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <p className="font-medium text-ink">{c.name}</p>
+                          <p className="text-[11px] text-ink4">{c.email}</p>
+                        </td>
+                        <td className="px-4 py-3 text-right font-bold tabular-nums text-ink">{formatPrice(c.totalSpend)}</td>
+                        <td className="px-4 py-3 text-right tabular-nums text-ink3">{c.orderCount}</td>
+                        <td className="px-4 py-3 text-right tabular-nums text-ink3">{c.orderCount > 0 ? formatPrice(c.totalSpend / c.orderCount) : "—"}</td>
+                      </motion.tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {tab === "Funnel" && (
+          <div className="space-y-4">
+            <h2 className="font-semibold text-ink">Conversion funnel</h2>
+            {funnelPending ? (
+              <div className="space-y-3">{Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-12 animate-pulse rounded-lg bg-raised" />)}</div>
+            ) : !funnelData?.length ? (
+              <div className="rounded-xl border border-stroke bg-card py-16 text-center text-sm text-ink4">No funnel data for this period.</div>
+            ) : (
+              <div className="overflow-hidden rounded-xl border border-stroke bg-card p-5">
+                <div className="space-y-3">
+                  {(() => {
+                    const max = Math.max(...funnelData.map((f) => Number(f.count)), 1);
+                    return funnelData.map((f, i) => {
+                      const pct = (Number(f.count) / max) * 100;
+                      const drop = i > 0 ? ((Number(funnelData[i - 1].count) - Number(f.count)) / Math.max(Number(funnelData[i - 1].count), 1)) * 100 : null;
+                      return (
+                        <div key={f.event}>
+                          <div className="flex items-center justify-between text-xs mb-1.5">
+                            <span className="font-semibold text-ink">{f.event.replace(/_/g, " ")}</span>
+                            <div className="flex items-center gap-3">
+                              {drop !== null && drop > 0 && (
+                                <span className="text-red-400">-{drop.toFixed(1)}%</span>
+                              )}
+                              <span className="tabular-nums font-bold text-ink">{Number(f.count).toLocaleString()}</span>
+                            </div>
+                          </div>
+                          <div className="h-2 rounded-full bg-raised">
+                            <div
+                              className="h-full rounded-full bg-emerald-500 transition-all duration-700"
+                              style={{ width: `${pct}%`, opacity: 1 - i * 0.1 }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
       </div>
     </>
   );

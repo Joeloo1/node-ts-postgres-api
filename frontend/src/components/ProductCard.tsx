@@ -11,6 +11,7 @@ import { QuickViewModal } from "./QuickViewModal";
 import { Img } from "./Img";
 import { useCompare } from "../context/CompareContext";
 import { usePrefetch } from "../hooks/usePrefetch";
+import { motion } from "framer-motion";
 
 export function ProductCard({ product }: { product: Product }) {
   const { token } = useAuth();
@@ -129,9 +130,11 @@ export function ProductCard({ product }: { product: Product }) {
           </button>
 
           {/* Wishlist */}
-          <button
+          <motion.button
             type="button"
             onClick={handleWishlist}
+            whileTap={{ scale: 0.85 }}
+            whileHover={{ scale: 1.05 }}
             aria-label={isWishlisted ? "Remove from wishlist" : "Save to wishlist"}
             className={`absolute right-2.5 top-2.5 flex size-7.5 items-center justify-center rounded-full shadow-md backdrop-blur-sm transition-all duration-200 sm:translate-y-1 sm:opacity-0 sm:group-hover:translate-y-0 sm:group-hover:opacity-100 ${
               isWishlisted
@@ -139,8 +142,15 @@ export function ProductCard({ product }: { product: Product }) {
                 : "bg-white/90 text-ink3 hover:bg-red-500 hover:text-white dark:bg-card/90"
             }`}
           >
-            <HeartIcon className="size-4.5" filled={isWishlisted} />
-          </button>
+            <motion.div
+              key={isWishlisted ? "active" : "inactive"}
+              initial={{ scale: 0.8 }}
+              animate={{ scale: 1 }}
+              transition={{ type: "spring", stiffness: 400, damping: 15 }}
+            >
+              <HeartIcon className="size-4.5" filled={isWishlisted} />
+            </motion.div>
+          </motion.button>
 
           {/* Compare */}
           <button

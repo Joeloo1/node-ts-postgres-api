@@ -1,9 +1,13 @@
 import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
 import { motion, type Variants } from "framer-motion";
+import { useQuery } from "@tanstack/react-query";
 import { usePageTitle } from "../hooks/usePageTitle";
 import { useAuth } from "../context/AuthContext";
 import { StarIcon, CheckCircleIcon, ShieldIcon, TruckIcon, TagIcon } from "../components/Icons";
+import { queryKeys } from "../lib/queryKeys";
+import * as loyaltyService from "../services/loyalty";
+import type { LoyaltyTier } from "../services/loyalty";
 
 const container: Variants = {
   hidden: {},
@@ -55,6 +59,123 @@ const HOW_IT_WORKS = [
   { step: 3, icon: CheckCircleIcon, title: "Redeem rewards", desc: "100 points = $1 off. Redeem at checkout on any order." },
   { step: 4, icon: TruckIcon, title: "Enjoy perks", desc: "Unlock free shipping, early access, and exclusive discounts." },
 ];
+
+const TIER_COLORS: Record<LoyaltyTier, string> = {
+  BRONZE: "from-amber-700 to-amber-800",
+  SILVER: "from-zinc-500 to-zinc-600",
+  GOLD: "from-amber-500 to-yellow-600",
+  PLATINUM: "from-teal-500 to-emerald-600",
+};
+
+const TIER_THRESHOLDS: Record<LoyaltyTier, number> = {
+  BRONZE: 0,
+  SILVER: 500,
+  GOLD: 2000,
+  PLATINUM: 5000,
+};
+
+function LoyaltyDashboard() {
+  const { data, isPending, isError } = useQuery({
+    queryKey: queryKeys.loyalty(),
+    queryFn: loyaltyService.getMyLoyalty,
+  });
+
+  if (isPending) {
+    return (
+      <div className="rounded-2xl border border-stroke bg-card p-6 space-y-4">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="h-4 rounded-lg bg-raised animate-pulse" style={{ width: `${70 - i * 10}%` }} />
+        ))}
+      </div>
+    );
+  }
+
+  if (isError || !data) return null;
+
+  const tierIndex = Object.keys(TIER_THRESHOLDS).indexOf(data.tier);
+  const nextTier = Object.keys(TIER_THRESHOLDS)[tierIndex + 1] as LoyaltyTier | undefined;
+  const currentThreshold = TIER_THRESHOLDS[data.tier];
+  const nextThreshold = nextTier ? TIER_THRESHOLDS[nextTier] : null;
+  const progress = nextThreshold
+    ? Math.min(((data.lifetimePoints - currentThreshold) / (nextThreshold - currentThreshold)) * 100, 100)
+    : 100;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
+      className="space-y-4"
+    >
+      {/* Balance card */}
+      <div className={`relative overflow-hidden rounded-2xl bg-gradient-to-br ${TIER_COLORS[data.tier]} p-6 text-white`}>
+        <div className="absolute -right-10 -top-10 size-40 rounded-full bg-white/5 blur-2xl" />
+        <div className="relative">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-widest text-white/60">Your balance</p>
+              <p className="mt-1 text-4xl font-bold tabular-nums">{data.points.toLocaleString()}</p>
+              <p className="mt-1 text-sm text-white/70">points · worth ${data.redemptionValue.toFixed(2)}</p>
+            </div>
+            <div className="rounded-full bg-white/15 px-3 py-1.5 text-xs font-bold backdrop-blur-sm">
+              {data.tier}
+            </div>
+          </div>
+
+          {nextTier && (
+            <div className="mt-5">
+              <div className="flex justify-between text-xs text-white/60 mb-1.5">
+                <span>{data.tier}</span>
+                <span>{nextTier} at {TIER_THRESHOLDS[nextTier].toLocaleString()} pts</span>
+              </div>
+              <div className="h-1.5 rounded-full bg-white/20">
+                <div
+                  className="h-full rounded-full bg-white/80 transition-all duration-700"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+              <p className="mt-1.5 text-xs text-white/60">
+                {(TIER_THRESHOLDS[nextTier] - data.lifetimePoints).toLocaleString()} more points to {nextTier}
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Transaction history */}
+      {data.transactions.length > 0 && (
+        <div className="rounded-2xl border border-stroke bg-card overflow-hidden">
+          <div className="px-5 py-4 border-b border-stroke">
+            <p className="text-sm font-semibold text-ink">Recent activity</p>
+          </div>
+          <div className="divide-y divide-stroke">
+            {data.transactions.slice(0, 8).map((tx) => (
+              <div key={tx.id} className="flex items-center justify-between px-5 py-3">
+                <div>
+                  <p className="text-sm text-ink">{tx.description}</p>
+                  <p className="text-xs text-ink4 mt-0.5">
+                    {new Date(tx.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                  </p>
+                </div>
+                <span className={`text-sm font-bold tabular-nums ${tx.points > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-ink3"}`}>
+                  {tx.points > 0 ? "+" : ""}{tx.points.toLocaleString()} pts
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <Link
+        to="/cart"
+        className="flex items-center justify-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/8 py-3 text-sm font-semibold text-emerald-700 dark:text-emerald-400 transition-colors hover:bg-emerald-500/12"
+      >
+        <StarIcon className="size-4" filled />
+        Redeem points at checkout
+      </Link>
+    </motion.div>
+  );
+}
 
 export function LoyaltyPage() {
   usePageTitle("Rewards");
@@ -123,6 +244,14 @@ export function LoyaltyPage() {
             </div>
           </div>
         </motion.div>
+
+        {/* Live account dashboard — only for signed-in users */}
+        {token && (
+          <section>
+            <h2 className="mb-4 font-display text-xl font-bold text-ink">Your rewards</h2>
+            <LoyaltyDashboard />
+          </section>
+        )}
 
         {/* How it works */}
         <section className="space-y-8">

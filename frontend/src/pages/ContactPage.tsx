@@ -21,8 +21,26 @@ export function ContactPage() {
   const [pending, setPending] = useState(false);
   const [sent, setSent]       = useState(false);
 
+  const [touchedName, setTouchedName] = useState(false);
+  const [touchedEmail, setTouchedEmail] = useState(false);
+  const [touchedSubject, setTouchedSubject] = useState(false);
+  const [touchedMessage, setTouchedMessage] = useState(false);
+
+  const isEmailValid = (val: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
+
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    setTouchedName(true);
+    setTouchedEmail(true);
+    setTouchedSubject(true);
+    setTouchedMessage(true);
+
+    if (!name.trim() || !email.trim() || !isEmailValid(email) || !subject.trim() || !message.trim()) {
+      toast.error("Please correct the errors in the form before submitting.");
+      return;
+    }
+
     setPending(true);
     try {
       await apiFetch("/api/v1/contact", {
@@ -32,6 +50,7 @@ export function ContactPage() {
       setSent(true);
       toast.success("Message sent! We'll get back to you within 24 hours.");
       setName(""); setEmail(""); setSubject(""); setMessage("");
+      setTouchedName(false); setTouchedEmail(false); setTouchedSubject(false); setTouchedMessage(false);
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : "Failed to send message. Please try again.");
     } finally {
@@ -84,17 +103,53 @@ export function ContactPage() {
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <label className="text-[11px] font-semibold uppercase tracking-widest text-ink4">Full name</label>
-                <input required value={name} onChange={(e) => setName(e.target.value)} className={inputClass} placeholder="Jane Smith" autoComplete="name" />
+                <input
+                  required
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  onBlur={() => setTouchedName(true)}
+                  className={`${inputClass} ${touchedName && !name.trim() ? "border-red-500/60 focus:border-red-500/60 focus:ring-red-500/15" : ""}`}
+                  placeholder="Jane Smith"
+                  autoComplete="name"
+                />
+                {touchedName && !name.trim() && (
+                  <p className="text-xs text-red-400">Full name is required</p>
+                )}
               </div>
               <div className="space-y-1.5">
                 <label className="text-[11px] font-semibold uppercase tracking-widest text-ink4">Email address</label>
-                <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className={inputClass} placeholder="you@example.com" autoComplete="email" />
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  onBlur={() => setTouchedEmail(true)}
+                  className={`${inputClass} ${touchedEmail && (!email.trim() || !isEmailValid(email)) ? "border-red-500/60 focus:border-red-500/60 focus:ring-red-500/15" : ""}`}
+                  placeholder="you@example.com"
+                  autoComplete="email"
+                />
+                {touchedEmail && !email.trim() && (
+                  <p className="text-xs text-red-400">Email is required</p>
+                )}
+                {touchedEmail && email.trim() && !isEmailValid(email) && (
+                  <p className="text-xs text-red-400">Please enter a valid email address</p>
+                )}
               </div>
             </div>
 
             <div className="space-y-1.5">
               <label className="text-[11px] font-semibold uppercase tracking-widest text-ink4">Subject</label>
-              <input required value={subject} onChange={(e) => setSubject(e.target.value)} className={inputClass} placeholder="How can we help?" />
+              <input
+                required
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                onBlur={() => setTouchedSubject(true)}
+                className={`${inputClass} ${touchedSubject && !subject.trim() ? "border-red-500/60 focus:border-red-500/60 focus:ring-red-500/15" : ""}`}
+                placeholder="How can we help?"
+              />
+              {touchedSubject && !subject.trim() && (
+                <p className="text-xs text-red-400">Subject is required</p>
+              )}
             </div>
 
             <div className="space-y-1.5">
@@ -108,9 +163,13 @@ export function ContactPage() {
                 maxLength={1000}
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                className={`${inputClass} resize-none`}
+                onBlur={() => setTouchedMessage(true)}
+                className={`${inputClass} resize-none ${touchedMessage && !message.trim() ? "border-red-500/60 focus:border-red-500/60 focus:ring-red-500/15" : ""}`}
                 placeholder="Tell us what's on your mind…"
               />
+              {touchedMessage && !message.trim() && (
+                <p className="text-xs text-red-400">Message is required</p>
+              )}
             </div>
 
             <div className="flex flex-col-reverse items-start gap-3 border-t border-stroke pt-5 sm:flex-row sm:items-center sm:justify-between">

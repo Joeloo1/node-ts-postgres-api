@@ -49,6 +49,26 @@ function clearAllRecentSearches() {
   localStorage.removeItem(RECENT_KEY);
 }
 
+/* ── Term highlighter ─────────────────────────────────────────── */
+function HighlightedText({ text, query }: { text: string; query: string }) {
+  if (!query.trim()) return <>{text}</>;
+  const parts = text.split(new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi"));
+  return (
+    <>
+      {parts.map((part, i) =>
+        part.toLowerCase() === query.toLowerCase() ? (
+          <mark key={i} className="rounded-sm bg-amber-400/25 px-0.5 font-semibold text-amber-700 dark:text-amber-300">
+            {part}
+          </mark>
+        ) : (
+          <span key={i}>{part}</span>
+        ),
+      )}
+    </>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════ */
 export function SearchPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -98,6 +118,15 @@ export function SearchPage() {
     queryFn: () => productService.getProducts({ name: query.trim(), limit: 24, sortBy: "rating", order: "desc" }),
     enabled: Boolean(query.trim()),
   });
+
+  /* "Did you mean?" — fetch suggestions when search returns 0 results */
+  const { data: didYouMeanData } = useQuery({
+    queryKey: ["didYouMean", query],
+    queryFn: () => productService.getSuggestions(query, 3),
+    enabled: Boolean(query.trim()) && !isPending && (data?.products.length ?? 0) === 0,
+    staleTime: 60_000,
+  });
+  const didYouMeanSuggestion = didYouMeanData?.[0]?.name?.split(" ").slice(0, 3).join(" ") ?? null;
 
   const { data: categories } = useQuery({
     queryKey: queryKeys.categories(),
@@ -169,7 +198,9 @@ export function SearchPage() {
                   <img src={p.image ?? ""} alt="" className="h-full w-full object-cover" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-ink">{p.name}</p>
+                  <p className="truncate text-sm font-medium text-ink">
+                    <HighlightedText text={p.name} query={debouncedInput} />
+                  </p>
                   {p.brand && <p className="text-[11px] text-ink4">{p.brand}</p>}
                 </div>
                 <p className="shrink-0 text-sm font-semibold tabular-nums text-ink">${p.price.toFixed(2)}</p>
@@ -183,6 +214,36 @@ export function SearchPage() {
           </div>
         )}
       </div>
+
+      {/* Active filter chip row */}
+      {hasQuery && !isPending && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-medium text-ink4">Searching for:</span>
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/8 pl-3 pr-1.5 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+            {query}
+            <button
+              type="button"
+              onClick={() => { setInputValue(""); submit(""); }}
+              className="flex size-4 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-600 hover:bg-emerald-500/40 dark:text-emerald-400"
+              aria-label="Clear search"
+            >
+              <XIcon className="size-2.5" />
+            </button>
+          </span>
+          {total > 0 && (
+            <span className="rounded-full border border-stroke bg-raised px-2.5 py-1 text-[11px] font-medium tabular-nums text-ink3">
+              {total.toLocaleString()} {total === 1 ? "result" : "results"}
+            </span>
+          )}
+          <Link
+            to={`/products?name=${encodeURIComponent(query)}`}
+            className="group ml-auto inline-flex shrink-0 items-center gap-1 text-xs font-medium text-ink3 transition-colors hover:text-ink"
+          >
+            Advanced filters
+            <ArrowRightIcon className="size-3 transition-transform group-hover:translate-x-0.5" />
+          </Link>
+        </div>
+      )}
 
       {/* No query — Fix #9: recent searches + categories */}
       {!hasQuery && (
@@ -252,23 +313,6 @@ export function SearchPage() {
       {/* Results */}
       {hasQuery && (
         <div className="space-y-6">
-          {!isPending && (
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <h2 className="font-display text-xl font-bold text-ink">
-                  {products.length === 0 ? "No results" : `${total} result${total !== 1 ? "s" : ""}`}
-                </h2>
-                <p className="mt-0.5 text-sm text-ink4">for <span className="font-medium text-ink">"{query}"</span></p>
-              </div>
-              {products.length > 0 && (
-                <Link to={`/products?name=${encodeURIComponent(query)}`} className="group inline-flex shrink-0 items-center gap-1 text-sm font-medium text-ink3 transition-colors hover:text-ink">
-                  Advanced filters
-                  <ArrowRightIcon className="size-3.5 transition-transform group-hover:translate-x-0.5" />
-                </Link>
-              )}
-            </div>
-          )}
-
           {isPending ? (
             <ProductSkeletonGrid3 count={12} />
           ) : products.length === 0 ? (
@@ -278,6 +322,24 @@ export function SearchPage() {
               </div>
               <p className="mt-6 text-lg font-semibold text-ink">Nothing found for "{query}"</p>
               <p className="mt-1.5 text-sm text-ink4">Try a different keyword, check your spelling, or browse a category.</p>
+
+              {/* "Did you mean?" suggestion */}
+              {didYouMeanSuggestion && didYouMeanSuggestion.toLowerCase() !== query.toLowerCase() && (
+                <div className="mt-4">
+                  <p className="text-sm text-ink4">
+                    Did you mean{" "}
+                    <button
+                      type="button"
+                      onClick={() => { setInputValue(didYouMeanSuggestion); submit(didYouMeanSuggestion); }}
+                      className="font-semibold text-emerald-600 underline underline-offset-2 hover:text-emerald-500 dark:text-emerald-400"
+                    >
+                      {didYouMeanSuggestion}
+                    </button>
+                    ?
+                  </p>
+                </div>
+              )}
+
               <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
                 {["Electronics", "Fashion", "Home & Kitchen", "Sports"].map((s) => (
                   <button

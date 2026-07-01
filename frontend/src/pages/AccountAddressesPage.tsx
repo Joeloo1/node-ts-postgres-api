@@ -4,6 +4,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { usePageTitle } from "../hooks/usePageTitle";
 import { ApiError, apiFetch } from "../lib/api";
+import { formatPostalCode } from "../lib/formatters";
+import { COUNTRIES } from "../lib/constants";
 import { useAuth } from "../context/AuthContext";
 import { AccountAddressesSkeleton } from "../components/ProductSkeleton";
 import { MapPinIcon, PencilIcon, PlusIcon, TrashIcon, XIcon } from "../components/Icons";
@@ -14,14 +16,7 @@ const inputClass =
   "w-full rounded-xl border border-stroke bg-input px-4 py-2.5 text-sm text-ink placeholder:text-ink4 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-600/80 transition-colors";
 const labelClass = "mb-1.5 block text-xs font-semibold uppercase tracking-wide text-ink4";
 
-const COUNTRIES = [
-  "United States", "United Kingdom", "Canada", "Australia", "Germany",
-  "France", "Netherlands", "Sweden", "Norway", "Denmark", "Switzerland",
-  "Spain", "Italy", "Portugal", "Poland", "Ireland", "New Zealand",
-  "Japan", "South Korea", "Singapore", "India", "China", "Brazil",
-  "Mexico", "Argentina", "South Africa", "Nigeria", "Kenya",
-  "United Arab Emirates", "Saudi Arabia", "Turkey",
-];
+
 
 type AddressesRes   = { status: string; data: { address: Address[] } };
 type CreateAddressRes = { status: string; data: { Address: Address } };
@@ -286,7 +281,7 @@ export function AccountAddressesPage() {
                         </div>
                         <div>
                           <label className={labelClass}>ZIP</label>
-                          <input value={editValues.zipCode} onChange={(e) => setEditValues((v) => ({ ...v, zipCode: e.target.value }))} className={inputClass} placeholder="10001" />
+                          <input value={editValues.zipCode} onChange={(e) => setEditValues((v) => ({ ...v, zipCode: formatPostalCode(e.target.value, v.country) }))} className={inputClass} placeholder="10001" />
                         </div>
                         <div>
                           <label className={labelClass}>Country</label>
@@ -452,7 +447,7 @@ export function AccountAddressesPage() {
                       <input
                         placeholder="10001"
                         value={newAddr.zipCode}
-                        onChange={(e) => setNewAddr((v) => ({ ...v, zipCode: e.target.value }))}
+                        onChange={(e) => setNewAddr((v) => ({ ...v, zipCode: formatPostalCode(e.target.value, v.country) }))}
                         className={inputClass}
                       />
                     </div>

@@ -91,6 +91,11 @@ export interface FilterPanelProps {
   activeFilterCount: number;
   setPage: (v: number) => void;
   clearFilters: () => void;
+  /** Dynamic attribute filters keyed by attribute key, e.g. { Color: ["Red","Blue"] } */
+  attributes?: Record<string, string[]>;
+  setAttributes?: (v: Record<string, string[]>) => void;
+  /** Available attribute options derived from the currently visible product set */
+  availableAttributes?: Record<string, string[]>;
 }
 
 export function FilterPanel({
@@ -101,10 +106,26 @@ export function FilterPanel({
   onSaleOnly, setOnSaleOnly,
   categories, hasActiveFilters, activeFilterCount,
   clearFilters, setPage,
+  attributes = {}, setAttributes, availableAttributes = {},
 }: FilterPanelProps) {
   const priceActive    = Boolean(minPrice || maxPrice);
   const ratingActive   = Boolean(minRating);
   const categoryActive = Boolean(categoryId);
+  const attrKeys = Object.keys(availableAttributes).filter((k) => (availableAttributes[k]?.length ?? 0) > 0);
+  const activeAttrCount = Object.values(attributes).flat().length;
+
+  function toggleAttributeValue(key: string, value: string) {
+    if (!setAttributes) return;
+    const current = attributes[key] ?? [];
+    const next = current.includes(value)
+      ? current.filter((v) => v !== value)
+      : [...current, value];
+    const updated = { ...attributes };
+    if (next.length === 0) delete updated[key];
+    else updated[key] = next;
+    setAttributes(updated);
+    setPage(1);
+  }
 
   return (
     <div>
@@ -357,6 +378,48 @@ export function FilterPanel({
           </button>
         </div>
       </FilterSection>
+
+      {/* ── Dynamic attribute filters ── */}
+      {attrKeys.length > 0 && setAttributes && (
+        <>
+          {attrKeys.map((key) => {
+            const values = availableAttributes[key] ?? [];
+            const activeValues = attributes[key] ?? [];
+            const activeBadge = activeValues.length;
+            return (
+              <FilterSection key={key} title={key} defaultOpen={activeBadge > 0} badge={activeBadge}>
+                <div className="flex flex-wrap gap-1.5 px-4">
+                  {values.map((val) => {
+                    const isActive = activeValues.includes(val);
+                    return (
+                      <button
+                        key={val}
+                        type="button"
+                        onClick={() => toggleAttributeValue(key, val)}
+                        className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-all ${
+                          isActive
+                            ? "border-emerald-500/40 bg-emerald-500/12 text-emerald-700 dark:text-emerald-400"
+                            : "border-stroke bg-raised text-ink3 hover:border-edge hover:text-ink2"
+                        }`}
+                      >
+                        {isActive && (
+                          <svg className="size-2.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                          </svg>
+                        )}
+                        {val}
+                      </button>
+                    );
+                  })}
+                </div>
+              </FilterSection>
+            );
+          })}
+        </>
+      )}
+
+      {/* Attribute active count displayed in header — passed upward via activeFilterCount prop */}
+      {activeAttrCount > 0 && <div className="hidden" data-attr-count={activeAttrCount} />}
     </div>
   );
 }

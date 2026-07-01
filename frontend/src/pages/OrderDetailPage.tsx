@@ -442,7 +442,32 @@ export function OrderDetailPage() {
               </div>
             </div>
 
-            {canReturn && (
+            {/* Already-submitted return request — show status */}
+            {order.returnRequest && (() => {
+              const statusMap = {
+                PENDING:   { label: "Return request pending",  dot: "bg-amber-400",   pill: "border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-400" },
+                APPROVED:  { label: "Return approved",         dot: "bg-emerald-400", pill: "border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" },
+                REJECTED:  { label: "Return rejected",         dot: "bg-red-400",     pill: "border-red-500/20 bg-red-500/10 text-red-700 dark:text-red-400" },
+                COMPLETED: { label: "Return completed",        dot: "bg-blue-400",    pill: "border-blue-500/20 bg-blue-500/10 text-blue-700 dark:text-blue-400" },
+              }[order.returnRequest.status];
+              return (
+                <div className="space-y-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-widest text-ink4">Return status</p>
+                  <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${statusMap?.pill ?? ""}`}>
+                    <span className={`size-1.5 shrink-0 rounded-full ${statusMap?.dot ?? "bg-ink4"}`} />
+                    {statusMap?.label ?? order.returnRequest.status}
+                  </span>
+                  {order.returnRequest.adminNote && (
+                    <p className="text-xs text-ink3 mt-1">
+                      <span className="font-medium text-ink">Admin note:</span> {order.returnRequest.adminNote}
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* Return request form — only if no existing request and within 30 days */}
+            {!order.returnRequest && canReturn && (
               <div className="space-y-3">
                 <button
                   type="button"
@@ -468,19 +493,19 @@ export function OrderDetailPage() {
                       rows={3}
                       className="w-full resize-none rounded-lg border border-stroke bg-card px-3 py-2 text-[13px] text-ink placeholder:text-ink4 focus:border-emerald-500/50 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                     />
-                    <div className="flex gap-2">
+                    <div className="flex flex-col sm:flex-row gap-2">
                       <button
                         type="button"
                         onClick={() => returnMutation.mutate()}
                         disabled={!returnReason.trim() || returnMutation.isPending}
-                        className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3.5 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
+                        className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3.5 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-50 w-full sm:w-auto"
                       >
                         {returnMutation.isPending ? "Submitting…" : "Submit return"}
                       </button>
                       <button
                         type="button"
                         onClick={() => { setReturnDialogOpen(false); setReturnReason(""); }}
-                        className="inline-flex items-center gap-2 rounded-lg border border-stroke bg-card px-3.5 py-2 text-[13px] font-medium text-ink2 transition-colors hover:bg-raised"
+                        className="inline-flex items-center justify-center gap-2 rounded-lg border border-stroke bg-card px-3.5 py-2 text-[13px] font-medium text-ink2 transition-colors hover:bg-raised w-full sm:w-auto"
                       >
                         Cancel
                       </button>

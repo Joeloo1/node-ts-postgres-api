@@ -1,7 +1,8 @@
-import { useMemo } from "react";
+import { useMemo, useEffect } from "react";
 import { useQueries } from "@tanstack/react-query";
 import { apiFetch } from "../lib/api";
 import type { Product } from "../lib/types";
+import { trackProductViewEvent } from "../services/products";
 
 const KEY = "northline_recently_viewed";
 const MAX = 8;
@@ -46,4 +47,23 @@ export function useRecentlyViewed(excludeId?: string) {
     isLoading: queries.some((q) => q.isPending),
     hasAny: ids.length > 0,
   };
+}
+
+/**
+ * Tracks a product view for logged-in users via the backend events API.
+ * Also always writes to localStorage for guest tracking.
+ * Fire-and-forget — no UI side effects on failure.
+ */
+export function useTrackProductView(productId: string | undefined, isLoggedIn: boolean) {
+  useEffect(() => {
+    if (!productId) return;
+    // Always track in localStorage (guests + logged-in)
+    trackRecentlyViewed(productId);
+    // For logged-in users, also persist via backend
+    if (isLoggedIn) {
+      trackProductViewEvent(productId);
+    }
+  // Only fire once per productId mount — no dependency on isLoggedIn changing
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productId]);
 }

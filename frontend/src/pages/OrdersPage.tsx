@@ -20,6 +20,13 @@ const statusConfig: Record<string, { label: string; dot: string; badge: string }
   REFUNDED:   { label: "Refunded",   dot: "bg-blue-400",    badge: "border-blue-500/20 bg-blue-500/8 text-blue-600 dark:text-blue-400" },
 };
 
+const returnStatusConfig: Record<string, { label: string; className: string }> = {
+  PENDING:   { label: "Return pending",   className: "border-amber-500/25 bg-amber-500/10 text-amber-600 dark:text-amber-400" },
+  APPROVED:  { label: "Return approved",  className: "border-emerald-500/25 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" },
+  REJECTED:  { label: "Return rejected",  className: "border-red-500/25 bg-red-500/10 text-red-600 dark:text-red-400" },
+  COMPLETED: { label: "Return completed", className: "border-blue-500/25 bg-blue-500/10 text-blue-600 dark:text-blue-400" },
+};
+
 const FILTER_TABS: Array<{ value: OrderStatus | "ALL"; label: string }> = [
   { value: "ALL",        label: "All orders" },
   { value: "PENDING",    label: "Pending" },
@@ -350,6 +357,20 @@ export function OrdersPage() {
                         </p>
                       </div>
                     )}
+
+                    {/* Return status banner */}
+                    {o.returnRequest && (() => {
+                      const rc = returnStatusConfig[o.returnRequest.status];
+                      if (!rc) return null;
+                      return (
+                        <div className={`border-t px-5 py-2 ${o.returnRequest.status === "PENDING" ? "border-amber-500/15 bg-amber-500/5" : o.returnRequest.status === "APPROVED" ? "border-emerald-500/15 bg-emerald-500/5" : o.returnRequest.status === "REJECTED" ? "border-red-500/15 bg-red-500/5" : "border-blue-500/15 bg-blue-500/5"}`}>
+                          <p className={`flex items-center gap-1.5 text-[11px] font-semibold ${rc.className.split(" ").filter(c => c.startsWith("text-")).join(" ")}`}>
+                            <span className={`size-1.5 shrink-0 rounded-full ${o.returnRequest.status === "APPROVED" ? "bg-emerald-500" : o.returnRequest.status === "REJECTED" ? "bg-red-500" : o.returnRequest.status === "COMPLETED" ? "bg-blue-500" : "bg-amber-500"}`} />
+                            {rc.label}
+                          </p>
+                        </div>
+                      );
+                    })()}
                   </Link>
                 </motion.li>
               );

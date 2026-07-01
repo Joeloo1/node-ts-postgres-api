@@ -1,6 +1,12 @@
 import { apiFetch } from "../lib/http";
 import type { Pagination, Product } from "../lib/types";
 
+export interface ProductAttribute {
+  id: string;
+  key: string;
+  value: string;
+}
+
 export interface ProductsParams {
   name?: string;
   category_id?: string;
@@ -14,6 +20,8 @@ export interface ProductsParams {
   order?: string;
   page?: number;
   limit?: number;
+  /** Attribute filters: key → value, serialised as attribute[key]=value */
+  attributes?: Record<string, string[]>;
 }
 
 type ProductsRes  = { status: string; data: { products: Product[] }; pagination: Pagination };
@@ -34,6 +42,14 @@ export async function getProducts(params: ProductsParams = {}) {
   if (params.availability) qs.set("availability", params.availability);
   if (params.sortBy)       qs.set("sortBy", params.sortBy);
   if (params.order)      qs.set("order", params.order);
+  // Dynamic attribute filters: attribute[Color]=Red
+  if (params.attributes) {
+    for (const [key, values] of Object.entries(params.attributes)) {
+      for (const v of values) {
+        qs.append(`attribute[${key}]`, v);
+      }
+    }
+  }
   const res = await apiFetch<ProductsRes>(`/api/v1/products?${qs}`);
   return { products: res.data.products, pagination: res.pagination };
 }
@@ -74,6 +90,16 @@ export async function getProductsFeed(cursor?: string, limit = 12): Promise<{ pr
   return { products: res.data.products, nextCursor: res.pagination.nextCursor };
 }
 
+export async function getTrending(limit = 8): Promise<Product[]> {
+  const res = await apiFetch<{ status: string; data: { products: Product[] } }>(`/api/v1/products/trending?limit=${limit}`);
+  return res.data.products;
+}
+
+export async function getFrequentlyBoughtTogether(productId: string, limit = 4): Promise<Product[]> {
+  const res = await apiFetch<{ status: string; data: { products: Product[] } }>(`/api/v1/products/${productId}/frequently-bought-together?limit=${limit}`);
+  return res.data.products;
+}
+
 export async function getAvailableBrands(): Promise<string[]> {
   const qs = new URLSearchParams({ limit: "200", sortBy: "name", order: "asc" });
   const res = await apiFetch<ProductsRes>(`/api/v1/products?${qs}`);
@@ -82,4 +108,26 @@ export async function getAvailableBrands(): Promise<string[]> {
     if (p.brand) seen.add(p.brand);
   }
   return [...seen].sort();
+}
+
+export async function getProductAttributes(productId: string): Promise<ProductAttribute[]> {
+  const res = await apiFetch<{ status: string; data: { attributes: ProductAttribute[] } }>(
+    `/api/v1/products/${productId}/attributes`,
+  );
+  return res.data.attributes;
+}
+
+/**
+ * Fire a PRODUCT_VIEW event to the backend for authenticated users.
+ * Fire-and-forget — errors are silently swallowed so they never affect the UI.
+ */
+export async function trackProductViewEvent(productId: string): Promise<void> {
+  try {
+    await apiFetch("/api/v1/events", {
+      method: "POST",
+      body: JSON.stringify({ eventType: "PRODUCT_VIEW", productId }),
+    });
+  } catch {
+    // Intentionally silent — analytics failures must not break product pages
+  }
 }

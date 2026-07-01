@@ -104,6 +104,37 @@ export const checkGiftCardBalance = catchAsync(
   },
 );
 
+// User: list my gift cards (purchased by me or received at my email)
+export const getMyGiftCards = catchAsync(
+  async (req: Request, res: Response) => {
+    const userId = req.user!.id;
+    const userEmail = req.user!.email;
+
+    const giftCards = await prisma.giftCard.findMany({
+      where: {
+        OR: [
+          { purchasedById: userId },
+          { recipientEmail: userEmail },
+        ],
+      },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        code: true,
+        balance: true,
+        initialBalance: true,
+        recipientEmail: true,
+        active: true,
+        expiresAt: true,
+        createdAt: true,
+        purchasedBy: { select: { name: true, email: true } },
+      },
+    });
+
+    res.status(200).json({ status: "success", data: { giftCards } });
+  },
+);
+
 // Admin: list all gift cards
 export const adminGetGiftCards = catchAsync(
   async (_req: Request, res: Response) => {

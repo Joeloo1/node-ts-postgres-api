@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { motion, type Variants } from "framer-motion";
+import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { ProductCard } from "../components/ProductCard";
 import { ProductSkeletonGrid } from "../components/ProductSkeleton";
 import { usePageTitle } from "../hooks/usePageTitle";
@@ -10,6 +10,7 @@ import { useRecentlyViewed } from "../hooks/useRecentlyViewed";
 import { queryKeys } from "../lib/queryKeys";
 import * as productService from "../services/products";
 import * as categoryService from "../services/categories";
+import * as bannerService from "../services/banners";
 import { productImageUrl } from "../lib/productImage";
 import {
   ArrowRightIcon, TruckIcon, ShieldIcon, PackageIcon,
@@ -54,6 +55,90 @@ function HeroMosaicImg({ src, alt, className }: { src: string; alt: string; clas
       className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.05] ${className ?? ""}`}
       loading="eager"
     />
+  );
+}
+
+/* ── Hero banner carousel ───────────────────────────────────── */
+function HeroBannerCarousel({ banners }: { banners: bannerService.Banner[] }) {
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    if (banners.length <= 1) return;
+    const id = setInterval(() => setIndex((i) => (i + 1) % banners.length), 5000);
+    return () => clearInterval(id);
+  }, [banners.length]);
+
+  const banner = banners[index];
+  const inner = (
+    <>
+      {banner.imageUrl ? (
+        <img
+          src={banner.imageUrl}
+          alt={banner.title}
+          className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.03]"
+          loading="eager"
+        />
+      ) : (
+        <div className="h-full w-full bg-gradient-to-br from-emerald-900 to-emerald-950" />
+      )}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+      <div className="absolute inset-x-0 bottom-0 p-6 sm:p-8">
+        {banner.subtitle && (
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-emerald-400 mb-2">
+            {banner.subtitle}
+          </p>
+        )}
+        <h2 className="font-display text-2xl font-bold text-white sm:text-3xl lg:text-4xl leading-tight">
+          {banner.title}
+        </h2>
+        {banner.linkUrl && (
+          <span className="mt-3 inline-flex items-center gap-2 text-[13px] font-semibold text-emerald-300 group-hover:text-emerald-200 transition-colors">
+            Shop now
+            <ArrowRightIcon className="size-4 transition-transform group-hover:translate-x-0.5" />
+          </span>
+        )}
+      </div>
+    </>
+  );
+
+  return (
+    <div className="relative h-full w-full overflow-hidden rounded-2xl">
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={banner.id}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.6 }}
+          className="absolute inset-0"
+        >
+          {banner.linkUrl ? (
+            <Link to={banner.linkUrl} className="group relative block h-full w-full">
+              {inner}
+            </Link>
+          ) : (
+            <div className="group relative block h-full w-full">{inner}</div>
+          )}
+        </motion.div>
+      </AnimatePresence>
+
+      {/* Dot indicators */}
+      {banners.length > 1 && (
+        <div className="absolute bottom-3 right-4 flex items-center gap-1.5 z-10">
+          {banners.map((_, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => setIndex(i)}
+              className={`size-2 rounded-full transition-all ${
+                i === index ? "bg-white w-4" : "bg-white/40 hover:bg-white/60"
+              }`}
+              aria-label={`Go to banner ${i + 1}`}
+            />
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -159,6 +244,17 @@ export function HomePage() {
   });
   const bestSellers = bestSellersData?.products;
 
+  const { data: trendingData, isPending: trendingPending } = useQuery({
+    queryKey: queryKeys.trending(),
+    queryFn: () => productService.getTrending(8),
+  });
+  const trending = trendingData;
+
+  const { data: heroBanners } = useQuery({
+    queryKey: queryKeys.banners("HOME_HERO"),
+    queryFn: () => bannerService.getBanners("HOME_HERO"),
+  });
+
   /* Real social proof: actual top-rated product + actual best discount */
   const topRated = bestSellers?.[0];
   const topDeal = deals?.[0];
@@ -167,11 +263,11 @@ export function HomePage() {
      until queries resolve or if the catalog has too few distinct brands) */
   const carriedBrands = useMemo(() => {
     const seen = new Set<string>();
-    [products, bestSellers, deals].forEach((list) =>
+    [products, bestSellers, deals, trending].forEach((list) =>
       list?.forEach((p) => { if (p.brand) seen.add(p.brand); }),
     );
     return seen.size >= 6 ? [...seen] : BRANDS;
-  }, [products, bestSellers, deals]);
+  }, [products, bestSellers, deals, trending]);
 
   const { products: recentlyViewed, hasAny: hasRecentlyViewed } = useRecentlyViewed();
 
@@ -289,14 +385,19 @@ export function HomePage() {
               </div>
             </motion.div>
 
-            {/* ── Right: asymmetric product mosaic ── */}
+            {/* ── Right: banner carousel or product mosaic fallback ── */}
             <motion.div
               className="relative"
               initial={{ opacity: 0, x: 24 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.65, delay: 0.12, ease: [0.25, 0.1, 0.25, 1] }}
             >
-              {isPending || !products?.length ? (
+              {heroBanners && heroBanners.length > 0 ? (
+                /* ── Live banners from admin ── */
+                <div className="hidden lg:block h-[500px]">
+                  <HeroBannerCarousel banners={heroBanners} />
+                </div>
+              ) : isPending || !products?.length ? (
                 <div className="hidden lg:grid grid-cols-[1.4fr_1fr] gap-3 h-[500px]">
                   <div className="animate-shimmer rounded-2xl bg-raised" />
                   <div className="grid grid-rows-2 gap-3">
@@ -334,8 +435,12 @@ export function HomePage() {
                 </div>
               )}
 
-              {/* Mobile scroll strip */}
-              {!isPending && products && products.length > 0 && (
+              {/* Mobile: banner or product scroll strip */}
+              {heroBanners && heroBanners.length > 0 ? (
+                <div className="lg:hidden h-64">
+                  <HeroBannerCarousel banners={heroBanners} />
+                </div>
+              ) : !isPending && products && products.length > 0 ? (
                 <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1 scrollbar-none lg:hidden">
                   {products.slice(0, 6).map((p, i) => (
                     <Link key={p.product_id} to={`/products/${p.product_id}`} className="group relative shrink-0 w-44 overflow-hidden rounded-2xl bg-raised">
@@ -355,7 +460,7 @@ export function HomePage() {
                     </Link>
                   ))}
                 </div>
-              )}
+              ) : null}
 
               {/* Floating "deal of the day" card — real top discount */}
               {topDeal?.discount != null && topDeal.discount > 0 && (
@@ -571,6 +676,43 @@ export function HomePage() {
               </motion.div>
             ))}
           </motion.div>
+        </motion.section>
+      )}
+
+      {/* ══ TRENDING NOW ═════════════════════════════════════ */}
+      {trending && trending.length > 0 && (
+        <motion.section variants={fadeUp} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-40px" }}>
+          <div className="mb-8 flex items-end justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="mt-[5px] h-6 w-0.5 shrink-0 rounded-full bg-emerald-500" />
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Trending now</p>
+                <h2 className="mt-1.5 font-display text-2xl font-bold text-ink sm:text-3xl">What's hot right now</h2>
+                <p className="mt-1 text-[13px] text-ink4">Trending products this week based on views and purchases.</p>
+              </div>
+            </div>
+            <Link
+              to="/products?sortBy=createdAt&order=desc"
+              className="group mb-1 inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-stroke bg-card px-3.5 py-2 text-[13px] font-medium text-ink3 transition-all hover:border-edge hover:text-ink"
+            >
+              View all <ArrowRightIcon className="size-3.5 transition-transform group-hover:translate-x-0.5" />
+            </Link>
+          </div>
+
+          {trendingPending ? (
+            <ProductSkeletonGrid count={8} />
+          ) : (
+            <motion.div
+              className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4"
+              variants={stagger} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-40px" }}
+            >
+              {trending.map((p) => (
+                <motion.div key={p.product_id} variants={cardFade}>
+                  <ProductCard product={p} />
+                </motion.div>
+              ))}
+            </motion.div>
+          )}
         </motion.section>
       )}
 

@@ -8,3 +8,13 @@ export const PRICE_PRESETS: [string, string, string][] = [
   ["$75 – $150",  "75",  "150"],
   ["$150+",       "150", ""],
 ];
+
+/* Country list shared across checkout and account address forms */
+export const COUNTRIES = [
+  "United States", "United Kingdom", "Canada", "Australia", "Germany",
+  "France", "Netherlands", "Sweden", "Norway", "Denmark", "Switzerland",
+  "Spain", "Italy", "Portugal", "Poland", "Ireland", "New Zealand",
+  "Japan", "South Korea", "Singapore", "India", "China", "Brazil",
+  "Mexico", "Argentina", "South Africa", "Nigeria", "Kenya",
+  "United Arab Emirates", "Saudi Arabia", "Turkey",
+];

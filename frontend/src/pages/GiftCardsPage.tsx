@@ -4,6 +4,9 @@ import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { usePageTitle } from "../hooks/usePageTitle";
 import { CheckCircleIcon } from "../components/Icons";
+import { ApiError } from "../lib/api";
+import * as giftCardService from "../services/giftCards";
+import type { GiftCardBalance } from "../services/giftCards";
 
 const AMOUNTS = [25, 50, 100, 200, 500];
 
@@ -19,21 +22,56 @@ export function GiftCardsPage() {
   const [redeemCode, setRedeemCode] = useState("");
   const [activeTab, setActiveTab] = useState<"buy" | "redeem">("buy");
 
+  const [buying, setBuying] = useState(false);
+  const [checkingBalance, setCheckingBalance] = useState(false);
+  const [balanceResult, setBalanceResult] = useState<GiftCardBalance | null>(null);
+
   const finalAmount = isCustom ? parseFloat(customAmount) || 0 : amount;
 
-  function handleBuy(e: React.FormEvent) {
+  async function handleBuy(e: React.FormEvent) {
     e.preventDefault();
     if (finalAmount < 10 || finalAmount > 1000) {
       toast.error("Gift card amount must be between $10 and $1000.");
       return;
     }
-    toast.info("Gift card purchase coming soon! Stay tuned.", { duration: 4000 });
+    setBuying(true);
+    try {
+      const result = await giftCardService.purchaseGiftCard({
+        amount: finalAmount,
+        recipientEmail,
+        recipientName,
+        senderName,
+        message,
+      });
+      toast.success(`Gift card sent! Code: ${result.code}`);
+      setRecipientEmail("");
+      setRecipientName("");
+      setSenderName("");
+      setMessage("");
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Failed to purchase gift card. Please try again.");
+    } finally {
+      setBuying(false);
+    }
   }
 
-  function handleRedeem(e: React.FormEvent) {
+  async function handleRedeem(e: React.FormEvent) {
     e.preventDefault();
     if (!redeemCode.trim()) return;
-    toast.info("Gift card redemption coming soon! Stay tuned.", { duration: 4000 });
+    setCheckingBalance(true);
+    setBalanceResult(null);
+    try {
+      const balance = await giftCardService.checkGiftCardBalance(redeemCode.trim());
+      setBalanceResult(balance);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 404) {
+        toast.error("Gift card not found. Please check the code and try again.");
+      } else {
+        toast.error(err instanceof ApiError ? err.message : "Could not check balance. Please try again.");
+      }
+    } finally {
+      setCheckingBalance(false);
+    }
   }
 
   return (
@@ -179,10 +217,17 @@ export function GiftCardsPage() {
 
               <button
                 type="submit"
-                className="relative w-full overflow-hidden rounded-xl bg-emerald-600 py-3.5 text-sm font-bold text-white shadow-md shadow-emerald-600/20 transition-all hover:bg-emerald-500 hover:shadow-emerald-500/30 active:scale-[0.98]"
+                disabled={buying}
+                className="relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-emerald-600 py-3.5 text-sm font-bold text-white shadow-md shadow-emerald-600/20 transition-all hover:bg-emerald-500 hover:shadow-emerald-500/30 active:scale-[0.98] disabled:opacity-60"
               >
-                <span className="absolute inset-0 -translate-x-full animate-[sweep_5s_ease-in-out_2s_infinite] bg-gradient-to-r from-transparent via-white/[0.12] to-transparent" />
-                Buy gift card — ${finalAmount || "0"}
+                {!buying && (
+                  <span className="absolute inset-0 -translate-x-full animate-[sweep_5s_ease-in-out_2s_infinite] bg-gradient-to-r from-transparent via-white/[0.12] to-transparent" />
+                )}
+                {buying ? (
+                  <><div className="size-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />Processing…</>
+                ) : (
+                  `Buy gift card — $${finalAmount || "0"}`
+                )}
               </button>
             </form>
 
@@ -260,14 +305,49 @@ export function GiftCardsPage() {
                 />
                 <button
                   type="submit"
-                  className="relative w-full overflow-hidden rounded-xl bg-emerald-600 py-3 text-sm font-bold text-white shadow-md shadow-emerald-600/20 transition-all hover:bg-emerald-500 hover:shadow-emerald-500/30 active:scale-[0.98]"
+                  disabled={checkingBalance}
+                  className="relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-emerald-600 py-3 text-sm font-bold text-white shadow-md shadow-emerald-600/20 transition-all hover:bg-emerald-500 hover:shadow-emerald-500/30 active:scale-[0.98] disabled:opacity-60"
                 >
-                  <span className="absolute inset-0 -translate-x-full animate-[sweep_5s_ease-in-out_2s_infinite] bg-gradient-to-r from-transparent via-white/[0.12] to-transparent" />
-                  Redeem gift card
+                  {!checkingBalance && (
+                    <span className="absolute inset-0 -translate-x-full animate-[sweep_5s_ease-in-out_2s_infinite] bg-gradient-to-r from-transparent via-white/[0.12] to-transparent" />
+                  )}
+                  {checkingBalance ? (
+                    <><div className="size-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />Checking…</>
+                  ) : "Check balance"}
                 </button>
+
+                {balanceResult && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className={`rounded-xl border p-4 ${
+                      balanceResult.active && balanceResult.balance > 0
+                        ? "border-emerald-500/30 bg-emerald-500/8"
+                        : "border-red-500/20 bg-red-500/8"
+                    }`}
+                  >
+                    {balanceResult.active && balanceResult.balance > 0 ? (
+                      <>
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">Valid gift card</p>
+                          <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400">${balanceResult.balance.toFixed(2)}</p>
+                        </div>
+                        <p className="mt-1 text-xs text-ink4">
+                          of ${balanceResult.initialValue.toFixed(2)} original value
+                          {balanceResult.expiresAt && ` · Expires ${new Date(balanceResult.expiresAt).toLocaleDateString()}`}
+                        </p>
+                        <p className="mt-2 text-xs text-ink3">Apply this code at checkout to use your balance.</p>
+                      </>
+                    ) : (
+                      <p className="text-sm font-semibold text-red-400">
+                        {!balanceResult.active ? "This gift card has been deactivated." : "This gift card has no remaining balance."}
+                      </p>
+                    )}
+                  </motion.div>
+                )}
               </div>
               <p className="text-center text-xs text-ink4">
-                Gift card balances will be applied to your next order at checkout.
+                Enter your code at checkout to apply the balance to your order.
               </p>
             </form>
           </motion.div>

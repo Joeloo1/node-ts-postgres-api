@@ -111,6 +111,19 @@ export async function apiFetch<T>(
       } catch {
         throw new ApiError(0, "Network error. Please check your connection and try again.");
       }
+    } else {
+      // Refresh failed — session is truly expired. Clear token and redirect.
+      setAuthToken(null);
+      const { toast } = await import("sonner");
+      toast.error("Your session has expired. Please sign in again.", { id: "session-expired" });
+      // Only redirect if the user is on a protected page (not already on auth pages)
+      const publicPaths = ["/login", "/register", "/forgot-password", "/reset-password", "/verify-email", "/track-order", "/unsubscribe"];
+      const isPublic = publicPaths.some((p) => window.location.pathname.startsWith(p));
+      if (!isPublic) {
+        const returnTo = encodeURIComponent(window.location.pathname + window.location.search);
+        window.location.href = `/login?returnTo=${returnTo}`;
+      }
+      throw new ApiError(401, "Session expired. Please sign in again.");
     }
   }
 

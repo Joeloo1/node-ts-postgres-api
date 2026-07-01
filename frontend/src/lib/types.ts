@@ -19,6 +19,7 @@ export type Product = {
   category_id: number | null;
   category?: { category_id: number; name: string } | { name: string };
   createdAt?: string;
+  attributes?: Array<{ key: string; value: string }>;
 };
 
 export type User = {
@@ -54,6 +55,8 @@ export type OrderStatus =
   | "CANCELLED"
   | "REFUNDED";
 
+export type ReturnStatus = "PENDING" | "APPROVED" | "REJECTED" | "COMPLETED";
+
 export type OrderItem = {
   id: string;
   product_id: string;
@@ -87,6 +90,7 @@ export type Order = {
   ) | null;
   trackingNumber?: string | null;
   trackingCarrier?: string | null;
+  returnRequest?: { status: ReturnStatus; adminNote?: string | null } | null;
 };
 
 export type Address = {

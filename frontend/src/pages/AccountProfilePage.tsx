@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { usePageTitle } from "../hooks/usePageTitle";
 import { ApiError, apiFetch } from "../lib/api";
+import { formatPhone } from "../lib/formatters";
 import { useAuth } from "../context/AuthContext";
 import { AccountProfileSkeleton } from "../components/ProductSkeleton";
 import { CameraIcon, CheckIcon, ShieldIcon } from "../components/Icons";
@@ -436,9 +437,9 @@ export function AccountProfilePage() {
                 <input
                   id="profilePhone"
                   type="tel"
-                  placeholder="+1 555 000 0000"
+                  placeholder="(555) 000-0000"
                   value={profilePhone}
-                  onChange={(e) => setProfilePhone(e.target.value)}
+                  onChange={(e) => setProfilePhone(formatPhone(e.target.value))}
                   className={inputClass}
                   autoComplete="tel"
                 />

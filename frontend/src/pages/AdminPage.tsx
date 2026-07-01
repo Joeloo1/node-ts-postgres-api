@@ -56,16 +56,61 @@ function ReturnIcon({ className = "size-4" }: { className?: string }) {
   );
 }
 
+function BellIcon({ className = "size-4" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
+    </svg>
+  );
+}
+
+function GiftIcon({ className = "size-4" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M21 11.25v8.25a1.5 1.5 0 0 1-1.5 1.5H5.25a1.5 1.5 0 0 1-1.5-1.5v-8.25M12 4.875A2.625 2.625 0 1 0 9.375 7.5H12m0-2.625V7.5m0-2.625A2.625 2.625 0 1 1 14.625 7.5H12m0 0V21m-8.625-9.75h18c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125h-18c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" />
+    </svg>
+  );
+}
+
+function TruckIcon({ className = "size-4" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 0 1-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 0 0-3.213-9.193 2.056 2.056 0 0 0-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 0 0-10.026 0 1.106 1.106 0 0 0-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12" />
+    </svg>
+  );
+}
+
+function ZapIcon({ className = "size-4" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="m3.75 13.5 10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z" />
+    </svg>
+  );
+}
+
+function PhotoIcon({ className = "size-4" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+    </svg>
+  );
+}
+
 const NAV = [
-  { to: "/admin/products",   label: "Products",   icon: PackageIcon },
-  { to: "/admin/users",      label: "Users",       icon: UsersIcon },
-  { to: "/admin/categories", label: "Categories",  icon: TagIcon },
-  { to: "/admin/orders",     label: "Orders",      icon: ChartBarIcon },
-  { to: "/admin/coupons",    label: "Coupons",     icon: CouponIcon },
-  { to: "/admin/contact",    label: "Inbox",       icon: MailIcon },
-  { to: "/admin/reviews",    label: "Reviews",     icon: StarIcon },
-  { to: "/admin/analytics",  label: "Analytics",   icon: AnalyticsIcon },
-  { to: "/admin/returns",    label: "Returns",     icon: ReturnIcon },
+  { to: "/admin/products",      label: "Products",      icon: PackageIcon },
+  { to: "/admin/users",         label: "Users",         icon: UsersIcon },
+  { to: "/admin/categories",    label: "Categories",    icon: TagIcon },
+  { to: "/admin/orders",        label: "Orders",        icon: ChartBarIcon },
+  { to: "/admin/coupons",       label: "Coupons",       icon: CouponIcon },
+  { to: "/admin/promotions",    label: "Promotions",    icon: ZapIcon },
+  { to: "/admin/banners",       label: "Banners",       icon: PhotoIcon },
+  { to: "/admin/gift-cards",    label: "Gift Cards",    icon: GiftIcon },
+  { to: "/admin/shipping",      label: "Shipping",      icon: TruckIcon },
+  { to: "/admin/contact",       label: "Inbox",         icon: MailIcon },
+  { to: "/admin/reviews",       label: "Reviews",       icon: StarIcon },
+  { to: "/admin/analytics",     label: "Analytics",     icon: AnalyticsIcon },
+  { to: "/admin/returns",       label: "Returns",       icon: ReturnIcon },
+  { to: "/admin/notifications", label: "Notifications", icon: BellIcon },
 ];
 
 const tabClass = ({ isActive }: { isActive: boolean }) =>
@@ -208,6 +253,36 @@ function RevenueChart({ data }: { data: RevenueDay[] }) {
         </div>
       )}
     </div>
+  );
+}
+
+/* ── Notification Bell ─────────────────────────────── */
+function NotificationBell() {
+  const { data } = useQuery({
+    queryKey: ["admin", "notifications", "unread-count"],
+    queryFn: async () => {
+      const res = await apiFetch<{ data: { count: number } }>("/api/v1/admin/notifications/unread-count", { auth: true });
+      return res.data?.count ?? 0;
+    },
+    staleTime: 15_000,
+    refetchInterval: 30_000,
+  });
+
+  const unread = data ?? 0;
+
+  return (
+    <Link
+      to="/admin/notifications"
+      className="relative flex items-center justify-center size-9 rounded-xl border border-stroke bg-card text-ink4 hover:text-ink hover:bg-raised transition-colors"
+      aria-label={`Notifications${unread > 0 ? ` (${unread} unread)` : ""}`}
+    >
+      <BellIcon className="size-4.5" />
+      {unread > 0 && (
+        <span className="absolute -right-1 -top-1 flex size-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white ring-2 ring-page">
+          {unread > 9 ? "9+" : unread}
+        </span>
+      )}
+    </Link>
   );
 }
 
@@ -679,6 +754,10 @@ export function AdminPage() {
           </div>
         </div>
 
+        <div className="flex items-center gap-3">
+          {/* Notification bell */}
+          <NotificationBell />
+
         {adminName && (
           <div className="hidden items-center gap-3 rounded-xl border border-stroke bg-card px-4 py-2.5 ring-glass sm:flex">
             <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-600 to-teal-700 text-xs font-bold text-white shadow-sm">
@@ -693,6 +772,7 @@ export function AdminPage() {
             </div>
           </div>
         )}
+        </div>
       </motion.div>
 
       <motion.nav

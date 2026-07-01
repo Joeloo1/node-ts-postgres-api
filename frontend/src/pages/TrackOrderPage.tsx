@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { usePageTitle } from "../hooks/usePageTitle";
 import { PackageIcon, SearchIcon, CheckCircleIcon, TruckIcon, ClockIcon } from "../components/Icons";
+import { ApiError, apiFetch } from "../lib/api";
 
 type TrackResult = {
   orderId: string;
@@ -34,17 +35,25 @@ export function TrackOrderPage() {
   const [email, setEmail] = useState("");
   const [orderId, setOrderId] = useState("");
   const [loading, setLoading] = useState(false);
-  const [result] = useState<TrackResult | null>(null);
+  const [result, setResult] = useState<TrackResult | null>(null);
 
   async function handleTrack(e: React.FormEvent) {
     e.preventDefault();
     if (!email.trim() || !orderId.trim()) return;
     setLoading(true);
+    setResult(null);
     try {
-      await new Promise((r) => setTimeout(r, 900));
-      toast.error("Order not found. Please check your email and order ID.");
-    } catch {
-      toast.error("Something went wrong. Please try again.");
+      const params = new URLSearchParams({ orderId: orderId.trim(), email: email.trim() });
+      const res = await apiFetch<{ data: TrackResult }>(`/api/v1/orders/track?${params}`);
+      setResult(res.data);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 404) {
+        toast.error("Order not found. Please check your order ID and email address.");
+      } else if (err instanceof ApiError && err.status === 403) {
+        toast.error("The email address doesn't match this order.");
+      } else {
+        toast.error("Something went wrong. Please try again.");
+      }
     } finally {
       setLoading(false);
     }

@@ -12,7 +12,8 @@ import * as orderService from "../services/orders";
 import {
   UserIcon, MapPinIcon, ShieldIcon, XIcon,
   LockClosedIcon, PackageIcon, HeartIcon,
-  SunIcon, MoonIcon,
+  SunIcon, MoonIcon, StarIcon, LinkIcon,
+  CreditCardIcon,
 } from "../components/Icons";
 
 function getProfileImageUrl(image?: string): string | null {
@@ -328,6 +329,12 @@ export function AccountPage() {
               <SettingsLink to="/wishlist" icon={HeartIcon} label="Wishlist" external badge={wishlist.size} />
             </NavGroup>
 
+            <NavGroup label="Rewards">
+              <SettingsLink to="/account/loyalty" icon={StarIcon} label="Loyalty & Points" end />
+              <SettingsLink to="/account/gift-cards" icon={CreditCardIcon} label="Gift Cards" end />
+              <SettingsLink to="/account/referrals" icon={LinkIcon} label="Referrals" end />
+            </NavGroup>
+
             <NavGroup label="Preferences">
               <button
                 type="button"
@@ -364,11 +371,14 @@ export function AccountPage() {
           {/* Mobile tab nav */}
           <nav className="flex gap-1.5 overflow-x-auto pb-1 lg:hidden">
             {[
-              { to: "/account/profile",   icon: UserIcon,       label: "Profile",   end: true },
-              { to: "/account/security",  icon: LockClosedIcon, label: "Security",  end: true },
-              { to: "/account/addresses", icon: MapPinIcon,     label: "Addresses", end: true },
-              { to: "/orders",            icon: PackageIcon,    label: "Orders",    end: false },
-              { to: "/wishlist",          icon: HeartIcon,      label: "Wishlist",  end: false },
+              { to: "/account/profile",    icon: UserIcon,       label: "Profile",   end: true },
+              { to: "/account/security",   icon: LockClosedIcon, label: "Security",  end: true },
+              { to: "/account/addresses",  icon: MapPinIcon,     label: "Addresses", end: true },
+              { to: "/account/loyalty",    icon: StarIcon,       label: "Loyalty",   end: true },
+              { to: "/account/gift-cards", icon: CreditCardIcon, label: "Gift Cards", end: true },
+              { to: "/account/referrals",  icon: LinkIcon,       label: "Referrals", end: true },
+              { to: "/orders",             icon: PackageIcon,    label: "Orders",    end: false },
+              { to: "/wishlist",           icon: HeartIcon,      label: "Wishlist",  end: false },
             ].map(({ to, icon: Icon, label, end }) => (
               <NavLink
                 key={to}

@@ -1,8 +1,8 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { HelmetProvider } from "react-helmet-async";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
-import { Toaster } from "sonner";
+import { toast, Toaster } from "sonner";
 import { Layout } from "./components/Layout";
 import { AdminRoute } from "./components/AdminRoute";
 import { ProtectedRoute } from "./components/ProtectedRoute";
@@ -12,6 +12,7 @@ import { ThemeProvider, useTheme } from "./context/ThemeContext";
 import { CompareProvider } from "./context/CompareContext";
 import { Spinner } from "./components/Spinner";
 import { RouteProgressBar } from "./components/RouteProgressBar";
+import { AppErrorBoundary, PageErrorBoundary } from "./components/AppErrorBoundary";
 
 /* ── Eagerly-loaded (used on first paint) ─────────── */
 import { HomePage } from "./pages/HomePage";
@@ -41,6 +42,9 @@ const AccountPage         = lazy(() => import("./pages/AccountPage").then((m) =>
 const AccountProfilePage  = lazy(() => import("./pages/AccountProfilePage").then((m) => ({ default: m.AccountProfilePage })));
 const AccountAddressesPage = lazy(() => import("./pages/AccountAddressesPage").then((m) => ({ default: m.AccountAddressesPage })));
 const AccountSecurityPage  = lazy(() => import("./pages/AccountSecurityPage").then((m) => ({ default: m.AccountSecurityPage })));
+const AccountLoyaltyPage   = lazy(() => import("./pages/AccountLoyaltyPage").then((m) => ({ default: m.AccountLoyaltyPage })));
+const AccountReferralPage  = lazy(() => import("./pages/AccountReferralPage").then((m) => ({ default: m.AccountReferralPage })));
+const AccountGiftCardsPage = lazy(() => import("./pages/AccountGiftCardsPage").then((m) => ({ default: m.AccountGiftCardsPage })));
 const AdminPage           = lazy(() => import("./pages/AdminPage").then((m) => ({ default: m.AdminPage })));
 const AdminProductsPage   = lazy(() => import("./pages/admin/AdminProductsPage").then((m) => ({ default: m.AdminProductsPage })));
 const AdminUsersPage      = lazy(() => import("./pages/admin/AdminUsersPage").then((m) => ({ default: m.AdminUsersPage })));
@@ -60,9 +64,14 @@ const ComparisonPage      = lazy(() => import("./pages/ComparisonPage").then((m)
 const GiftCardsPage       = lazy(() => import("./pages/GiftCardsPage").then((m) => ({ default: m.GiftCardsPage })));
 const BlogPage            = lazy(() => import("./pages/BlogPage").then((m) => ({ default: m.BlogPage })));
 const BlogPostPage        = lazy(() => import("./pages/BlogPostPage").then((m) => ({ default: m.BlogPostPage })));
-const AdminReviewsPage    = lazy(() => import("./pages/admin/AdminReviewsPage").then((m) => ({ default: m.AdminReviewsPage })));
-const AdminAnalyticsPage  = lazy(() => import("./pages/admin/AdminAnalyticsPage").then((m) => ({ default: m.AdminAnalyticsPage })));
-const AdminReturnsPage    = lazy(() => import("./pages/admin/AdminReturnsPage").then((m) => ({ default: m.AdminReturnsPage })));
+const AdminReviewsPage        = lazy(() => import("./pages/admin/AdminReviewsPage").then((m) => ({ default: m.AdminReviewsPage })));
+const AdminAnalyticsPage      = lazy(() => import("./pages/admin/AdminAnalyticsPage").then((m) => ({ default: m.AdminAnalyticsPage })));
+const AdminReturnsPage        = lazy(() => import("./pages/admin/AdminReturnsPage").then((m) => ({ default: m.AdminReturnsPage })));
+const AdminPromotionsPage     = lazy(() => import("./pages/admin/AdminPromotionsPage").then((m) => ({ default: m.AdminPromotionsPage })));
+const AdminBannersPage        = lazy(() => import("./pages/admin/AdminBannersPage").then((m) => ({ default: m.AdminBannersPage })));
+const AdminNotificationsPage  = lazy(() => import("./pages/admin/AdminNotificationsPage").then((m) => ({ default: m.AdminNotificationsPage })));
+const AdminGiftCardsPage      = lazy(() => import("./pages/admin/AdminGiftCardsPage").then((m) => ({ default: m.AdminGiftCardsPage })));
+const AdminShippingPage       = lazy(() => import("./pages/admin/AdminShippingPage").then((m) => ({ default: m.AdminShippingPage })));
 const LoyaltyPage         = lazy(() => import("./pages/LoyaltyPage").then((m) => ({ default: m.LoyaltyPage })));
 const SitemapPage         = lazy(() => import("./pages/SitemapPage").then((m) => ({ default: m.SitemapPage })));
 const OfflinePage         = lazy(() => import("./pages/OfflinePage").then((m) => ({ default: m.OfflinePage })));
@@ -97,6 +106,40 @@ function PageFallback() {
   );
 }
 
+/** Shows a persistent "You're offline" toast while navigator.onLine is false. */
+function OfflineDetector() {
+  useEffect(() => {
+    let toastId: string | number | undefined;
+
+    function handleOffline() {
+      toastId = toast.error("You're offline. Check your connection.", {
+        id: "offline",
+        duration: Infinity,
+      });
+    }
+
+    function handleOnline() {
+      toast.dismiss("offline");
+      toast.success("Back online!", { id: "back-online", duration: 3000 });
+      toastId = undefined;
+    }
+
+    window.addEventListener("offline", handleOffline);
+    window.addEventListener("online", handleOnline);
+
+    // Fire immediately if already offline on mount
+    if (!navigator.onLine) handleOffline();
+
+    return () => {
+      window.removeEventListener("offline", handleOffline);
+      window.removeEventListener("online", handleOnline);
+      if (toastId !== undefined) toast.dismiss(toastId);
+    };
+  }, []);
+
+  return null;
+}
+
 export default function App() {
   return (
     <HelmetProvider>
@@ -106,38 +149,40 @@ export default function App() {
           <WishlistProvider>
             <CompareProvider>
             <BrowserRouter>
+              <OfflineDetector />
               <RouteProgressBar />
               <ThemedToaster />
+              <AppErrorBoundary fullPage>
               <Suspense fallback={<PageFallback />}>
                 <Routes>
                   <Route path="/" element={<Layout />}>
                     {/* Eagerly loaded */}
-                    <Route index element={<HomePage />} />
+                    <Route index element={<PageErrorBoundary><HomePage /></PageErrorBoundary>} />
                     <Route path="login" element={<LoginPage />} />
                     <Route path="register" element={<RegisterPage />} />
 
                     {/* Lazy — public */}
-                    <Route path="products" element={<ProductsPage />} />
-                    <Route path="products/:id" element={<ProductDetailPage />} />
-                    <Route path="about" element={<AboutPage />} />
-                    <Route path="contact" element={<ContactPage />} />
-                    <Route path="search" element={<SearchPage />} />
-                    <Route path="deals" element={<DealsPage />} />
-                    <Route path="faq" element={<FAQPage />} />
+                    <Route path="products" element={<PageErrorBoundary><ProductsPage /></PageErrorBoundary>} />
+                    <Route path="products/:id" element={<PageErrorBoundary><ProductDetailPage /></PageErrorBoundary>} />
+                    <Route path="about" element={<PageErrorBoundary><AboutPage /></PageErrorBoundary>} />
+                    <Route path="contact" element={<PageErrorBoundary><ContactPage /></PageErrorBoundary>} />
+                    <Route path="search" element={<PageErrorBoundary><SearchPage /></PageErrorBoundary>} />
+                    <Route path="deals" element={<PageErrorBoundary><DealsPage /></PageErrorBoundary>} />
+                    <Route path="faq" element={<PageErrorBoundary><FAQPage /></PageErrorBoundary>} />
                     <Route path="terms" element={<TermsPage />} />
                     <Route path="privacy" element={<PrivacyPage />} />
                     <Route path="shipping-returns" element={<ShippingReturnsPage />} />
                     <Route path="unsubscribe" element={<UnsubscribePage />} />
-                    <Route path="wishlist" element={<WishlistPage />} />
-                    <Route path="best-sellers" element={<BestSellersPage />} />
-                    <Route path="new-arrivals" element={<NewArrivalsPage />} />
-                    <Route path="categories/:id" element={<CategoryPage />} />
-                    <Route path="track-order" element={<TrackOrderPage />} />
-                    <Route path="compare" element={<ComparisonPage />} />
-                    <Route path="gift-cards" element={<GiftCardsPage />} />
-                    <Route path="blog" element={<BlogPage />} />
-                    <Route path="blog/:slug" element={<BlogPostPage />} />
-                    <Route path="loyalty" element={<LoyaltyPage />} />
+                    <Route path="wishlist" element={<PageErrorBoundary><WishlistPage /></PageErrorBoundary>} />
+                    <Route path="best-sellers" element={<PageErrorBoundary><BestSellersPage /></PageErrorBoundary>} />
+                    <Route path="new-arrivals" element={<PageErrorBoundary><NewArrivalsPage /></PageErrorBoundary>} />
+                    <Route path="categories/:id" element={<PageErrorBoundary><CategoryPage /></PageErrorBoundary>} />
+                    <Route path="track-order" element={<PageErrorBoundary><TrackOrderPage /></PageErrorBoundary>} />
+                    <Route path="compare" element={<PageErrorBoundary><ComparisonPage /></PageErrorBoundary>} />
+                    <Route path="gift-cards" element={<PageErrorBoundary><GiftCardsPage /></PageErrorBoundary>} />
+                    <Route path="blog" element={<PageErrorBoundary><BlogPage /></PageErrorBoundary>} />
+                    <Route path="blog/:slug" element={<PageErrorBoundary><BlogPostPage /></PageErrorBoundary>} />
+                    <Route path="loyalty" element={<PageErrorBoundary><LoyaltyPage /></PageErrorBoundary>} />
                     <Route path="sitemap" element={<SitemapPage />} />
                     <Route path="offline" element={<OfflinePage />} />
                     <Route path="forgot-password" element={<ForgotPasswordPage />} />
@@ -145,20 +190,23 @@ export default function App() {
                     <Route path="verify-email" element={<EmailVerificationPage />} />
 
                     {/* Lazy — protected */}
-                    <Route path="cart" element={<ProtectedRoute><CartPage /></ProtectedRoute>} />
-                    <Route path="checkout" element={<ProtectedRoute><CheckoutPage /></ProtectedRoute>} />
-                    <Route path="orders" element={<ProtectedRoute><OrdersPage /></ProtectedRoute>} />
-                    <Route path="orders/confirmation/:sessionId" element={<ProtectedRoute><OrderConfirmationPage /></ProtectedRoute>} />
-                    <Route path="orders/:id" element={<ProtectedRoute><OrderDetailPage /></ProtectedRoute>} />
+                    <Route path="cart" element={<ProtectedRoute><PageErrorBoundary><CartPage /></PageErrorBoundary></ProtectedRoute>} />
+                    <Route path="checkout" element={<ProtectedRoute><PageErrorBoundary><CheckoutPage /></PageErrorBoundary></ProtectedRoute>} />
+                    <Route path="orders" element={<ProtectedRoute><PageErrorBoundary><OrdersPage /></PageErrorBoundary></ProtectedRoute>} />
+                    <Route path="orders/confirmation/:sessionId" element={<ProtectedRoute><PageErrorBoundary><OrderConfirmationPage /></PageErrorBoundary></ProtectedRoute>} />
+                    <Route path="orders/:id" element={<ProtectedRoute><PageErrorBoundary><OrderDetailPage /></PageErrorBoundary></ProtectedRoute>} />
 
-                    <Route path="account/*" element={<ProtectedRoute><AccountPage /></ProtectedRoute>}>
+                    <Route path="account/*" element={<ProtectedRoute><PageErrorBoundary><AccountPage /></PageErrorBoundary></ProtectedRoute>}>
                       <Route path="profile" element={<AccountProfilePage />} />
                       <Route path="security" element={<AccountSecurityPage />} />
                       <Route path="addresses" element={<AccountAddressesPage />} />
+                      <Route path="loyalty" element={<AccountLoyaltyPage />} />
+                      <Route path="gift-cards" element={<AccountGiftCardsPage />} />
+                      <Route path="referrals" element={<AccountReferralPage />} />
                     </Route>
 
                     {/* Lazy — admin */}
-                    <Route path="admin/*" element={<AdminRoute><AdminPage /></AdminRoute>}>
+                    <Route path="admin/*" element={<AdminRoute><PageErrorBoundary><AdminPage /></PageErrorBoundary></AdminRoute>}>
                       <Route path="products" element={<AdminProductsPage />} />
                       <Route path="users" element={<AdminUsersPage />} />
                       <Route path="categories" element={<AdminCategoriesPage />} />
@@ -168,6 +216,11 @@ export default function App() {
                       <Route path="reviews" element={<AdminReviewsPage />} />
                       <Route path="analytics" element={<AdminAnalyticsPage />} />
                       <Route path="returns" element={<AdminReturnsPage />} />
+                      <Route path="promotions" element={<AdminPromotionsPage />} />
+                      <Route path="banners" element={<AdminBannersPage />} />
+                      <Route path="notifications" element={<AdminNotificationsPage />} />
+                      <Route path="gift-cards" element={<AdminGiftCardsPage />} />
+                      <Route path="shipping" element={<AdminShippingPage />} />
                     </Route>
 
                     <Route path="403" element={<ForbiddenPage />} />
@@ -177,6 +230,7 @@ export default function App() {
                   </Route>
                 </Routes>
               </Suspense>
+              </AppErrorBoundary>
             </BrowserRouter>
             </CompareProvider>
           </WishlistProvider>

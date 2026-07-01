@@ -4,6 +4,7 @@ import { Helmet } from "react-helmet-async";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { ApiError } from "../lib/api";
+import { formatPhone } from "../lib/formatters";
 import { useAuth } from "../context/AuthContext";
 import { Logo } from "../components/Logo";
 import { EyeIcon, EyeOffIcon, ShieldIcon, TruckIcon, PackageIcon } from "../components/Icons";
@@ -210,7 +211,7 @@ export function RegisterPage() {
               <label className="text-xs font-medium text-ink3">
                 Phone <span className="font-normal normal-case tracking-normal text-ink4">— optional</span>
               </label>
-              <input value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} className={inputClass} placeholder="+1 555 000 0000" autoComplete="tel" />
+              <input value={phoneNumber} onChange={(e) => setPhoneNumber(formatPhone(e.target.value))} className={inputClass} placeholder="(555) 000-0000" autoComplete="tel" />
             </div>
 
             {/* Terms checkbox — Fix #14 */}

@@ -174,6 +174,19 @@ export function ProductsPage() {
     return saved === "list" ? "list" : "grid";
   });
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [attributes, setAttributes] = useState<Record<string, string[]>>(() => {
+    // Parse attribute filters from URL: attribute[Color]=Red&attribute[Size]=L
+    const attrs: Record<string, string[]> = {};
+    for (const [key, value] of searchParams.entries()) {
+      const match = key.match(/^attribute\[(.+)\]$/);
+      if (match) {
+        const attrKey = match[1];
+        if (!attrs[attrKey]) attrs[attrKey] = [];
+        attrs[attrKey].push(value);
+      }
+    }
+    return attrs;
+  });
 
   /* Adopt external URL changes (header category links, back/forward).
      Filter state seeds from the URL only on first mount, so without this,
@@ -204,6 +217,19 @@ export function ProductsPage() {
     if (stock !== inStockOnly) setInStockOnly(stock);
     const sale = searchParams.get("on_sale") === "true";
     if (sale !== onSaleOnly) setOnSaleOnly(sale);
+    // Sync attributes from URL
+    const newAttrs: Record<string, string[]> = {};
+    for (const [key, value] of searchParams.entries()) {
+      const match = key.match(/^attribute\[(.+)\]$/);
+      if (match) {
+        const attrKey = match[1];
+        if (!newAttrs[attrKey]) newAttrs[attrKey] = [];
+        newAttrs[attrKey].push(value);
+      }
+    }
+    const attrsStr = JSON.stringify(attributes);
+    const newAttrsStr = JSON.stringify(newAttrs);
+    if (attrsStr !== newAttrsStr) setAttributes(newAttrs);
   }
 
   const resultsRef       = useRef<HTMLDivElement>(null);
@@ -227,12 +253,18 @@ export function ProductsPage() {
     if (minRating)   p.set("rating_gte", minRating);
     if (inStockOnly) p.set("in_stock", "true");
     if (onSaleOnly)  p.set("on_sale", "true");
+    // Add attribute filters
+    for (const [key, values] of Object.entries(attributes)) {
+      for (const v of values) {
+        p.append(`attribute[${key}]`, v);
+      }
+    }
     if (sortBy !== "createdAt" || order !== "desc") {
       p.set("sortBy", sortBy);
       p.set("order", order);
     }
     navigate({ search: p.toString() }, { replace: true });
-  }, [search, categoryId, brand, minPrice, maxPrice, minRating, inStockOnly, onSaleOnly, sortBy, order, navigate]);
+  }, [search, categoryId, brand, minPrice, maxPrice, minRating, inStockOnly, onSaleOnly, sortBy, order, attributes, navigate]);
 
   useEffect(() => { syncUrl(); }, [syncUrl]);
 
@@ -250,10 +282,16 @@ export function ProductsPage() {
     if (minRating)     p.set("rating_gte", minRating);
     if (inStockOnly)   p.set("availability", "true");
     if (onSaleOnly)    p.set("discount_gte", "1");
+    // Add attribute filters
+    for (const [key, values] of Object.entries(attributes)) {
+      for (const v of values) {
+        p.append(`attribute[${key}]`, v);
+      }
+    }
     p.set("sortBy", sortBy);
     p.set("order", order);
     return p.toString();
-  }, [search, categoryId, brand, debouncedMinPrice, debouncedMaxPrice, minRating, inStockOnly, onSaleOnly, sortBy, order]);
+  }, [search, categoryId, brand, debouncedMinPrice, debouncedMaxPrice, minRating, inStockOnly, onSaleOnly, sortBy, order, attributes]);
 
   /* Scroll restoration — reset flag whenever query changes */
   useEffect(() => { scrollRestoredRef.current = false; }, [baseQueryString]);
@@ -293,6 +331,7 @@ export function ProductsPage() {
         rating_gte: minRating || undefined,
         availability: inStockOnly ? "true" : undefined,
         discount_gte: onSaleOnly ? "1" : undefined,
+        attributes: Object.keys(attributes).length > 0 ? attributes : undefined,
         sortBy, order,
       }),
     initialPageParam: 1,
@@ -348,6 +387,28 @@ export function ProductsPage() {
     resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
+  // Aggregate available attributes from loaded products
+  const availableAttributes: Record<string, Set<string>> = {};
+  if (data?.pages) {
+    for (const page of data.pages) {
+      for (const product of page.products) {
+        if (product.attributes && Array.isArray(product.attributes)) {
+          for (const attr of product.attributes) {
+            if (!availableAttributes[attr.key]) {
+              availableAttributes[attr.key] = new Set();
+            }
+            availableAttributes[attr.key].add(attr.value);
+          }
+        }
+      }
+    }
+  }
+  // Convert Sets to sorted arrays for FilterPanel
+  const availableAttributesObj: Record<string, string[]> = {};
+  for (const [key, values] of Object.entries(availableAttributes)) {
+    availableAttributesObj[key] = Array.from(values).sort();
+  }
+
   const filterProps: FilterPanelProps = {
     categoryId, setCategoryId,
     minPrice, setMinPrice,
@@ -358,6 +419,9 @@ export function ProductsPage() {
     categories, hasActiveFilters,
     activeFilterCount, clearFilters,
     setPage: () => {},
+    attributes,
+    setAttributes,
+    availableAttributes: availableAttributesObj,
   };
 
   return (
